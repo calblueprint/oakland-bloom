@@ -8,6 +8,9 @@
 Research spike to pick a WhatsApp API provider for the catering-opportunity bot and
 propose the infrastructure. No bot code in this PR.
 
+Sections I–IV cover the provider decision and a deterministic v1. Section V proposes the
+agentic layer built on top of it.
+
 ---
 
 ## TL;DR
@@ -26,6 +29,9 @@ propose the infrastructure. No bot code in this PR.
    plus a `wa.me` deep link.
 4. **Pricing changes in two days.** Service messages and in-window utility templates
    become billable **October 1, 2026**. Budget accordingly.
+5. **An agentic layer is proposed in §V** — LLM reply parsing, conversational replies,
+   admin drafting, and an autonomous ops loop — layered on top of the deterministic v1,
+   not replacing it. Adds **under $1/month**. Ship v1 first.
 
 ---
 
@@ -519,6 +525,258 @@ a way to skip it — only a way to not be _blocked_ by it.
 4. Build the webhook against the Twilio sandbox.
 5. Draft the opportunity-broadcast template and submit for review.
 6. Confirm whether OBA (and thus Groups API) is realistic for a nonprofit.
+
+---
+
+## V. Agentic architecture
+
+Sections I–IV describe a **deterministic** bot: regex for the ref code, keyword match
+for yes/no. That is the right v1 and it should ship first. This section describes the
+agentic layer to build on top of it, and — more importantly — **where the line between
+LLM and plain code sits**, because getting that wrong is how this becomes expensive and
+flaky.
+
+### The governing rule
+
+> Use the model for judgment. Use code for everything deterministic.
+
+Concretely:
+
+| Job                                               | Owner                               | Why                                                                         |
+| ------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
+| Parse `OB12` out of a message                     | **code** (regex)                    | Deterministic. An LLM here is slower, costlier, and can hallucinate a code. |
+| Look up chef by phone number                      | **code** (SQL)                      | It's a database join.                                                       |
+| Dedupe on `provider_message_id`                   | **code** (unique index)             | Correctness primitive, not a judgment.                                      |
+| Decide whether "cant do sat, sun works?" is a yes | **LLM**                             | Genuine ambiguity. Regex cannot do this.                                    |
+| Draft broadcast copy for a gig                    | **LLM**                             | Writing.                                                                    |
+| Rank which chefs to contact                       | **LLM over code-fetched data**      | Judgment, but the _data_ comes from SQL.                                    |
+| Decide to send a message                          | **code** (with human approval gate) | Irreversible side effect. Never let the model do this unsupervised.         |
+
+The deterministic path stays the **fast path**: if the regex finds `OB12` and the body
+matches `/^(yes|yeah|y|in|i'?m in)$/i`, we save it and never call the model. The LLM is
+the **fallback for the messy 30%**, not the default path. This keeps cost near zero and
+means an API outage degrades to v1 behavior rather than breaking the bot.
+
+### Layer 1 — Smart reply parsing
+
+Replaces `interest: 'unclear' → needs_review` with structured extraction.
+
+Today's regex fails on nearly every real message: _"cant do sat but sunday works"_,
+_"how many ppl again?"_, _"im in if maya is doing it too"_, _"yes but only if it's not
+the taco thing again"_. All of those currently land in the triage queue, which means a
+human reads them anyway and the bot saved nobody any work.
+
+Use **structured outputs** so the response is schema-valid rather than parsed prose:
+
+```ts
+// actions/whatsapp/parse.ts
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const REPLY_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["interest", "confidence"],
+  properties: {
+    interest: { enum: ["yes", "no", "conditional", "question", "unrelated"] },
+    confidence: { enum: ["high", "low"] },
+    availableDates: { type: "array", items: { type: "string" } },
+    conditions: { type: "array", items: { type: "string" } },
+    question: { type: "string" },
+    refCode: { type: "string" },
+  },
+} as const;
+
+export async function parseReply(body: string, context: OpportunityContext) {
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5",
+    max_tokens: 1024,
+    system: [
+      {
+        type: "text",
+        text: PARSE_PROMPT,
+        cache_control: { type: "ephemeral" },
+      },
+    ],
+    output_config: { format: { type: "json_schema", schema: REPLY_SCHEMA } },
+    messages: [{ role: "user", content: formatContext(body, context) }],
+  });
+  return extractJson(response);
+}
+```
+
+**Model choice: Haiku 4.5** ($1/$5 per MTok). This is classification with a fixed
+schema — the easiest possible LLM task. Opus would be waste. Cache the system prompt so
+the instruction block is ~90% cheaper on every call after the first.
+
+**Cost:** a reply is roughly 400 input + 100 output tokens ≈ **$0.0009**. At 120 replies
+a month that's **≈ $0.11/month**. Against the WhatsApp bill of ~$0.41 this is noise.
+
+**`confidence: "low"` still routes to `needs_review`.** The LLM shrinks the triage queue;
+it does not eliminate human review. A wrong "yes" books a chef for a gig they declined,
+so the bar for auto-accepting stays high.
+
+### Layer 2 — Conversational replies
+
+The chef asks _"how much does it pay?"_ and the bot answers from the opportunity record.
+
+This needs **tool use** — the model reads data, it doesn't invent it:
+
+```ts
+const tools = [
+  {
+    name: "get_opportunity",
+    description: "Fetch full details for one catering opportunity by ref code.",
+    input_schema: {/* … */},
+    strict: true,
+  },
+  {
+    name: "record_response",
+    description:
+      "Save this chef's interest. Call only when intent is unambiguous.",
+    input_schema: {/* … */},
+    strict: true,
+  },
+];
+```
+
+Use the SDK's **tool runner** (`client.beta.messages.toolRunner`) rather than
+hand-writing the `while (stop_reason === "tool_use")` loop — its per-turn hooks are
+where the approval gate goes.
+
+Three hard constraints:
+
+1. **Read tools are free to run; write tools need a gate.** `get_opportunity` executes
+   immediately. `record_response` is fine to auto-run (it's reversible and reviewable).
+   Anything that _sends a message_ or _confirms a booking_ goes through human approval.
+2. **The 24-hour window is a hard wall.** The bot can only free-form reply inside the
+   window opened by the chef's message. Outside it, a template is required — so the bot
+   physically cannot hold an open-ended conversation days later. Design around this;
+   don't discover it in production.
+3. **Never let the model quote money or commit the org to anything.** Pay rate comes out
+   of the `opportunities` row verbatim via tool call, never from model generation.
+
+**Model:** Sonnet 5 ($2/$10). Needs more judgment than classification but isn't
+reasoning-heavy. Bump to Opus 5 only if Sonnet visibly mishandles real transcripts.
+
+### Layer 3 — Agentic admin side
+
+Admin types _"taco catering next fri, 80ppl, downtown oakland, $600"_ and gets a drafted
+opportunity, drafted broadcast copy, and a ranked chef list.
+
+```
+admin free-text
+  ↓
+[LLM] extract structured opportunity fields  ← structured outputs, Sonnet 5
+  ↓
+[code] INSERT opportunity, generate ref_code   ← deterministic
+  ↓
+[code] SQL: chefs matching cuisine, not booked that date, past reliability
+  ↓
+[LLM] rank + explain: "Maya — 3 taco gigs, all on time"
+  ↓
+[LLM] draft broadcast copy for the template variables
+  ↓
+[HUMAN] admin reviews list + copy, edits, approves  ← REQUIRED GATE
+  ↓
+[code] send
+```
+
+The ranking is the one genuinely interesting use of the model: it weighs cuisine match,
+past reliability, how recently someone got offered work, and fairness of distribution —
+fuzzy tradeoffs that are miserable to encode as SQL `ORDER BY`. But the **candidate set
+is fetched by SQL**, not chosen by the model. The model ranks and explains; it never
+queries freely.
+
+**Note this needs schema the current data model doesn't have** — `chefs.cuisines`,
+`chefs.reliability_score` (or derived from a `gigs` table), `opportunities.pay_rate`.
+Worth adding in the same migration if we're building toward this.
+
+**The approval gate is non-negotiable.** An agent that auto-messages 30 chefs on a bad
+extraction is a real-world incident with real people, not a bug report.
+
+### Layer 4 — Autonomous ops loop
+
+A scheduled agent that chases silence, because the failure mode of this whole system
+isn't a crash — it's a gig quietly going unfilled because nobody replied and nobody
+noticed.
+
+```
+daily cron
+  ↓
+[code] SQL: open opportunities, event_date within 7 days, response counts
+  ↓
+[LLM] for each at-risk gig, decide: nudge / escalate / widen / alert admin
+  ↓
+[HUMAN] admin approves the batch     ← gate stays
+  ↓
+[code] send nudges via template
+```
+
+Escalation ladder: silent chefs get one nudge; zero yeses 3 days out alerts the admin and
+suggests widening to a backup roster; 24h out with nothing gets flagged urgent.
+
+**Two options for running this:**
+
+- **Vercel cron** hitting a route handler. Fits the existing deployment, no new infra,
+  and the whole loop is ~50 lines. **Recommended for v1.**
+- **Managed Agents** with a scheduled deployment — Anthropic runs the loop and hosts the
+  sandbox, with session budgets as a hard dollar cap. Worth it only if the loop grows
+  genuinely multi-step. Overkill for "query, decide, queue nudges."
+
+**Hard rule: one nudge per chef per opportunity, enforced in code** with a unique
+constraint, not by prompting the model to remember. An agent that re-nudges on every
+cron tick because a retry lost state is how you get your number reported for spam —
+which, per section I, is an unrecoverable outcome.
+
+### Cost summary
+
+Assuming ~30 chefs, 4 opportunities/month, ~120 replies:
+
+| Layer              | Model     | Est. monthly   |
+| ------------------ | --------- | -------------- |
+| 1 — reply parsing  | Haiku 4.5 | ~$0.11         |
+| 2 — conversation   | Sonnet 5  | ~$0.40         |
+| 3 — admin drafting | Sonnet 5  | ~$0.15         |
+| 4 — ops loop       | Sonnet 5  | ~$0.10         |
+| **LLM total**      |           | **< $1/month** |
+| WhatsApp (from §I) |           | ~$0.41–1.61    |
+
+Estimates, not quotes — output tokens vary. But the order of magnitude holds: **the
+agentic layer costs less than the messaging does**, and both are under $5/month. Cost is
+not a reason to avoid this. Complexity and failure modes are the real budget.
+
+### Build order
+
+Ship these in sequence, not at once:
+
+1. **v1 deterministic** (§II–III) — regex + keywords. Proves webhook, matching, dedupe.
+2. **Layer 1** — swap the classifier. Smallest, highest-value change; shrinks triage.
+3. **Layer 3** — admin drafting. Pure upside, human-gated, no inbound risk.
+4. **Layer 2** — conversation. Most user-visible risk; needs real transcripts to tune.
+5. **Layer 4** — ops loop. Only once there's enough history to know what "at risk" means.
+
+Each step is independently shippable and independently revertable. If layer 2 makes
+chefs feel like they're talking to a machine, roll it back without touching 1 or 3.
+
+### What to verify before building this
+
+- **Does Oakland Bloom want a bot that talks back?** A chef expecting a human and getting
+  an LLM is a trust problem, not a feature. Ask before building layer 2.
+- **Disclosure.** Chefs should know they're messaging an automated system. Ethical
+  baseline, and cheap to do in the template copy.
+- **Retention.** Chef messages go to Anthropic's API. Fine for this use case, but say so
+  out loud to the org rather than assuming.
+- **Template approval friction.** Every nudge/escalation variant in layer 4 is a separate
+  Meta-approved template with a ~24h review. Batch the submissions.
+
+### Links
+
+- [Claude API: tool use](https://docs.anthropic.com/en/docs/build-with-claude/tool-use) ·
+  [structured outputs](https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs) ·
+  [prompt caching](https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching) ·
+  [pricing](https://www.anthropic.com/pricing#api)
 
 ---
 
