@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/styles/global.css";
+import { AuthProvider } from "@/contexts/AuthProvider";
 
 // font definitions
 const sans = Inter({
@@ -21,7 +22,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={sans.className}>{children}</body>
+      <body className={sans.className}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
