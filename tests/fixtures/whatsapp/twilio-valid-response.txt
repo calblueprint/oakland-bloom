@@ -1,0 +1,1 @@
+MessageSid=SMexampleexampleexampleexampleex01&AccountSid=ACexampleexampleexampleexampleex00&From=whatsapp%3A%2B15555550123&To=whatsapp%3A%2B15555550100&Body=OB12+yes&NumMedia=0&ProfileName=Fictional+Chef&WaId=15555550123
