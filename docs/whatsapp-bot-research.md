@@ -289,13 +289,14 @@ sandbox join-code, 3-day expiry, no verification needed.
   └──────────────────────┬─────────────────────────────┘
                          │ service-role key (server only)
                          ▼
-              ┌──────────────────────┐
-              │      Supabase        │
-              │  chefs               │
-              │  opportunities       │
-              │  responses           │
-              │  inbound_unmatched   │
-              └──────────────────────┘
+              ┌──────────────────────────┐
+              │        Supabase          │
+              │  chefs                   │
+              │  opportunities           │
+              │  opportunity_deliveries  │
+              │  responses               │
+              │  inbound_unmatched       │
+              └──────────────────────────┘
 ```
 
 The provider (Meta or Twilio) sits between WhatsApp and our route handler in both
@@ -311,9 +312,17 @@ directions.
 - One repo, one deploy, no extra infra cost or ops burden for a student team.
 - Preview deployments give us a throwaway URL per PR for webhook testing.
 
-Trade-off: serverless handlers are short-lived, so the handler must **acknowledge fast
-and keep work minimal**. Our work is a couple of DB writes, so this is fine. If it ever
-grows (LLM parsing, fan-out retries), move to a queue.
+Trade-off: serverless handlers are short-lived, so the handler must **keep work minimal
+and await durable persistence before acknowledging**. For v1, parse and save the inbound
+messages and delivery updates in an awaited database transaction, then return 200. A
+database failure returns 503 so the provider can retry. Do not return 200 and then start
+unawaited work: a terminated invocation would lose an acknowledged message.
+Use a server-side Postgres function/RPC for the transaction; separate Supabase REST
+calls do not share a transaction.
+
+If processing grows (LLM parsing, fan-out retries), await a durable queue enqueue before
+returning 200, then process through a worker with retries. Post-response execution alone
+does not provide durable delivery.
 
 ### Credentials
 
@@ -362,6 +371,25 @@ create table opportunities (
   created_at timestamptz not null default now()
 );
 
+-- One row per automated 1:1 send attempt; manual group posts do not create rows.
+create table opportunity_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  chef_id uuid not null references chefs(id),
+  opportunity_id uuid not null references opportunities(id),
+  provider text not null check (provider in ('meta', 'twilio')),
+  provider_message_id text,
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'delivered', 'read', 'failed', 'unknown')),
+  created_at timestamptz not null default now(),
+  sent_at timestamptz,       -- provider accepted the request; not proof of delivery
+  delivered_at timestamptz, -- delivered/read event time; receipt time if unavailable
+  last_error text,
+  unique (provider, provider_message_id)
+);
+
+create index opportunity_deliveries_chef_opportunity_idx
+  on opportunity_deliveries (chef_id, opportunity_id, delivered_at);
+
 create table responses (
   id uuid primary key default gen_random_uuid(),
   chef_id uuid not null references chefs(id),
@@ -402,9 +430,15 @@ Form in the admin UI. A server action inserts into `opportunities` and generates
 
 ### 2. Shared with chefs — partly manual
 
-- **Path A (automated 1:1 fan-out):** loop active chefs, send each an approved
-  **template**. Business-initiated, so a template is mandatory. Gives real delivery
-  status per chef.
+- **Path A (automated 1:1 fan-out):** loop active chefs, create a pending
+  `opportunity_deliveries` row for each send attempt, then send an approved **template**.
+  Business-initiated, so a template is mandatory. Save the provider message ID and
+  `sent_at` on acceptance; delivery callbacks update `status` and `delivered_at` using
+  the provider's event timestamp, or callback receipt time if none is supplied.
+  Acceptance alone is not proof of delivery. Match
+  callbacks by `(provider, provider_message_id)` and apply them idempotently; a late
+  `delivered` callback must not downgrade `read`. Retry callbacks whose send row is not
+  yet available rather than acknowledging and discarding them.
 - **Path B (manual group post):** admin copies generated text and pastes it into the
   existing WhatsApp group by hand. Preserves the group dynamic the org already relies on.
 
@@ -466,8 +500,19 @@ Handler order:
 
 1. **Verify the signature** (`X-Hub-Signature-256`, HMAC-SHA256 over the _raw_ body with
    the app secret). The endpoint is public — anyone can POST to it.
-2. **Return 200 immediately.** A slow or failing handler triggers retries.
-3. Then parse and persist.
+2. **Parse the entire batch**, including all entries, changes, messages, and delivery
+   statuses. Normalize provider payloads; delivery callbacks update
+   `opportunity_deliveries` rather than becoming chef responses.
+3. **Await a database transaction** that saves every inbound message to `responses` or
+   `inbound_unmatched` and applies delivery updates. Duplicate message IDs are successful
+   no-ops. If persistence fails, roll back and return 503; never acknowledge unsaved
+   messages.
+4. **Return 200 only after commit.** No required processing runs after the response.
+   If the response is lost after commit, the retry is safe because writes are idempotent.
+
+Twilio follows the same persist-before-acknowledgment rule after its provider-specific
+signature validation. Its retry behavior still needs testing; acknowledgment is not a
+substitute for storage.
 
 The `GET` handler answers Meta's verification handshake: compare `hub.verify_token`,
 echo back `hub.challenge`.
@@ -475,8 +520,22 @@ echo back `hub.challenge`.
 ### 5. Match and save — automated, with manual fallback
 
 - **Chef:** look up `chefs.whatsapp_phone` against a normalized `from`.
-- **Opportunity:** parse `ref_code` from the body; if absent, fall back to the most
-  recent open opportunity sent to that chef.
+- **Replay check:** before matching, serialize processing of each provider message ID
+  with a transaction-scoped advisory lock and check **both** `responses` and
+  `inbound_unmatched`. If already stored, leave the original routing unchanged and
+  acknowledge it. A contact or opportunity edit must not let a retry insert the same
+  message into the other table; the two separate unique constraints alone do not prevent
+  that.
+- **Opportunity:** an explicit valid `ref_code` takes precedence. An invalid or multiple
+  explicit codes go to triage; do not override them with a guessed opportunity. If no
+  code is present, query `opportunity_deliveries` for that chef's distinct open
+  opportunities delivered before the inbound message's provider timestamp (use request
+  receipt time if none is supplied). Attribute
+  only when **exactly one** opportunity qualifies; multiple send attempts for the same
+  opportunity count once. Zero or multiple opportunities → `inbound_unmatched`, where
+  an admin resolves it. Never pick the newest of several possible opportunities.
+  Manual group posts have no per-chef delivery history, so Path B requires the ref code.
+  If a delivery callback has not arrived yet, a code-free reply also goes to triage.
 - **Interest:** keyword match yes/no. Ambiguous → `interest = 'unclear'` and
   `needs_review = true`. **We do not guess** — a wrong "yes" means a chef is booked for
   a gig they declined.
@@ -506,12 +565,16 @@ shows the unmatched inbox separately.
   dropping unacknowledged events after that. Batches can contain up to 1000 updates and
   batching _"cannot be guaranteed."_ There is **no exactly-once guarantee** — dedupe is
   our responsibility, handled by the unique `provider_message_id`.
-- **Outbound send failure:** record per-chef send status, retry with backoff, surface
-  persistent failures to the admin rather than failing silently.
+- **Outbound send failure:** record the failure in `opportunity_deliveries`; a retry
+  creates a new attempt row. Retry confirmed transient failures with backoff and surface
+  persistent failures to the admin. A timeout after sending leaves delivery uncertain:
+  mark `unknown` and reconcile before resending to avoid duplicate broadcasts.
 - **Chef changes their mind** ("yes" then "actually no"): keep every row. The dashboard
   shows the latest per (chef, opportunity) but retains history.
-- **Our endpoint down:** provider queues and redelivers within the 36-hour window, so
-  nothing is lost once we return 200 again.
+- **Database unavailable:** return 503 rather than acknowledging. Meta retries within
+  its documented 36-hour window; an outage beyond the retry window can lose events.
+  Twilio's retry behavior must be tested separately. Once acknowledged, every message
+  is already stored. Monitor persistent webhook failures rather than assuming recovery.
 - **Unknown sender:** goes to `inbound_unmatched` for triage — likely a chef whose number
   we recorded in a different format.
 
