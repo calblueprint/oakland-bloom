@@ -87,11 +87,31 @@ test("ignores Meta delivery-status callbacks without failing", () => {
 test("walks every entry, change, and message in a batch", () => {
   // Meta explicitly does not guarantee batching, so all levels must be walked.
   const single = json("meta-valid-response.json");
+  const makeMessage = id => ({
+    ...single.entry[0].changes[0].value.messages[0],
+    id,
+  });
+  const makeChange = ids => ({
+    field: "messages",
+    value: { messages: ids.map(makeMessage) },
+  });
   const batched = {
     object: "whatsapp_business_account",
-    entry: [single.entry[0], single.entry[0]],
+    entry: [
+      { changes: [makeChange(["first", "second"]), makeChange(["third"])] },
+      { changes: [single.entry[0].changes[0], makeChange(["fourth"])] },
+    ],
   };
-  assert.equal(parseMetaPayload(batched).length, 2);
+  assert.deepEqual(
+    parseMetaPayload(batched).map(message => message.providerMessageId),
+    [
+      "meta:first",
+      "meta:second",
+      "meta:third",
+      `meta:${single.entry[0].changes[0].value.messages[0].id}`,
+      "meta:fourth",
+    ],
+  );
 });
 
 test("rejects non-text Meta message types", () => {
@@ -139,4 +159,135 @@ test("normalizePhone strips whatsapp and plus prefixes", () => {
   assert.equal(normalizePhone("whatsapp:+15555550123"), "15555550123");
   assert.equal(normalizePhone("+15555550123"), "15555550123");
   assert.equal(normalizePhone("15555550123"), "15555550123");
+});
+
+const twilioRecord = () =>
+  Object.fromEntries(new URLSearchParams(text("twilio-valid-response.txt")));
+const metaWithMessage = overrides => {
+  const payload = json("meta-valid-response.json");
+  Object.assign(payload.entry[0].changes[0].value.messages[0], overrides);
+  return payload;
+};
+const rejectsFrom = (provider, fn) =>
+  assert.throws(fn, error => {
+    assert.ok(error instanceof InboundParseError);
+    assert.equal(error.provider, provider);
+    return true;
+  });
+
+test("rejects non-string Twilio record values before URLSearchParams can coerce them", () => {
+  for (const field of ["MessageSid", "From", "Body", "NumMedia"]) {
+    for (const value of [null, undefined, 123, false, {}, []]) {
+      rejectsFrom("twilio", () =>
+        parseTwilioPayload({ ...twilioRecord(), [field]: value }),
+      );
+    }
+  }
+});
+
+test("rejects non-record Twilio input with a provider-specific parse error", () => {
+  for (const value of [null, undefined, 123, [], new Date(), new Map()]) {
+    rejectsFrom("twilio", () => parseTwilioPayload(value));
+  }
+});
+
+test("rejects blank provider message IDs without rewriting valid opaque IDs", () => {
+  for (const id of ["", " ", "\n\t"]) {
+    rejectsFrom("meta", () => parseMetaPayload(metaWithMessage({ id })));
+    rejectsFrom("twilio", () =>
+      parseTwilioPayload({ ...twilioRecord(), MessageSid: id }),
+    );
+  }
+  assert.equal(
+    parseMetaPayload(metaWithMessage({ id: "opaque-example-id" }))[0]
+      .providerMessageId,
+    "meta:opaque-example-id",
+  );
+});
+
+test("rejects malformed sender numbers instead of producing invalid lookup keys", () => {
+  for (const from of [
+    "",
+    " ",
+    "+",
+    "garbage",
+    "+1 555-555-0123",
+    "012345",
+    "1234567890123456",
+  ]) {
+    rejectsFrom("meta", () => parseMetaPayload(metaWithMessage({ from })));
+    rejectsFrom("twilio", () =>
+      parseTwilioPayload({ ...twilioRecord(), From: `whatsapp:${from}` }),
+    );
+  }
+});
+
+test("rejects ordinary SMS and other Twilio channels", () => {
+  for (const from of ["+15555550123", "15555550123", "messenger:12345"]) {
+    rejectsFrom("twilio", () =>
+      parseTwilioPayload({ ...twilioRecord(), From: from }),
+    );
+  }
+});
+
+test("rejects malformed media counts rather than silently treating them as zero", () => {
+  for (const numMedia of ["", " ", "junk", "-1", "0.5", "NaN", "Infinity"]) {
+    rejectsFrom("twilio", () =>
+      parseTwilioPayload({ ...twilioRecord(), NumMedia: numMedia }),
+    );
+  }
+  const noMediaCount = twilioRecord();
+  delete noMediaCount.NumMedia;
+  assert.equal(parseTwilioPayload(noMediaCount).length, 1);
+});
+
+test("rejects duplicate Twilio fields in raw forms and URLSearchParams", () => {
+  const raw = text("twilio-valid-response.txt");
+  for (const field of ["MessageSid", "From", "Body", "NumMedia"]) {
+    const duplicated = `${raw}&${field}=different`;
+    rejectsFrom("twilio", () => parseTwilioPayload(duplicated));
+    rejectsFrom("twilio", () =>
+      parseTwilioPayload(new URLSearchParams(duplicated)),
+    );
+  }
+});
+
+test("preserves empty text, whitespace, Unicode, and form-encoded punctuation", () => {
+  for (const body of [
+    "",
+    "  \n\t",
+    "sí, 我可以",
+    "OB12 + yes & maybe=tomorrow",
+  ]) {
+    assert.equal(
+      parseMetaPayload(metaWithMessage({ text: { body } }))[0].text,
+      body,
+    );
+    const record = { ...twilioRecord(), Body: body };
+    for (const input of [
+      record,
+      new URLSearchParams(record),
+      new URLSearchParams(record).toString(),
+    ]) {
+      assert.equal(parseTwilioPayload(input)[0].text, body);
+    }
+  }
+});
+
+test("rejects malformed Meta batches instead of returning partially parsed messages", () => {
+  for (const payload of [
+    [],
+    { object: "whatsapp_business_account", entry: [null] },
+    { object: "whatsapp_business_account", entry: [{ changes: {} }] },
+    { object: "whatsapp_business_account", entry: [{ changes: [null] }] },
+    {
+      object: "whatsapp_business_account",
+      entry: [{ changes: [{ value: { messages: {} } }] }],
+    },
+  ]) {
+    rejectsFrom("meta", () => parseMetaPayload(payload));
+  }
+  const payload = json("meta-valid-response.json");
+  payload.entry[0].changes[0].value.messages.push({ from: "15555550123" });
+  rejectsFrom("meta", () => parseMetaPayload(payload));
 });

@@ -65,10 +65,13 @@ function parseMetaMessage(
   const from = message.from;
   const type = message.type;
 
-  if (typeof id !== "string" || id === "")
+  if (typeof id !== "string" || id.trim() === "")
     fail("Message is missing a string `id`.");
   if (typeof from !== "string" || from === "")
     fail("Message is missing a string `from`.");
+  const phone = normalizePhone(from as string);
+  if (!/^[1-9]\d{1,14}$/.test(phone))
+    fail("Message has an invalid `from` number.");
 
   // Only text is in scope this sprint. Media/location/interactive are real
   // message types, so they fail loudly rather than being silently dropped.
@@ -85,7 +88,7 @@ function parseMetaMessage(
 
   return {
     providerMessageId: `meta:${id as string}`,
-    from: normalizePhone(from as string),
+    from: phone,
     text: body,
     provider: "meta",
   };

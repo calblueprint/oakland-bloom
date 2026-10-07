@@ -27,15 +27,54 @@ function parseFixture(name, contents) {
   throw new Error(`Fixture ${name} must start with "meta-" or "twilio-".`);
 }
 
+const EXPECTED_OUTCOMES = new Map([
+  ["meta-malformed.json", "rejection"],
+  ["meta-status-callback.json", "empty"],
+  ["meta-unrecognized-response.json", "message"],
+  ["meta-valid-response.json", "message"],
+  ["twilio-malformed.txt", "rejection"],
+  ["twilio-unrecognized-response.txt", "message"],
+  ["twilio-valid-response.txt", "message"],
+]);
 const files = readdirSync(FIXTURES).sort();
-let failures = 0;
+let rejections = 0;
+let unexpectedFailures = 0;
+
+for (const name of EXPECTED_OUTCOMES.keys()) {
+  if (!files.includes(name)) {
+    unexpectedFailures += 1;
+    process.stdout.write(
+      `\n${name}\n  UNEXPECTED Error: Expected fixture is missing.\n`,
+    );
+  }
+}
 
 for (const name of files) {
-  const contents = readFileSync(join(FIXTURES, name), "utf8");
   process.stdout.write(`\n${name}\n`);
+  const expected = EXPECTED_OUTCOMES.get(name);
 
   try {
+    if (expected === undefined) {
+      throw new Error("Fixture has no declared expected outcome.");
+    }
+    const contents = readFileSync(join(FIXTURES, name), "utf8");
     const messages = parseFixture(name, contents);
+
+    if (expected === "rejection") {
+      throw new Error(
+        "Expected validation rejection, but fixture was accepted.",
+      );
+    }
+    if (expected === "message" && messages.length === 0) {
+      throw new Error(
+        "Expected an inbound message, but fixture produced none.",
+      );
+    }
+    if (expected === "empty" && messages.length !== 0) {
+      throw new Error(
+        "Expected no inbound messages, but fixture produced a message.",
+      );
+    }
 
     if (messages.length === 0) {
       process.stdout.write(
@@ -52,19 +91,21 @@ for (const name of files) {
       );
     }
   } catch (error) {
-    failures += 1;
-    if (error instanceof InboundParseError) {
-      // Expected for the *-malformed fixtures: validation failed explicitly.
+    if (error instanceof InboundParseError && expected === "rejection") {
+      rejections += 1;
       process.stdout.write(
         `  rejected (${error.provider}): ${error.message}\n`,
       );
     } else {
+      unexpectedFailures += 1;
       process.stdout.write(`  UNEXPECTED ${error.name}: ${error.message}\n`);
     }
   }
 }
 
 process.stdout.write(
-  `\n${files.length} fixtures processed, ${failures} rejected by validation.\n` +
+  `\n${files.length} fixtures processed, ${rejections} rejected by validation.\n` +
+    `${unexpectedFailures} unexpected failures.\n` +
     "Rejections are expected for the *-malformed fixtures.\n",
 );
+process.exitCode = unexpectedFailures > 0 ? 1 : 0;

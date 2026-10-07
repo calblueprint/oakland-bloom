@@ -7,7 +7,7 @@ credentials, no network, no database — run it on a fresh clone.
 
 ```bash
 pnpm harness:whatsapp   # print normalized output for every fixture
-pnpm test:whatsapp      # assert the same behavior (13 tests)
+pnpm test:whatsapp      # assert parser behavior and harness failure handling
 ```
 
 Needs Node 22.9+ (`package.json` sets `engines.node >= 22.9.0`). Both scripts use
@@ -20,6 +20,7 @@ dependencies.
 
 ```
 7 fixtures processed, 2 rejected by validation.
+0 unexpected failures.
 ```
 
 Per fixture:
@@ -34,8 +35,14 @@ Per fixture:
 | `twilio-unrecognized-response.txt` | ok — unrecognized text, still valid              |
 | `twilio-malformed.txt`             | rejected — ``Missing `MessageSid`.``             |
 
-The two rejections are the point, not a failure: malformed payloads fail
-validation explicitly instead of silently producing a half-built message.
+The two named malformed fixtures must throw `InboundParseError`. Those expected
+rejections are successful checks. The harness exits with code 0 only when every
+fixture has its declared expected outcome. The harness requires all seven named
+fixtures and rejects unknown fixture names. Rejecting a valid fixture, accepting
+a malformed fixture, a text fixture producing no messages, a status fixture
+producing messages, invalid JSON, missing fixtures, and unexpected exceptions
+count separately as unexpected failures and produce exit code 1. Adding a fixture
+requires declaring its outcome in `EXPECTED_OUTCOMES` in the runner.
 
 ## What's being tested
 
@@ -52,6 +59,23 @@ retries create duplicate responses.
 **Both providers normalize to one shape.** A test asserts the Meta and Twilio
 fixtures of the same message produce identical `from`, `text`, and field names.
 
+**Validation preserves the normalized contract.** Sender numbers must pass a
+digit-format and length check after normalization; this does not verify that a
+phone number exists. Message IDs must be nonblank strings; opaque ID values are
+preserved. Twilio senders must use the `whatsapp:` channel, record input values
+must be strings, and duplicate core form fields are rejected. Media counts must
+be nonnegative integers; nonzero counts are rejected because this harness handles
+text only. Message text, including empty strings and surrounding whitespace, is
+preserved.
+
+**Harness failures fail the command.** Regression tests run the harness as a
+subprocess against temporary copies of the parsers and fixtures. They check
+expected rejections and inject valid-fixture rejection, malformed-fixture
+acceptance, invalid JSON, a parser exception, missing or unknown fixtures, and
+incorrect message-versus-empty outcomes. The repository fixtures remain untouched,
+and the copies contain no installed dependencies. GitHub CI runs the WhatsApp test
+suite alongside the existing lint, formatting, and TypeScript checks.
+
 ## Layout
 
 ```
@@ -63,6 +87,7 @@ lib/whatsapp/
 tests/
   whatsappHarness.mjs      the runner
   whatsappInbound.test.mjs assertions
+  whatsappHarness.test.mjs subprocess regression tests
   fixtures/whatsapp/       sanitized payloads
 ```
 
