@@ -15,7 +15,7 @@ export interface InboundMessage {
   providerMessageId: string;
   /** Sender's phone number, digits only, no `+` or `whatsapp:` prefix. */
   from: string;
-  /** Message body as the sender typed it. Never trimmed to empty — see parse errors. */
+  /** Message body as the sender typed it, including empty text and whitespace. */
   text: string;
   /** Which provider produced this message. */
   provider: Provider;
@@ -38,7 +38,7 @@ export class InboundParseError extends Error {
   }
 }
 
-/** Strips `whatsapp:` and `+` prefixes, leaving digits. */
+/** Strips transport prefixes; the provider parsers validate the remaining number. */
 export function normalizePhone(raw: string): string {
   return raw.replace(/^whatsapp:/, "").replace(/^\+/, "");
 }
