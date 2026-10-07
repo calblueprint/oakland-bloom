@@ -12,6 +12,8 @@
     "prettier": "pnpm exec prettier --check .",
     "prettier:fix": "pnpm exec prettier --write .",
     "prepare": "husky",
+    "test:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test tests/whatsappInbound.test.mjs",
+    "harness:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/whatsappHarness.mjs",
     "pre-commit": "concurrently \"pnpm run tsc\" \"pnpm run lint\" \"pnpm run prettier\"",
     "setup:styled-components": "node ./setup-scripts/setup styled-components",
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
