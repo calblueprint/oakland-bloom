@@ -4,6 +4,56 @@
 
 This project is being built by a team at [Blueprint](https://calblueprint.org), a student organization at the University of California, Berkeley building software pro bono for nonprofits.
 
+## About
+
+[Oakland Bloom](https://oaklandbloom.org/) is an Oakland-based nonprofit empowering
+immigrant and refugee chefs to build sustainable food businesses through shared kitchen
+space, equipment access, and catering opportunities. Today they coordinate kitchen usage
+and catering by hand over WhatsApp, which creates administrative bottlenecks and limits
+how many chefs they can support.
+
+This repo is **two interconnected products**:
+
+### 1. Kitchen management and reservation platform (the bulk of the work)
+
+- **Chefs** view kitchen availability on a calendar, submit reservation requests, track
+  them by status (pending / approved / denied), and manage their profile.
+- **Admins** review a reservation request queue, approve or deny bookings, manage kitchen
+  availability, and see usage statistics (chefs using the kitchen, hours used, hours
+  remaining).
+
+### 2. WhatsApp catering coordination bot
+
+Distributes catering opportunities to chefs over WhatsApp, collects their responses, and
+keeps a central record of opportunities and who responded — replacing the current
+group-chat-and-scrollback workflow.
+
+### Users
+
+| Role | How they use it |
+|---|---|
+| **Chef** | Web dashboard (reservations, profile) + WhatsApp (catering opportunities) |
+| **Admin** | Web dashboard (approve reservations, stats, post catering opportunities) |
+| **Customer** | Requests catering — flow not yet specified, MVP scope |
+
+### Scope and timeline
+
+- **MTP — 11/30/26.** Auth/onboarding/profiles, chef reservation calendar + dashboard,
+  admin reservation queue + calendar, admin dashboard with monthly stats, and the
+  WhatsApp catering bot.
+- **MVP — May 2027.** Password recovery, account approval, reservation history, admin
+  kitchen-availability management, expanded bot automation, user management, deployment
+  and handoff.
+- **Stretch.** Expanded reservation detail cards, computer-vision equipment inspection,
+  equipment cataloging with conflict prevention.
+
+The Statement of Work in Notion is the authoritative scope — this is a summary.
+
+### Docs
+
+- [`docs/whatsapp-bot-research.md`](docs/whatsapp-bot-research.md) — WhatsApp API
+  research, provider comparison, proposed bot architecture and message flow (OAK-8).
+
 ## Getting Started
 
 ### Prerequisites

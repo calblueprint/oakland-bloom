@@ -8,8 +8,34 @@
 Research spike to pick a WhatsApp API provider for the catering-opportunity bot and
 propose the infrastructure. No bot code in this PR.
 
-Sections I–IV cover the provider decision and a deterministic v1. Section V proposes the
-agentic layer built on top of it.
+Sections I–IV cover the provider decision and a deterministic v1. Section V proposes an
+agentic layer on top of it — **exploratory, not SOW-committed** (see Scope below).
+
+### Scope: where this sits in the project
+
+This research serves **SOW §II.D — WhatsApp Catering Bot**, one of five MTP deliverables.
+The other four are the kitchen reservation platform (auth/onboarding/profiles, chef
+reservation calendar, admin reservation queue, admin dashboard + stats). **The bot is
+roughly a fifth of MTP, not the product.** Read this doc accordingly.
+
+The SOW closes §II.D with: _"The exact implementation will depend on the capabilities and
+restrictions of the selected WhatsApp API."_ That sentence is what this sprint answers —
+the contract deliberately deferred the bot's implementation pending this research.
+
+| SOW §II.D requirement (MTP)                                     | Covered in                                         |
+| --------------------------------------------------------------- | -------------------------------------------------- |
+| Admin shares catering info via an agreed-upon WhatsApp workflow | §III.2 — manual group post or 1:1 template fan-out |
+| Info includes date, location, number of attendees               | §II data model — `opportunities`                   |
+| Bot forwards catering info to participating chefs               | §III.2 Path A — template fan-out                   |
+| Bot initiates **individual** conversations with chefs           | §III.3 — `wa.me` deep link + ref code              |
+
+**The group-chat finding confirms the SOW rather than breaking it.** §II.D specifies
+_individual_ conversations with chefs — it never promised group automation. No scope
+renegotiation needed.
+
+**MTP deadline is 11/30/26.** Meta business verification has an unknown multi-week
+turnaround the team doesn't control, which is the main reason §IV recommends developing
+against Twilio's sandbox rather than waiting.
 
 ---
 
@@ -29,9 +55,9 @@ agentic layer built on top of it.
    plus a `wa.me` deep link.
 4. **Pricing changes in two days.** Service messages and in-window utility templates
    become billable **October 1, 2026**. Budget accordingly.
-5. **An agentic layer is proposed in §V** — LLM reply parsing, conversational replies,
-   admin drafting, and an autonomous ops loop — layered on top of the deterministic v1,
-   not replacing it. Adds **under $1/month**. Ship v1 first.
+5. **§V proposes an agentic layer** — LLM reply parsing, conversational replies, admin
+   drafting, an ops loop. Adds **under $1/month**. **Exploratory only: not in the SOW.**
+   Ship the deterministic v1 (§II–III) first; §V is a menu for later, not a plan.
 
 ---
 
@@ -235,6 +261,10 @@ sandbox join-code, 3-day expiry, no verification needed.
 - Twilio's webhook retry/backoff behavior on non-200 — not documented in the pages
   checked. Meta's 36-hour retry policy **is** documented; don't assume Twilio matches it.
 - Marketing-template USD rate (only the $0.0034 utility rate is confirmed).
+- **Customer-side flow is unspecified.** MVP §II.D mentions messaging customers, but how
+  a customer reaches the bot (same number? separate?) and how we distinguish an inbound
+  customer from an inbound chef is not defined anywhere. Needs a product decision before
+  MVP.
 
 ---
 
@@ -345,6 +375,13 @@ create table responses (
 );
 
 -- Unknown number, or no opportunity resolved. Triage queue, never drop input.
+--
+-- GAP: this schema models chefs only. The SOW's MVP §II.D says the bot will send
+-- "messages to customers or chefs", and the project mission describes the bot
+-- navigating communication *between customers and chefs*. With this schema every
+-- inbound customer message lands here as unmatched. Fine for MTP (§II.D is
+-- chef-only), but a customers table and a sender-type branch in the webhook are
+-- required before the MVP customer flow.
 create table inbound_unmatched (
   id uuid primary key default gen_random_uuid(),
   from_phone text not null,
@@ -530,11 +567,22 @@ a way to skip it — only a way to not be _blocked_ by it.
 
 ## V. Agentic architecture
 
+> **Status: exploratory. Not SOW-committed.** Nothing in this section appears in the
+> SOW's MTP or MVP scope. The nearest MVP language (§II.D) is vaguer and more modest:
+> _"time-based routing"_, _"sending messages to customers or chefs using stored contact
+> information"_, and _"additional automated communication to reduce repetitive
+> administrative work."_ Treat §V as a menu of options for a future sprint, not as
+> planned work. **Do not schedule from this section without a scope conversation.**
+>
+> For reference, the SOW's _actual_ named stretch features are expanded reservation
+> details, **computer-vision equipment inspection**, and **equipment cataloging** — all
+> kitchen-platform features, none of them bot features, and none covered by this doc.
+
 Sections I–IV describe a **deterministic** bot: regex for the ref code, keyword match
-for yes/no. That is the right v1 and it should ship first. This section describes the
-agentic layer to build on top of it, and — more importantly — **where the line between
-LLM and plain code sits**, because getting that wrong is how this becomes expensive and
-flaky.
+for yes/no. That is the right v1 and it should ship first. This section describes an
+agentic layer that could sit on top of it, and — more importantly — **where the line
+between LLM and plain code sits**, because getting that wrong is how this becomes
+expensive and flaky.
 
 ### The governing rule
 
