@@ -18,6 +18,6 @@ export async function loginWithEmailPassword({
     return { error: JSON.parse(JSON.stringify(error)) };
   }
 
-  revalidatePath("/");
-  redirect("/");
+  revalidatePath("/", "layout");
+  redirect("/login");
 }

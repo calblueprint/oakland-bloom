@@ -30,9 +30,8 @@ export async function getSupabaseServerClient() {
             try {
               cookieStore.set(name, value, options);
             } catch {
-              Logger.error(
-                `Error setting cookie ${name}:${value} with options ${options}`,
-              );
+              // Called from a Server Component, where cookies can't be set.
+              // Safe to ignore: middleware refreshes the session.
             }
           });
         },

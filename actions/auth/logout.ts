@@ -14,6 +14,6 @@ export async function signOut() {
     return { error: JSON.parse(JSON.stringify(error)) };
   }
 
-  revalidatePath("/");
+  revalidatePath("/", "layout");
   redirect("/login");
 }
