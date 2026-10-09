@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "@/styles/global.css";
 import { AuthProvider } from "@/contexts/AuthProvider";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
+
 // font definitions
 const sans = Inter({
   variable: "--font-sans",
@@ -23,7 +24,7 @@ export default async function RootLayout({
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
-  }=await supabase.auth.getUser();
+  } = await supabase.auth.getUser();
   return (
     <html lang="en">
       <body className={sans.className}>
