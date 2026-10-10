@@ -33,7 +33,9 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { user, supabaseResponse } = await updateSession(request);
 
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route));
+  const isPublicRoute = publicRoutes.some(
+    route => pathname === route || pathname.startsWith(`${route}/`),
+  );
 
   // public route: refresh the session and continue
   if (isPublicRoute) {

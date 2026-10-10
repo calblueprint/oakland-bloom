@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { signOut } from "@/actions/auth";
 import { getSupabaseServerClient } from "@/lib/supabase";
 
@@ -16,8 +17,10 @@ export default async function WelcomePage() {
       <form
         action={async () => {
           "use server";
-          // template sign-out method, redirects to /login by itself
-          await signOut();
+          const result = await signOut();
+          if (result?.error) {
+            redirect("/error");
+          }
         }}
       >
         <button type="submit">Sign out</button>

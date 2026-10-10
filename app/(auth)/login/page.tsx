@@ -1,12 +1,25 @@
 "use client";
 
 import { ComponentProps, useState } from "react";
+import { Instrument_Sans } from "next/font/google";
+import Image from "next/image";
 import { unstable_rethrow } from "next/navigation";
 import { loginWithEmailPassword } from "@/actions/auth";
+import glow from "@/assets/images/bg-glow.png";
+import eyeIcon from "@/assets/images/eye.svg";
+import logo from "@/assets/images/oakland-bloom-logo.png";
+import styles from "./login.module.css";
+
+// Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1070
+const instrumentSans = Instrument_Sans({
+  subsets: ["latin"],
+  weight: ["500"],
+});
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -39,45 +52,83 @@ export default function LoginPage() {
   };
 
   return (
-    <main>
-      <h1>Oakland Bloom</h1>
-      <p>Welcome! Sign in to continue.</p>
+    <main className={`${styles.page} ${instrumentSans.className}`}>
+      <div className={styles.glow} aria-hidden="true">
+        <Image src={glow} alt="" className={styles.glowImage} priority />
+      </div>
 
-      <form
-        onSubmit={handleSignIn}
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          gap: "0.5rem",
-          maxWidth: "320px",
-        }}
-      >
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          disabled={isLoading}
-          required
-        />
+      <div className={styles.card}>
+        <div className={styles.content}>
+          <div className={styles.header}>
+            <Image
+              src={logo}
+              alt="Oakland Bloom"
+              className={styles.logo}
+              priority
+            />
+            <h1 className={styles.heading}>Welcome Back</h1>
+          </div>
 
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          disabled={isLoading}
-          required
-        />
+          <form onSubmit={handleSignIn} className={styles.form}>
+            <label htmlFor="email" className={styles.srOnly}>
+              Email
+            </label>
+            <div className={styles.field}>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                placeholder="Email"
+                className={styles.input}
+                value={email}
+                onChange={e => setEmail(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+            </div>
 
-        {error && <p>{error}</p>}
+            <label htmlFor="password" className={styles.srOnly}>
+              Password
+            </label>
+            <div className={styles.field}>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="current-password"
+                placeholder="Enter password"
+                className={styles.input}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                disabled={isLoading}
+                required
+              />
+              <button
+                type="button"
+                className={styles.toggle}
+                onClick={() => setShowPassword(s => !s)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+              >
+                <Image src={eyeIcon} alt="" />
+              </button>
+            </div>
 
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? "Signing in..." : "Sign in"}
-        </button>
-      </form>
+            {error && (
+              <p className={styles.error} role="alert">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className={styles.button}
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing in..." : "Continue"}
+            </button>
+          </form>
+        </div>
+      </div>
     </main>
   );
 }
