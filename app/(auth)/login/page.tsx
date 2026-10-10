@@ -53,8 +53,14 @@ export default function LoginPage() {
 
   return (
     <main className={`${styles.page} ${instrumentSans.className}`}>
-      <div className={styles.glow} aria-hidden="true">
-        <Image src={glow} alt="" className={styles.glowImage} priority />
+      <div className={styles.glow}>
+        <Image
+          src={glow}
+          alt=""
+          fill
+          sizes="100vw"
+          className={styles.glowImage}
+        />
       </div>
 
       <div className={styles.card}>
