@@ -19,5 +19,5 @@ export async function loginWithEmailPassword({
   }
 
   revalidatePath("/", "layout");
-  redirect("/login");
+  redirect("/");
 }

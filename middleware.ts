@@ -23,7 +23,6 @@ const publicRoutes = [
   "/forgot-password",
   // reset-password owns its own redirect (see app/reset-password/layout.tsx),
   // so let it through rather than sending expired recovery links to /login
-  "/reset-password",
   "/auth",
   "/api",
   "/error",

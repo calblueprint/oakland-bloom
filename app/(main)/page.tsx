@@ -1,13 +1,10 @@
 import { redirect } from "next/navigation";
 import { signOut } from "@/actions/auth";
-import { getSupabaseServerClient } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/supabase/getUser";
 
 export default async function WelcomePage() {
   // template session-reading, same as app/(main)/layout.tsx
-  const supabase = await getSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   return (
     <main>
