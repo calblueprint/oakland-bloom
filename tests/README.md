@@ -6,7 +6,15 @@ dependencies or Supabase connection are required.
 
 `calendarConflicts.test.mjs` checks partial and full overlaps, adjacent intervals,
 approval status, different amenities, ignored booking IDs, timezone offsets,
-empty lists, and invalid requested timestamps.
+empty lists, invalid requested Dates, malformed booking objects, missing stored
+timezone offsets, and invalid stored intervals. The test script discovers all
+`tests/*.test.mjs` files.
+
+Requested times must be `Date` objects constructed in the intended timezone.
+A Date constructed from a timezone-less string still depends on the machine
+timezone; this helper cannot recover the original timezone. All supplied booking
+objects are validated before they can be excluded, including pending, ignored,
+and other-amenity bookings. Any validation error must stop the booking attempt.
 
 `fixtures/bookings.json` contains fictional bookings using the helper's field
 names. The approved kitchen bookings are adjacent; a pending kitchen booking and
