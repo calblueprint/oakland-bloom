@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/styles/global.css";
+import { AuthProvider } from "@/contexts/AuthProvider";
+import { getCurrentUser } from "@/lib/supabase/getUser";
 
 // font definitions
 const sans = Inter({
@@ -14,14 +16,19 @@ export const metadata: Metadata = {
   description: "Description of project",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const user = await getCurrentUser();
   return (
     <html lang="en">
-      <body className={sans.className}>{children}</body>
+      <body className={sans.className}>
+        <AuthProvider userId={user?.id ?? null} userEmail={user?.email ?? null}>
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   );
 }
