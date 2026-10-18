@@ -89,8 +89,17 @@
 
 .field:focus-within {
   border-color: #707070;
-  outline: 2px solid #f35c57;
+  outline: 2px solid #242424;
   outline-offset: 2px;
+}
+
+/* red only when the form marks the input aria-invalid */
+.field:has(.input[aria-invalid="true"]) {
+  border-color: #f35c57;
+}
+
+.field:has(.input[aria-invalid="true"]):focus-within {
+  outline-color: #f35c57;
 }
 
 .input {

@@ -11,6 +11,8 @@ import AuthShell from "../../AuthShell";
 import { PasswordField, TextField } from "../../fields";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1070
+const WRONG_PASSWORD_ERROR = "Password is incorrect.";
+
 export default function PasswordForm({ email }: { email: string }) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,7 @@ export default function PasswordForm({ email }: { email: string }) {
 
       if (result?.error) {
         if (result.error.code === "invalid_credentials") {
-          setError("Password is incorrect.");
+          setError(WRONG_PASSWORD_ERROR);
         } else if (result.error.code === "email_not_confirmed") {
           setError(
             "Please verify your email first. Check your inbox for the link.",
@@ -82,6 +84,7 @@ export default function PasswordForm({ email }: { email: string }) {
           value={password}
           onChange={e => setPassword(e.target.value)}
           disabled={isLoading}
+          aria-invalid={error === WRONG_PASSWORD_ERROR}
           autoFocus
           required
         />

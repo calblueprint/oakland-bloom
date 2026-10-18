@@ -25,6 +25,8 @@ const signUpErrors: Record<SignUpErrorCode, string> = {
   unknown: "Couldn't create your account. Please try again.",
 };
 
+const PASSWORD_RULES_ERROR = "Password doesn't meet the requirements yet.";
+
 export default function SignupForm({ email }: { email: string }) {
   // which screen we're on, so info from screen 1 stays when moving to screen 2
   const [step, setStep] = useState<"account" | "restaurant">("account");
@@ -58,7 +60,7 @@ export default function SignupForm({ email }: { email: string }) {
     setError(null);
 
     if (!allRulesMet) {
-      setError("Password doesn't meet the requirements yet.");
+      setError(PASSWORD_RULES_ERROR);
       return;
     }
     if (!passwordsMatch) {
@@ -248,6 +250,10 @@ export default function SignupForm({ email }: { email: string }) {
           onFocus={() => setPasswordFocused(true)}
           onBlur={() => setPasswordFocused(false)}
           aria-describedby="password-rules"
+          aria-invalid={
+            error === PASSWORD_RULES_ERROR ||
+            error === signUpErrors.weak_password
+          }
           required
         />
 
@@ -294,6 +300,7 @@ export default function SignupForm({ email }: { email: string }) {
               aria-describedby={
                 confirmPassword.length > 0 ? "password-match" : undefined
               }
+              aria-invalid={confirmPassword.length > 0 && !passwordsMatch}
               required
             />
 

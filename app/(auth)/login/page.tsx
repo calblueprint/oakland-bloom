@@ -8,6 +8,8 @@ import AuthShell from "../AuthShell";
 import { TextField } from "../fields";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1460
+const INVALID_EMAIL_ERROR = "Enter a valid email address.";
+
 export default function StartPage() {
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -26,7 +28,7 @@ export default function StartPage() {
       if (result?.error) {
         setError(
           result.error.code === "invalid_email"
-            ? "Enter a valid email address."
+            ? INVALID_EMAIL_ERROR
             : "Something went wrong. Please try again.",
         );
         setIsLoading(false);
@@ -53,6 +55,7 @@ export default function StartPage() {
           value={email}
           onChange={e => setEmail(e.target.value)}
           disabled={isLoading}
+          aria-invalid={error === INVALID_EMAIL_ERROR}
           autoFocus
           required
         />
