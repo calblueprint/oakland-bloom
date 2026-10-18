@@ -82,3 +82,66 @@ test("database failures propagate and the connection still closes", async () => 
   );
   assert.equal(closed, true);
 });
+
+test("Supabase connections use the official CA and keep certificate verification enabled", async () => {
+  let checked = false;
+  await runSeed({
+    databaseUrl:
+      "postgresql://test:secret@aws-0-us-east-1.pooler.supabase.com:5432/postgres",
+    environment: "test",
+    caFile: "",
+    createClient: (value, options) => {
+      assert.equal(options.ssl.rejectUnauthorized, true);
+      assert.equal(
+        options.ssl.ca,
+        readFileSync(
+          new URL(
+            "../scripts/certs/supabase-prod-ca-2021.crt",
+            import.meta.url,
+          ),
+          "utf8",
+        ),
+      );
+      checked = true;
+      return {
+        unsafe() {
+          return { async simple() {} };
+        },
+        async end() {},
+      };
+    },
+  });
+  assert.equal(checked, true);
+});
+
+test("an explicit CA override is passed to the driver while verification stays enabled", async () => {
+  await runSeed({
+    databaseUrl,
+    environment: "test",
+    caFile: "scripts/certs/supabase-prod-ca-2021.crt",
+    createClient: (value, options) => {
+      assert.equal(options.ssl.rejectUnauthorized, true);
+      assert.match(options.ssl.ca, /BEGIN CERTIFICATE/);
+      return {
+        unsafe() {
+          return { async simple() {} };
+        },
+        async end() {},
+      };
+    },
+  });
+});
+
+test("a missing CA override fails before connecting", async () => {
+  await assert.rejects(
+    runSeed({
+      databaseUrl,
+      environment: "test",
+      caFile: "/private/tmp/oak10-nonexistent-certificate.crt",
+      createClient: () => {
+        throw new Error("Must not connect");
+      },
+    }),
+    error => error.code === "ENOENT",
+  );
+});

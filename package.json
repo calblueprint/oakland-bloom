@@ -17,7 +17,7 @@
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
     "delete-setup": "node ./setup-scripts/delete-setup",
     "seed:reservations": "node scripts/seedReservations.mjs",
-    "verify:reservations": "node scripts/checkSeedReservations.mjs"
+    "test:reservations:live": "RUN_RESERVATION_LIVE_TESTS=1 node --test tests/getChefReservations.live.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

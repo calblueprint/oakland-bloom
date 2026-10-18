@@ -1,211 +1,177 @@
-# OAK-10 reservation query
+# OAK-10 reservations: seed, query, and tests
 
-`actions/supabase/queries/getChefReservations.ts` is a server-only data reader.
-Its `AuthenticatedUser` input is a trusted contract, not authentication. The project
-owner confirmed that its `id` is `users.userid`, also stored in `booking_event.user`.
-No Supabase Auth relationship is assumed.
+## Server function
 
-Future authentication code must verify the visitor on the server, resolve their
-application user ID, and pass `{ id: verifiedApplicationUserId }` to this function.
-Never construct that object from an unverified form field, URL, or browser request.
-The function rejects missing/blank IDs but cannot prove who owns a supplied ID.
-It is not a Server Action or an HTTP endpoint.
+`actions/supabase/queries/getChefReservations.ts` takes no arguments. It calls the
+existing `getCurrentUser()` to verify the signed-in user, then uses the cookie-aware
+`getSupabaseServerClient()` to read that user's `booking_event` rows. It returns
+only ID, amenity, start/end time, people count, and approval status. It includes all
+statuses/history and orders by start time then ID. Signed-out requests throw;
+successful empty queries return `[]`; database failures throw with the original
+cause. An owner-ID filter does not replace database row-level security (RLS).
 
-The flow is: trusted server caller → validate ID → query booking_event with owner
-filter → order by start_time and id → return six fields. All statuses and past
-reservations are included. A successful empty result returns `[]`; database errors
-throw an Error with the original database error in `cause`.
-
-The function reuses the existing publishable-key Supabase client. It does not add
-credentials, establish a login, or pass the supplied ID as a database token. Thus
-it does not make database policies recognize that identity. If policies require a
-session, session-aware database integration remains a dependency. Policies may
-reject the request or silently hide rows; an empty response alone cannot prove
-that no bookings exist. Do not weaken policies or introduce a service-role key.
-When authentication arrives, coordinate how a request-specific client carries its
-verified database authorization context rather than mutating a shared client's
-session across visitors.
-
-## Validation
-
-Run with Node 24.14 or later (the test harness uses Node's synchronous module hooks):
-
-```sh
-node --test tests/getChefReservations.test.mjs
-pnpm run tsc
-pnpm exec eslint actions/supabase/queries/getChefReservations.ts tests/getChefReservations.test.mjs
+```ts
+const reservations = await getChefReservations();
 ```
 
-Tests use the real Supabase query builder with intercepted HTTP responses. No real
-credentials, user records, or database calls are used. The harness replaces the
-Next.js server-only marker only for tests. Synthetic test IDs are not database IDs.
-Tests verify owner filters for two identities, the exact projection and ordering
-sent to the database, no status/date filters, returned data, empty results,
-missing identities, and database errors. They do not test Postgres sorting or RLS.
+The confirmed owner relationship is `users.userid = booking_event.user`, using the
+verified Auth user's ID. The server/client/middleware helpers accept the publishable
+key variable with the old anon-key variable as a fallback. No service-role key or
+access-policy changes were introduced.
 
-Pending: real session integration, populated/empty results against seeded data,
-and cross-user database-policy checks. Once auth exists, sign in as each test chef
-and attempt both owner reads and direct cross-owner reads with the same database
-credentials/context. Confirm that a known seeded row is visible to its owner and
-hidden from another chef. Review all applicable policies with Dhruva.
+`types/reservations.ts` defines a read-only projection of the known booking columns
+because the generated types from main currently include only `user_profiles`. It
+does not guess unread array element types or mutation defaults.
 
-## Development seed
+## Two focused test accounts
 
-**Current setup:** run the full `scripts/seedReservations.sql` file in Supabase SQL
-Editor. The project owner reports that this succeeded. This repeatable SQL workflow
-satisfies the sprint's seed SQL/script requirement.
+The active fixtures use the project owner's two existing confirmed Auth accounts:
 
-**Optional command runner:** `pnpm seed:reservations` is implemented and tested with
-a simulated database driver, but cannot be used against the project yet because the
-database password is unavailable. Keep it as an optional convenience. Once the team
-provides development database credentials through its private sharing process, set
-`SEED_DATABASE_URL` locally and validate the command twice against the development
-project. Do not reset the shared password merely to enable this command. Neither
-command execution against Supabase nor live rerun validation is claimed complete.
+| Account | Auth/application user ID               | Bookings |
+| ------- | -------------------------------------- | -------- |
+| Chef 1  | `ee90d30c-984c-41c9-8248-bd299ca51f6d` | 4        |
+| Chef 2  | `15fe2790-f751-4107-a789-38e3cf1485d6` | 1        |
 
-Run the seed from the repository root:
+- `auth.users`: keep both existing login accounts; the seed does not create or modify them.
+- `public.users`: the seed creates a matching synthetic profile for each login ID,
+  using its existing Auth email. Neither profile has admin privileges. Existing
+  edited/mismatched profiles are not overwritten.
+- `public.booking_event`: the seed creates the four cases below for Chef 1 and
+  one separate approved booking for Chef 2.
+- Keep any existing `user_profiles` row for this account; it is not legacy seed data.
+
+No login passwords are stored in seed SQL or test source. Local credentials remain
+in ignored `.env.local`. The current seed no longer creates standalone A/B/C users.
+
+| Case          | Booking ID                             | Dates         | People |
+| ------------- | -------------------------------------- | ------------- | ------ |
+| Pending       | `0a100000-0000-4000-a000-000000000001` | July 10, 2030 | 2      |
+| Approved      | `0a100000-0000-4000-a000-000000000002` | July 11, 2030 | 4      |
+| Denied        | `0a100000-0000-4000-a000-000000000003` | July 10, 2030 | 3      |
+| Past approved | `0a100000-0000-4000-a000-000000000004` | July 10, 2020 | 2      |
+
+Chef 2's separate approved booking is `0a100000-0000-4000-a000-000000000006`,
+July 12, 2030, with two people. Both users' expected records live in
+`tests/fixtures/reservationCases.mjs`.
+
+Pending and denied share a start time to exercise ID tie-breaking. Expected output
+order is **past (004), pending (001), denied (003), approved (002)**. Timestamps have
+explicit offsets/UTC; the fixture dates are fixed so they do not shift on reruns.
+The future dates will eventually become past. Expected rows are shared by unit and
+live tests in `tests/fixtures/reservationCases.mjs`.
+
+The simulated empty-result test needs no third database user. Real isolation tests
+use both populated owners, so a denied cross-owner request cannot pass merely
+because the requested data does not exist. Both directions are required for the
+live suite to pass.
+
+## Seed command
 
 ```sh
 pnpm seed:reservations
 ```
 
-One-time setup: in your development Supabase dashboard, open **Connect** and copy
-its PostgreSQL **direct connection** string or **session pooler** string (port 5432).
-Use session mode if your network does not support the direct connection's IPv6
-address. Do not use transaction-pooler mode (port 6543): this seed needs a stable
-connection for temporary tables and table locks. See the
-[Supabase connection guide](https://supabase.com/docs/guides/database/connecting-to-postgres).
-Use a database role already permitted to insert these development records.
+Set `SEED_DATABASE_URL` privately in `.env.local` to the development project's
+PostgreSQL direct or session-pooler connection on port 5432. It is not the HTTPS
+Data API URL or publishable key. Use a database role permitted to insert the test
+records. Do not run the seed on production; the runner rejects `NODE_ENV=production`
+but cannot identify production from an arbitrary URL.
 
-Add the connection string to the repository's `.env.local` (already ignored by Git):
+The runner executes `scripts/seedReservations.sql` on one TLS connection with
+certificate/hostname verification. Supabase database hosts use the official public
+CA in `scripts/certs/supabase-prod-ca-2021.crt`. Source/fingerprint are documented in
+`scripts/certs/README.md`. No OS trust settings are changed. Optionally override
+with `SEED_DATABASE_CA_FILE` (absolute or relative to repository root). The runner
+closes the connection on success or failure and never prints raw credentials.
 
-```dotenv
-SEED_DATABASE_URL=postgresql://DATABASE_USER:URL_ENCODED_PASSWORD@DATABASE_HOST:5432/postgres
-```
+The seed runs in a transaction with short-lived write locks. Fixed IDs and
+insert-if-missing behavior prevent duplicates; mismatched existing data aborts
+instead of being overwritten. Final assertions require two matching profiles and five bookings: four for
+Chef 1, one for Chef 2. It does not remove unrelated/legacy rows,
+alter policies, or recreate Auth accounts. The empty conflict array `'{}'` inherits
+its real type from the database column, without guessing uuid[] versus text[].
 
-Replace the placeholder parts with your database credentials; percent-encode special
-characters in the password. This is a database connection string, not the app's
-HTTPS URL or publishable key. Do not paste it into chat, commit it, or give it a
-`NEXT_PUBLIC_` prefix. Existing environment variables take precedence over the file.
-You can leave this value blank in `example.env`; that file contains no secrets.
+The revised command succeeded twice, preserving two profiles and counts 4/1.
+SQL Editor remains an alternative: run the entire SQL file, including transaction
+and checks, in the development project. Both configured test Auth accounts must exist.
 
-The runner loads `.env.local`, validates the configuration, opens one TLS connection
-with certificate verification, and executes the checked-in SQL file using Postgres.js
-simple-query mode. The SQL owns its transaction. Connection and query timeouts keep
-failed attempts from hanging indefinitely. The runner closes its connection on both
-success and failure, exits nonzero on failure, and avoids printing raw connection
-errors/credentials. `NODE_ENV=production` is rejected, but the runner cannot determine
-whether a URL points at production: choose the development project explicitly.
+## Tests
 
-This is a local development database operation, separate from the application's
-identity/session flow. It introduces no service-role key or access-policy changes.
-A database role's existing grants/RLS rules still apply; do not weaken policies if
-execution is denied. The runner never runs on app startup or automatically in CI.
-
-SQL Editor remains an alternative: run the entire `scripts/seedReservations.sql`
-file, including its transaction and checks. If a SQL client leaves an errored
-transaction open, run `rollback;` before trying again.
-
-The script adds three synthetic application users (not authentication accounts):
-
-| Chef | users.userid                           | Reservations                             |
-| ---- | -------------------------------------- | ---------------------------------------- |
-| A    | `0a100000-0000-4000-8000-000000000001` | pending, approved, denied, past approved |
-| B    | `0a100000-0000-4000-8000-000000000002` | separate approved reservation            |
-| C    | `0a100000-0000-4000-8000-000000000003` | none                                     |
-
-The final result should show counts **4, 1, 0**. Run the entire file again: counts
-must remain **4, 1, 0**. No unrelated users or bookings should change. The 2020
-reservation is past; the other dates are fixed in June 2030. They intentionally do
-not shift on reruns, so eventually the 2030 fixtures will also be past. Two of A's
-bookings share a start time, allowing validation of the ID tie-breaker.
-
-### Why reruns are safe
-
-- Fixed UUIDs identify the exact same users and bookings every time.
-- Existing identical fixtures are skipped, not inserted again or updated.
-- A fixed ID with different data causes an error instead of overwriting it.
-- A transaction makes the operation all-or-nothing. Constraint failures, collisions,
-  or unexpected fixture counts roll back all seed inserts.
-- Short-lived table locks prevent concurrent writes between checking and inserting.
-  This is a small development operation; do not run it on production.
-- No DELETE, UPDATE, policy changes, auth account creation, or service-role key.
-  All three synthetic users have `is_admin = false`.
-- Fixture emails use `example.invalid`; names and phone numbers are fictional.
-
-`has_conflicts` is a stored array, whereas `calendarConflicts` is a TypeScript
-function returning conflicting booking IDs. The seed uses PostgreSQL's empty array
-literal `'{}'` inserted into staging columns copied from the actual table. PostgreSQL
-therefore resolves the array type itself; no uuid[]/text[] guess is necessary.
-The fixture schedules have no overlaps with approved reservations for that amenity.
-
-The column schema and ownership mapping came from the project owner. Additional
-constraints are not yet inspected. The fixture amenity is `kitchen`: if an existing
-check constraint requires a different value, change the fixture to an accepted
-development amenity before the first successful run. If a foreign key requires
-additional user provisioning, the seed fails and rolls back; do not disable that
-constraint. No Supabase Auth relationship is assumed or created.
-
-### Read the seeded reservations
-
-In SQL Editor, inspect A's rows with the same projection/filter/order as the function:
-
-```sql
-select id, amenity, start_time, end_time, num_people, approval_status
-from public.booking_event
-where "user" = '0a100000-0000-4000-8000-000000000001'
-order by start_time asc, id asc;
-```
-
-Use B's or C's fixture UUID to check one row or no rows. These are administrative
-fixture checks, not proof of login or cross-user database isolation. Do not expose a
-browser route that accepts these IDs. A trusted server caller can pass these fixture
-identities to `getChefReservations` for development only; the current client may
-still need future session integration to satisfy database access policies.
-
-The project owner reports that the seed was successfully run in SQL Editor. The
-command runner has not been executed against the real project in this environment.
-Live rerun checks and authenticated cross-user policy checks remain pending.
-
-### Runner validation
+Using Node 24.14+:
 
 ```sh
-node --test tests/seedReservations.test.mjs
+node --test tests/getChefReservations.test.mjs tests/seedReservations.test.mjs
+pnpm run tsc
+pnpm run lint
 ```
 
-Runner tests simulate the database driver: they check configuration rejection,
-execution of the exact SQL file on one connection, verified TLS, and connection
-cleanup/error propagation. They do not contact Supabase or prove SQL repeatability.
-After setting the development connection string, run `pnpm seed:reservations` twice;
-both executions should finish with the same expected counts (4, 1, 0), checked by
-the SQL before committing. SQL/connection errors stop the command with a nonzero
-exit status rather than reporting success.
+Unit tests simulate auth helpers and HTTP responses. They cover the configured
+fixture identity, exact projection/ordering, all four cases, empty results,
+signed-out rejection, ignored caller IDs, and auth/database failures. Driver tests
+cover seed execution, connection cleanup, verified TLS, and CA overrides/errors.
+`tests/support/registerServerTypes.mjs` is test-only support for importing the
+server TypeScript module outside Next.js.
 
-## Read-only live function check
+For opt-in live testing, keep these values in ignored `.env.local`:
+
+- `RESERVATION_TEST_EMAIL`, `RESERVATION_TEST_PASSWORD`, `RESERVATION_TEST_USER_ID`.
+- `RESERVATION_TEST_USER2_EMAIL`, `RESERVATION_TEST_USER2_PASSWORD`, `RESERVATION_TEST_USER2_ID`.
+
+Only blank variable names appear in `example.env`. Then:
 
 ```sh
-pnpm verify:reservations
+# Terminal 1
+RESERVATION_LIVE_TEST_ENABLED=1 pnpm dev --hostname 127.0.0.1
+# Terminal 2
+pnpm test:reservations:live
 ```
 
-Requires Node 24.14+ and the existing `.env.local` Supabase API URL/publishable key,
-not a database password. The script calls `getChefReservations` with the fixed
-synthetic fixture identities, then checks the expected fields, values, statuses,
-chronological/ID order, and counts 4/1/0. No database records or policies change.
-A development-only module loader lets standalone Node import the TypeScript
-server-only function; application builds still enforce Next.js's server-only marker.
+The live test verifies both owners' stored profiles/fixtures through a separate
+read-only SQL connection, then signs in through the real Auth SDK with independent
+cookie jars. Each user's cookies are sent to the local opt-in development probe,
+which calls `getCurrentUser()` and `getChefReservations()` inside Next.js.
 
-The live attempt reached Supabase but returned **0 rows for Chef A (expected 4)**,
-so it failed before checking B or C. A zero-row response may mean RLS hides records,
-not that the table is empty. The current publishable-key client carries no verified
-login session. Populated reads and policy isolation remain pending the real auth
-helper and database authorization integration. Supplying a fixture ID is not login.
-See `docs/oak10-pr-notes.md` for the future auth wiring steps.
+For each chef the test verifies:
 
-## Auth helpers now available on main
+1. Actual login, verified Auth ID, and identity recovered by Next.js.
+2. Exact owned records, selected fields, and chronological/ID ordering.
+3. An unfiltered direct Data API query returns only owned booking IDs. This tests
+   database RLS without the server function's `.eq("user", ...)` filter.
+4. An explicit query for the other owner returns no rows.
+5. A query using the other owner's known booking IDs returns no rows.
+6. A URL-supplied other-owner ID cannot override the function's verified identity.
 
-Login PR #2 merged during PR preparation. Its `lib/supabase/getUser.ts` exports
-`getCurrentUser`, backed by `getSupabaseServerClient` from `lib/supabase/server.ts`.
-The reservation query is not yet wired to those helpers. Review the verified-user
-mapping and request-specific database session with the auth owner before replacing
-the current client. The development fixture ID input is not an authentication stub
-that should be exposed to browsers.
+The probe permits only the two locally configured test IDs and no caller-selected
+owner. It is disabled outside development and unless explicitly enabled. Responses
+are private/no-store. Tests send cookies only to loopback and end their sessions.
+No database records, accounts, or policies are modified by the live test itself.
+Ordinary tests skip this suite unless explicitly opted in. The login UI is not
+exercised; actual Auth SDK sign-in and cookie-backed query execution are exercised.
+
+## Latest live verification
+
+Both real test accounts successfully signed in. The actual cookie-backed server
+function returned exactly four reservations for Chef 1 and one for Chef 2.
+All 12 live checks passed with no skips. In both directions, unfiltered Data API
+reads returned only owned records, querying the other owner or their booking IDs
+returned [], and a URL-supplied owner could not override the signed-in identity.
+Signed-out access was rejected. These checks exercise the current database RLS
+policies as well as the server function; they do not test the login screen.
+All 15 simulated query/seed-runner tests also passed. Running the seed twice
+succeeded without duplicating fixtures. No authentication accounts or RLS policies
+were changed by this work.
+
+## Optional cleanup of replaced Chef 2
+
+The old Auth account is already absent, but its application records remain. They
+were deliberately preserved. In Supabase Table Editor, first delete only the
+public.booking_event row with ID `0a100000-0000-4000-a000-000000000005`
+and owner `b1b51252-74a7-41bf-8adc-f19661fe1e1b`. Then delete the
+public.users row whose userid is `b1b51252-74a7-41bf-8adc-f19661fe1e1b`.
+If other bookings have since been added for that old user, review them first.
+
+Keep the replacement user `15fe2790-f751-4107-a789-38e3cf1485d6`, its
+booking `0a100000-0000-4000-a000-000000000006`, and Chef 1's four records.
+Cleanup is optional for the tests; the current seed preserves the old records
+and will not recreate them after removal. Never delete profiles by email alone:
+the old and replacement application profiles share the same test email.

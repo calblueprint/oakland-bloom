@@ -1,10 +1,33 @@
+import "./support/registerServerTypes.mjs";
 import assert from "node:assert/strict";
+import { registerHooks } from "node:module";
 import { test } from "node:test";
-import "../scripts/registerServerTypes.mjs";
+import { createClient } from "@supabase/supabase-js";
+import { authState } from "./fixtures/reservationAuth.mjs";
+import {
+  expectedReservations,
+  reservationTestUserId,
+  secondExpectedReservations,
+  secondReservationTestUserId,
+} from "./fixtures/reservationCases.mjs";
 
-// Reserved example domain and simulated identities; no real database is contacted.
-process.env.NEXT_PUBLIC_SUPABASE_URL = "https://reservations.example.invalid";
-process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "test-publishable-key";
+// Simulate only verified identity/session helpers; exercise the real query builder.
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (
+      ["@/lib/supabase/getUser", "@/lib/supabase/server"].includes(specifier)
+    ) {
+      return {
+        url: new URL("./fixtures/reservationAuth.mjs", import.meta.url).href,
+        shortCircuit: true,
+      };
+    }
+    return nextResolve(specifier, context);
+  },
+});
+
+const { default: getChefReservations } =
+  await import("../actions/supabase/queries/getChefReservations.ts");
 let responseRows = [];
 let databaseError = false;
 const requests = [];
@@ -27,18 +50,21 @@ globalThis.fetch = async input => {
     },
   );
 };
-const { default: getChefReservations } =
-  await import("../actions/supabase/queries/getChefReservations.ts");
+authState.client = createClient(
+  "https://reservations.example.invalid",
+  "test-publishable-key",
+);
 
-await test("reservation query with simulated identities and HTTP responses", async t => {
+await test("reservation query using simulated verified sessions", async t => {
   t.after(() => {
     globalThis.fetch = originalFetch;
   });
   await t.test(
-    "filters each owner, selects only required fields, and orders consistently",
+    "filters by the auth helper's identity, selects only required fields, and orders consistently",
     async () => {
-      for (const id of ["simulated-chef-a", "simulated-chef-b"]) {
-        await getChefReservations({ id });
+      for (const id of [reservationTestUserId, secondReservationTestUserId]) {
+        authState.user = { id };
+        await getChefReservations();
         const url = requests.at(-1);
         assert.equal(url.pathname, "/rest/v1/booking_event");
         assert.equal(url.searchParams.get("user"), `eq.${id}`);
@@ -53,57 +79,82 @@ await test("reservation query with simulated identities and HTTP responses", asy
           "user",
         ]);
       }
+      assert.equal(authState.clientCalls, 2);
     },
   );
   await t.test(
-    "returns all statuses and past reservations without transforming fields",
+    "caller-supplied identity cannot replace the verified identity",
     async () => {
-      responseRows = ["pending", "approved", "denied"].map(
-        (approval_status, index) => ({
-          id: `simulated-booking-${index}`,
-          amenity: "synthetic-test-amenity",
-          start_time: "2020-01-01T10:00:00Z",
-          end_time: "2020-01-01T11:00:00Z",
-          num_people: 2,
-          approval_status,
-        }),
+      authState.user = { id: reservationTestUserId };
+      // JavaScript can pass extra arguments; the no-argument API ignores them.
+      await getChefReservations({ id: "another-chef" });
+      assert.equal(
+        requests.at(-1).searchParams.get("user"),
+        `eq.${reservationTestUserId}`,
       );
-      assert.deepEqual(
-        await getChefReservations({ id: "simulated-chef-a" }),
-        responseRows,
+    },
+  );
+  await t.test("returns all statuses and past reservations", async () => {
+    authState.user = { id: reservationTestUserId };
+    responseRows = expectedReservations;
+    assert.deepEqual(await getChefReservations(), responseRows);
+  });
+  await t.test(
+    "switching verified users requests only the second chef's fixtures",
+    async () => {
+      authState.user = { id: secondReservationTestUserId };
+      responseRows = secondExpectedReservations;
+      assert.deepEqual(await getChefReservations(), secondExpectedReservations);
+      assert.equal(
+        requests.at(-1).searchParams.get("user"),
+        `eq.${secondReservationTestUserId}`,
       );
     },
   );
   await t.test("returns [] for a successful empty response", async () => {
     responseRows = [];
-    assert.deepEqual(
-      await getChefReservations({ id: "simulated-empty-chef" }),
-      [],
-    );
+    assert.deepEqual(await getChefReservations(), []);
   });
-  await t.test("rejects missing identity before issuing a query", async () => {
-    const count = requests.length;
-    for (const user of [
-      undefined,
-      null,
-      {},
-      { id: "" },
-      { id: "  " },
-      { id: 42 },
-    ]) {
-      await assert.rejects(getChefReservations(user), /user ID is required/);
-    }
-    assert.equal(requests.length, count);
-  });
-  await t.test("surfaces database errors with the original cause", async () => {
+  await t.test(
+    "rejects absent or malformed signed-in identity before requesting a database client",
+    async () => {
+      const requestCount = requests.length;
+      const clientCount = authState.clientCalls;
+      for (const user of [
+        undefined,
+        null,
+        {},
+        { id: "" },
+        { id: "  " },
+        { id: 42 },
+      ]) {
+        authState.user = user;
+        await assert.rejects(getChefReservations(), /Sign in/);
+      }
+      assert.equal(requests.length, requestCount);
+      assert.equal(authState.clientCalls, clientCount);
+    },
+  );
+  await t.test(
+    "propagates auth-helper failures without querying bookings",
+    async () => {
+      const count = requests.length;
+      authState.error = new Error("Simulated auth failure");
+      await assert.rejects(
+        getChefReservations(),
+        error => error === authState.error,
+      );
+      assert.equal(requests.length, count);
+      authState.error = null;
+    },
+  );
+  await t.test("surfaces database errors with their cause", async () => {
+    authState.user = { id: reservationTestUserId };
     databaseError = true;
-    await assert.rejects(
-      getChefReservations({ id: "simulated-chef-a" }),
-      error => {
-        assert.match(error.message, /Unable to load/);
-        assert.equal(error.cause.code, "42501");
-        return true;
-      },
-    );
+    await assert.rejects(getChefReservations(), error => {
+      assert.match(error.message, /Unable to load/);
+      assert.equal(error.cause.code, "42501");
+      return true;
+    });
   });
 });

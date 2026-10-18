@@ -1,40 +1,25 @@
 import "server-only";
-import supabase from "../client";
+import type {
+  Reservation,
+  ReservationQueryDatabase,
+} from "@/types/reservations";
+import { getCurrentUser } from "@/lib/supabase/getUser";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
-/** A trusted server caller must verify identity before constructing this object. */
-export interface AuthenticatedUser {
-  /** Application users.userid, also stored in booking_event.user. */
-  id: string;
-}
-
-export interface Reservation {
-  id: string;
-  amenity: string;
-  start_time: string;
-  end_time: string;
-  num_people: number;
-  approval_status: string;
-}
-
-/**
- * Reads reservations for an already verified application identity.
- * This contract does not authenticate the caller or establish a database session.
- * Never pass an identity taken directly from browser input.
- */
-export default async function getChefReservations(
-  user: AuthenticatedUser,
-): Promise<Reservation[]> {
+/** Reads the signed-in chef's bookings using the current request's auth cookies. */
+export default async function getChefReservations(): Promise<Reservation[]> {
+  const user = await getCurrentUser();
   if (!user || typeof user.id !== "string" || !user.id.trim()) {
-    throw new Error("A verified application user ID is required.");
+    throw new Error("Sign in to view your reservations.");
   }
 
+  const supabase = await getSupabaseServerClient<ReservationQueryDatabase>();
   const { data, error } = await supabase
     .from("booking_event")
     .select("id, amenity, start_time, end_time, num_people, approval_status")
     .eq("user", user.id)
     .order("start_time", { ascending: true })
-    .order("id", { ascending: true })
-    .returns<Reservation[]>();
+    .order("id", { ascending: true });
 
   if (error) {
     throw new Error("Unable to load chef reservations.", { cause: error });

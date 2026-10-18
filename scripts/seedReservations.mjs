@@ -1,13 +1,20 @@
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { loadEnvFile } from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import postgres from "postgres";
 
 const seedFile = new URL("./seedReservations.sql", import.meta.url);
+const projectRoot = fileURLToPath(new URL("../", import.meta.url));
+const supabaseCaFile = new URL(
+  "./certs/supabase-prod-ca-2021.crt",
+  import.meta.url,
+);
 
 export async function runSeed({
   databaseUrl = process.env.SEED_DATABASE_URL,
   environment = process.env.NODE_ENV,
+  caFile = process.env.SEED_DATABASE_CA_FILE,
   createClient = postgres,
 } = {}) {
   if (environment === "production") {
@@ -42,9 +49,19 @@ export async function runSeed({
   }
 
   const source = readFileSync(seedFile, "utf8");
+  const isSupabaseHost =
+    url.hostname.endsWith(".pooler.supabase.com") ||
+    /^db\.[a-z0-9]+\.supabase\.co$/.test(url.hostname);
+  // This public CA is downloaded from the official Supabase dashboard's URL.
+  // It is trusted only for this connection, not installed into the OS trust store.
+  const ca = caFile
+    ? readFileSync(resolve(projectRoot, caFile), "utf8")
+    : isSupabaseHost
+      ? readFileSync(supabaseCaFile, "utf8")
+      : undefined;
   const client = createClient(databaseUrl, {
     max: 1,
-    ssl: { rejectUnauthorized: true },
+    ssl: { rejectUnauthorized: true, ...(ca ? { ca } : {}) },
     connect_timeout: 10,
     connection: { statement_timeout: 30000, lock_timeout: 5000 },
     onnotice: () => {},
@@ -66,7 +83,7 @@ export async function main() {
     if (existsSync(envFile)) loadEnvFile(fileURLToPath(envFile));
     await runSeed();
     console.log(
-      "Reservation seed complete: Chef A = 4, Chef B = 1, Chef C = 0. Identical fixtures were skipped.",
+      "Reservation seed complete: test user 1 = 4 reservations; test user 2 = 1 reservation. Identical fixtures were skipped.",
     );
   } catch (error) {
     // Raw driver errors may include credentials or connection details. Print only

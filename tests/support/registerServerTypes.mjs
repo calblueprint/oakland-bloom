@@ -10,12 +10,6 @@ registerHooks({
     if (specifier === "server-only") {
       return { url: "data:text/javascript,export {};", shortCircuit: true };
     }
-    if (
-      specifier === "../client" &&
-      context.parentURL?.endsWith("getChefReservations.ts")
-    ) {
-      return nextResolve("../client.ts", context);
-    }
     return nextResolve(specifier, context);
   },
   load(url, context, nextLoad) {
