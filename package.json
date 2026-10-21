@@ -16,7 +16,11 @@
     "pre-commit": "concurrently \"pnpm run tsc\" \"pnpm run lint\" \"pnpm run prettier\"",
     "setup:styled-components": "node ./setup-scripts/setup styled-components",
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
-    "delete-setup": "node ./setup-scripts/delete-setup"
+    "delete-setup": "node ./setup-scripts/delete-setup",
+    "seed:reservations": "node scripts/seedReservations.mjs",
+    "test:reservations:live": "node tests/getChefReservations.live.test.mjs --live",
+    "types:database": "node scripts/generateDatabaseTypes.mjs",
+    "test:seed:live": "node tests/seedReservations.live.test.mjs --live"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -38,6 +42,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "husky": "^9.1.7",
+    "postgres": "3.4.7",
     "prettier": "^3.9.8",
     "typescript": "^5.9.3"
   },
