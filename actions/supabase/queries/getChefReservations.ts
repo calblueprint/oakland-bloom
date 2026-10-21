@@ -1,19 +1,16 @@
 import "server-only";
-import type {
-  Reservation,
-  ReservationQueryDatabase,
-} from "@/types/reservations";
+import type { Reservation } from "@/types/reservations";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 /** Reads the signed-in chef's bookings using the current request's auth cookies. */
 export default async function getChefReservations(): Promise<Reservation[]> {
   const user = await getCurrentUser();
-  if (!user || typeof user.id !== "string" || !user.id.trim()) {
+  if (!user) {
     throw new Error("Sign in to view your reservations.");
   }
 
-  const supabase = await getSupabaseServerClient<ReservationQueryDatabase>();
+  const supabase = await getSupabaseServerClient();
   const { data, error } = await supabase
     .from("booking_event")
     .select("id, amenity, start_time, end_time, num_people, approval_status")

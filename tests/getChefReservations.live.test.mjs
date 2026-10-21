@@ -8,9 +8,7 @@ import { createServerClient } from "@supabase/ssr";
 import postgres from "postgres";
 import {
   expectedReservations,
-  reservationTestUserId,
   secondExpectedReservations,
-  secondReservationTestUserId,
 } from "./fixtures/reservationCases.mjs";
 
 const envFile = new URL("../.env.local", import.meta.url);
@@ -30,7 +28,7 @@ function normalize(row) {
 await test(
   "real two-chef reservation isolation",
   {
-    skip: process.env.RUN_RESERVATION_LIVE_TESTS !== "1",
+    skip: !process.argv.includes("--live"),
     timeout: 90000,
   },
   async t => {
@@ -46,7 +44,6 @@ await test(
       {
         label: "Chef 1",
         id: process.env.RESERVATION_TEST_USER_ID,
-        fixtureId: reservationTestUserId,
         email: process.env.RESERVATION_TEST_EMAIL,
         password: process.env.RESERVATION_TEST_PASSWORD,
         expected: expectedReservations,
@@ -54,7 +51,6 @@ await test(
       {
         label: "Chef 2",
         id: process.env.RESERVATION_TEST_USER2_ID,
-        fixtureId: secondReservationTestUserId,
         email: process.env.RESERVATION_TEST_USER2_EMAIL,
         password: process.env.RESERVATION_TEST_USER2_PASSWORD,
         expected: secondExpectedReservations,
@@ -64,11 +60,6 @@ await test(
       assert.ok(
         account.id && account.email && account.password,
         `Configure ${account.label}'s login in .env.local.`,
-      );
-      assert.equal(
-        account.id,
-        account.fixtureId,
-        "Use the same test IDs as the checked-in seed fixtures.",
       );
       assert.ok(
         account.expected.length > 0,
@@ -120,8 +111,10 @@ await test(
         profiles[0].present,
         "Run the seed to create both application profiles.",
       );
+      account.stored = stored.map(normalize);
+      const fixtureIds = new Set(account.expected.map(row => row.id));
       assert.deepEqual(
-        stored.map(normalize),
+        account.stored.filter(row => fixtureIds.has(row.id)),
         account.expected,
         "Run the seed: both owners' exact fixtures must exist.",
       );
@@ -191,7 +184,7 @@ await test(
           assert.equal(result.authenticatedUserId, account.id);
           assert.deepEqual(
             result.reservations.map(normalize),
-            account.expected,
+            account.stored,
             "The function did not return exactly this chef's own fixtures in order.",
           );
           for (const row of result.reservations) {
@@ -215,7 +208,7 @@ await test(
               assert.ok(!error, "The unfiltered authenticated read failed.");
               assert.deepEqual(
                 data.map(row => row.id),
-                account.expected.map(row => row.id).sort(),
+                account.stored.map(row => row.id).sort(),
               );
             },
           );
@@ -261,7 +254,7 @@ await test(
               assert.equal(spoofedResult.authenticatedUserId, account.id);
               assert.deepEqual(
                 spoofedResult.reservations.map(normalize),
-                account.expected,
+                account.stored,
               );
             },
           );

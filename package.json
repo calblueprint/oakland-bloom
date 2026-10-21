@@ -17,7 +17,10 @@
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
     "delete-setup": "node ./setup-scripts/delete-setup",
     "seed:reservations": "node scripts/seedReservations.mjs",
-    "test:reservations:live": "RUN_RESERVATION_LIVE_TESTS=1 node --test tests/getChefReservations.live.test.mjs"
+    "test:reservations:live": "node tests/getChefReservations.live.test.mjs --live",
+    "test": "node --test tests/*.test.mjs",
+    "types:database": "node scripts/generateDatabaseTypes.mjs",
+    "test:seed:live": "node tests/seedReservations.live.test.mjs --live"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

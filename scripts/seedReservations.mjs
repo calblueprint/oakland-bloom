@@ -14,6 +14,9 @@ const supabaseCaFile = new URL(
 export async function runSeed({
   databaseUrl = process.env.SEED_DATABASE_URL,
   environment = process.env.NODE_ENV,
+  target = process.env.SEED_TARGET,
+  user1 = process.env.RESERVATION_TEST_USER_ID,
+  user2 = process.env.RESERVATION_TEST_USER2_ID,
   caFile = process.env.SEED_DATABASE_CA_FILE,
   createClient = postgres,
 } = {}) {
@@ -48,6 +51,23 @@ export async function runSeed({
     );
   }
 
+  if (target !== "development") {
+    throw new Error(
+      "Set SEED_TARGET=development to confirm the seed database is for development.",
+    );
+  }
+  const uuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (
+    !uuid.test(user1 ?? "") ||
+    !uuid.test(user2 ?? "") ||
+    user1.toLowerCase() === user2.toLowerCase()
+  ) {
+    throw new Error(
+      "Set RESERVATION_TEST_USER_ID and RESERVATION_TEST_USER2_ID to two distinct Auth user UUIDs.",
+    );
+  }
+
   const source = readFileSync(seedFile, "utf8");
   const isSupabaseHost =
     url.hostname.endsWith(".pooler.supabase.com") ||
@@ -67,10 +87,11 @@ export async function runSeed({
     onnotice: () => {},
   });
   try {
-    // This checked-in file is trusted SQL, never browser or command-line input.
-    // Simple-query mode executes the whole file on one connection, preserving its
-    // BEGIN/COMMIT, staging tables, collision checks, and all-or-nothing behavior.
-    await client.unsafe(source).simple();
+    await client.begin(async transaction => {
+      await transaction`select set_config('oak10.user1', ${user1}, true), set_config('oak10.user2', ${user2}, true)`;
+      // Only the checked-in SQL is executed as source; user IDs are parameters.
+      await transaction.unsafe(source).simple();
+    });
   } finally {
     // Also closes an aborted transaction after a database error.
     await client.end({ timeout: 5 });
@@ -90,7 +111,7 @@ export async function main() {
     // known local configuration messages or a short error code, never the URL.
     if (
       error instanceof Error &&
-      /^(Set SEED_DATABASE_URL|SEED_DATABASE_URL must|Use the direct|Run reservation seeding)/.test(
+      /^(Set SEED_|Set RESERVATION_TEST_|SEED_DATABASE_URL must|Use the direct|Run reservation seeding)/.test(
         error.message,
       )
     ) {

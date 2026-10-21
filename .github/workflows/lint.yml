@@ -16,7 +16,7 @@ on:
 jobs:
   build:
     # Name the Job
-    name: Run ESLint, Prettier, and TypeScript compiler
+    name: Run tests, ESLint, Prettier, and TypeScript compiler
     # Set the agent to run on
     runs-on: ubuntu-latest
 
@@ -46,7 +46,7 @@ jobs:
       - name: Setup node
         uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: 'pnpm'
       
       - name: Install dependencies
@@ -69,3 +69,6 @@ jobs:
       ################################
       - name: Run TypeScript compiler (tsc)
         run: pnpm run tsc
+
+      - name: Run unit tests
+        run: pnpm test

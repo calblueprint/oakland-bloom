@@ -1,6 +1,6 @@
 -- OAK-10 DEVELOPMENT ONLY: two application profiles for the existing test Auth users.
 -- Never creates Auth accounts, stores passwords, changes RLS, or deletes old data.
-begin;
+-- The runner owns the transaction and supplies transaction-local user settings.
 lock table public.users, public.booking_event in share row exclusive mode;
 
 create temporary table oak10_seed_users on commit drop as
@@ -16,12 +16,12 @@ from public.booking_event with no data;
 insert into oak10_seed_users (userid, email, name, is_admin, is_approved, phone)
 select id, email, 'OAK-10 Backend Test User', false, true, '+12025550104'
 from auth.users
-where id = 'ee90d30c-984c-41c9-8248-bd299ca51f6d';
+where id = current_setting('oak10.user1')::uuid;
 
 insert into oak10_seed_users (userid, email, name, is_admin, is_approved, phone)
 select id, email, 'OAK-10 Backend Test User 2', false, true, '+12025550106'
 from auth.users
-where id = '15fe2790-f751-4107-a789-38e3cf1485d6';
+where id = current_setting('oak10.user2')::uuid;
 
 do $$
 begin
@@ -39,19 +39,19 @@ insert into oak10_seed_bookings
      has_conflicts, approval_status)
 values
     ('0a100000-0000-4000-a000-000000000001', 'kitchen',
-     'ee90d30c-984c-41c9-8248-bd299ca51f6d',
+     current_setting('oak10.user1')::uuid,
      '2030-07-10T09:00:00-07:00', '2030-07-10T10:00:00-07:00', 2, '{}', 'pending'),
     ('0a100000-0000-4000-a000-000000000002', 'kitchen',
-     'ee90d30c-984c-41c9-8248-bd299ca51f6d',
+     current_setting('oak10.user1')::uuid,
      '2030-07-11T09:00:00-07:00', '2030-07-11T11:00:00-07:00', 4, '{}', 'approved'),
     ('0a100000-0000-4000-a000-000000000003', 'kitchen',
-     'ee90d30c-984c-41c9-8248-bd299ca51f6d',
+     current_setting('oak10.user1')::uuid,
      '2030-07-10T09:00:00-07:00', '2030-07-10T10:00:00-07:00', 3, '{}', 'denied'),
     ('0a100000-0000-4000-a000-000000000004', 'kitchen',
-     'ee90d30c-984c-41c9-8248-bd299ca51f6d',
+     current_setting('oak10.user1')::uuid,
      '2020-07-10T16:00:00Z', '2020-07-10T17:00:00Z', 2, '{}', 'approved'),
     ('0a100000-0000-4000-a000-000000000006', 'kitchen',
-     '15fe2790-f751-4107-a789-38e3cf1485d6',
+     current_setting('oak10.user2')::uuid,
      '2030-07-13T09:00:00-07:00', '2030-07-13T10:00:00-07:00', 2, '{}', 'approved');
 
 -- Fixed IDs are safe to rerun only if their existing data is unchanged.
@@ -108,10 +108,6 @@ begin
         where userid in (select userid from oak10_seed_users)) <> 2
        or (select count(*) from public.booking_event
            where id in (select id from oak10_seed_bookings)) <> 5
-       or (select count(*) from public.booking_event
-           where "user" = 'ee90d30c-984c-41c9-8248-bd299ca51f6d') <> 4
-       or (select count(*) from public.booking_event
-           where "user" = '15fe2790-f751-4107-a789-38e3cf1485d6') <> 1
     then
         raise exception 'OAK-10 fixture counts do not match; transaction rolled back.';
     end if;
@@ -120,5 +116,5 @@ end $$;
 select fixture.userid, count(booking.id) as reservation_count
 from oak10_seed_users fixture
 left join public.booking_event booking on booking."user" = fixture.userid
+    and booking.id in (select id from oak10_seed_bookings)
 group by fixture.userid;
-commit;

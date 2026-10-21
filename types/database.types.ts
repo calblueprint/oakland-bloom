@@ -7,28 +7,160 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
   public: {
     Tables: {
-      user_profiles: {
+      booking_event: {
         Row: {
-          first_name: string | null;
-          last_name: string | null;
-          user_id: string;
+          amenity: string;
+          approval_status: string;
+          end_time: string;
+          has_conflicts: string[];
+          id: string;
+          num_people: number;
+          start_time: string;
+          user: string;
         };
+        ComputedFields: never;
         Insert: {
-          first_name?: string | null;
-          last_name?: string | null;
-          user_id?: string;
+          amenity: string;
+          approval_status: string;
+          end_time: string;
+          has_conflicts: string[];
+          id: string;
+          num_people: number;
+          start_time: string;
+          user: string;
         };
         Update: {
-          first_name?: string | null;
-          last_name?: string | null;
-          user_id?: string;
+          amenity?: string;
+          approval_status?: string;
+          end_time?: string;
+          has_conflicts?: string[];
+          id?: string;
+          num_people?: number;
+          start_time?: string;
+          user?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "booking_event_user_fkey";
+            columns: ["user"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
+      };
+      past_items: {
+        Row: {
+          chef_id: string;
+          meal_id: string;
+          name: string;
+          price: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          chef_id: string;
+          meal_id: string;
+          name: string;
+          price: number;
+        };
+        Update: {
+          chef_id?: string;
+          meal_id?: string;
+          name?: string;
+          price?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "past_items_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "whatsapp_user";
+            referencedColumns: ["chef_id"];
+          },
+        ];
+      };
+      users: {
+        Row: {
+          email: string;
+          is_admin: boolean;
+          is_approved: boolean;
+          name: string;
+          phone: string;
+          userid: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          email: string;
+          is_admin: boolean;
+          is_approved: boolean;
+          name: string;
+          phone: string;
+          userid: string;
+        };
+        Update: {
+          email?: string;
+          is_admin?: boolean;
+          is_approved?: boolean;
+          name?: string;
+          phone?: string;
+          userid?: string;
+        };
+        Relationships: [];
+      };
+      whatsapp_catering: {
+        Row: {
+          catering_id: string;
+          chef: string;
+          day_created: string;
+          is_accepted: boolean;
+          meal_name: string;
+          num_people: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          catering_id: string;
+          chef: string;
+          day_created: string;
+          is_accepted: boolean;
+          meal_name: string;
+          num_people: number;
+        };
+        Update: {
+          catering_id?: string;
+          chef?: string;
+          day_created?: string;
+          is_accepted?: boolean;
+          meal_name?: string;
+          num_people?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_catering_chef_fkey";
+            columns: ["chef"];
+            isOneToOne: false;
+            referencedRelation: "whatsapp_user";
+            referencedColumns: ["chef_id"];
+          },
+        ];
+      };
+      whatsapp_user: {
+        Row: {
+          chef_id: string;
+          name: string;
+          phone: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chef_id: string;
+          name: string;
+          phone: string;
+        };
+        Update: {
+          chef_id?: string;
+          name?: string;
+          phone?: string;
         };
         Relationships: [];
       };
@@ -37,7 +169,7 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      email_exists: { Args: { p_email: string }; Returns: boolean };
     };
     Enums: {
       [_ in never]: never;
