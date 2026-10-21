@@ -1,22 +1,17 @@
 import { redirect } from "next/navigation";
-import { getSupabaseServerClient } from "@/lib/supabase";
+import { getCurrentUser } from "@/lib/supabase/getUser";
 
-export default async function MainLayout({
+export default async function AuthLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = await getSupabaseServerClient();
-
-  // note: we use getUser() instead of getSession() because
-  // this sends a request to the Auth server to revalidate auth token,
-  // preventing potential spoofing of cookies
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // cached per request, so this reuses the root layout's getUser() call
+  // instead of making a second round trip to the Auth server
+  const user = await getCurrentUser();
 
   // redirect already logged-in users to main page
-  if (user) return redirect("/");
+  if (user) redirect("/");
 
-  return <div className="flex size-full flex-col items-center">{children}</div>;
+  return children;
 }
