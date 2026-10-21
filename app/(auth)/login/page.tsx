@@ -1,44 +1,37 @@
 "use client";
 
 import { ComponentProps, useState } from "react";
-import { Instrument_Sans } from "next/font/google";
-import Image from "next/image";
 import { unstable_rethrow } from "next/navigation";
-import { loginWithEmailPassword } from "@/actions/auth";
-import glow from "@/assets/images/bg-glow.png";
-import eyeIcon from "@/assets/images/eye.svg";
-import logo from "@/assets/images/oakland-bloom-logo.png";
-import styles from "./login.module.css";
+import { continueWithEmail } from "@/actions/auth";
+import styles from "../auth.module.css";
+import AuthShell from "../AuthShell";
+import { TextField } from "../fields";
 
-// Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1070
-const instrumentSans = Instrument_Sans({
-  subsets: ["latin"],
-  weight: ["500"],
-});
+// Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1460
+const INVALID_EMAIL_ERROR = "Enter a valid email address.";
 
-export default function LoginPage() {
+export default function StartPage() {
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   // runs when the form is submitted
-  const handleSignIn: ComponentProps<"form">["onSubmit"] = async e => {
+  const handleContinue: ComponentProps<"form">["onSubmit"] = async e => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
 
     try {
-      // template sign-in method, redirects to "/" by itself on success
-      const result = await loginWithEmailPassword({ email, password });
+      // checks if the email has an account, then redirects to sign in or sign up
+      const result = await continueWithEmail(email);
 
       if (result?.error) {
-        if (result.error.code === "invalid_credentials") {
-          setError("Email or password is incorrect.");
-        } else {
-          setError("Something went wrong. Please try again.");
-        }
+        setError(
+          result.error.code === "invalid_email"
+            ? INVALID_EMAIL_ERROR
+            : "Something went wrong. Please try again.",
+        );
+        setIsLoading(false);
       }
     } catch (err) {
       // let Next's redirect through instead of treating it as an error
@@ -46,95 +39,37 @@ export default function LoginPage() {
       setError(
         "Could not reach the server. Check your connection and try again.",
       );
-    } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <main className={`${styles.page} ${instrumentSans.className}`}>
-      <div className={styles.glow}>
-        <Image
-          src={glow}
-          alt=""
-          fill
-          sizes="100vw"
-          className={styles.glowImage}
+    <AuthShell heading="Sign In or Create Your Account">
+      <form onSubmit={handleContinue} className={styles.form}>
+        <TextField
+          id="email"
+          label="Email"
+          type="email"
+          autoComplete="username"
+          placeholder="Email Address"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          disabled={isLoading}
+          aria-invalid={error === INVALID_EMAIL_ERROR}
+          autoFocus
+          required
         />
-      </div>
 
-      <div className={styles.card}>
-        <div className={styles.content}>
-          <div className={styles.header}>
-            <Image
-              src={logo}
-              alt="Oakland Bloom"
-              className={styles.logo}
-              priority
-            />
-            <h1 className={styles.heading}>Welcome Back</h1>
-          </div>
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
 
-          <form onSubmit={handleSignIn} className={styles.form}>
-            <label htmlFor="email" className={styles.srOnly}>
-              Email
-            </label>
-            <div className={styles.field}>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                placeholder="Email"
-                className={styles.input}
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-            </div>
-
-            <label htmlFor="password" className={styles.srOnly}>
-              Password
-            </label>
-            <div className={styles.field}>
-              <input
-                id="password"
-                type={showPassword ? "text" : "password"}
-                autoComplete="current-password"
-                placeholder="Enter password"
-                className={styles.input}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                disabled={isLoading}
-                required
-              />
-              <button
-                type="button"
-                className={styles.toggle}
-                onClick={() => setShowPassword(s => !s)}
-                aria-label={showPassword ? "Hide password" : "Show password"}
-                aria-pressed={showPassword}
-              >
-                <Image src={eyeIcon} alt="" />
-              </button>
-            </div>
-
-            {error && (
-              <p className={styles.error} role="alert">
-                {error}
-              </p>
-            )}
-
-            <button
-              type="submit"
-              className={styles.button}
-              disabled={isLoading}
-            >
-              {isLoading ? "Signing in..." : "Continue"}
-            </button>
-          </form>
-        </div>
-      </div>
-    </main>
+        <button type="submit" className={styles.button} disabled={isLoading}>
+          Continue
+        </button>
+      </form>
+    </AuthShell>
   );
 }
