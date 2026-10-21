@@ -1,0 +1,28 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15555550100",
+              "phone_number_id": "106540352242922"
+            },
+            "messages": [
+              {
+                "from": "15555550123",
+                "timestamp": "1760000200",
+                "type": "text",
+                "text": { "body": "OB12 yes" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}
