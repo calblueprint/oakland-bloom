@@ -29,7 +29,9 @@ export default function StartPage() {
         setError(
           result.error.code === "invalid_email"
             ? INVALID_EMAIL_ERROR
-            : "Something went wrong. Please try again.",
+            : result.error.code === "rate_limited"
+              ? "Too many attempts. Try again in a few minutes."
+              : "Something went wrong. Please try again.",
         );
         setIsLoading(false);
       }

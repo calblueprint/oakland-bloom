@@ -119,3 +119,22 @@ pnpm dev
 ```
 
 Then, navigate to http://localhost:3000 to launch the web application.
+
+## Auth setup
+
+1. Copy `.env.example` to `.env.local` and fill in the values from Supabase
+   (Project Settings > API Keys). `SUPABASE_SERVICE_ROLE_KEY` is the secret
+   key, is server only, and must never be prefixed with `NEXT_PUBLIC_`.
+2. Install dependencies with `pnpm install`.
+3. Apply database migrations.
+   - Shared dev project: `pnpm supabase link --project-ref <ref>` then `pnpm supabase db push`
+   - Local Supabase: `pnpm supabase start` then `pnpm supabase db reset`
+4. Run `pnpm dev`.
+
+### Email lookup
+
+The Start screen calls the `continueWithEmail` server action, which calls the
+`email_exists` Postgres function using the secret key. The function can't be
+called with the publishable key. Lookups are limited to 10 per client per
+10 minutes. To reset the limit during development, run
+`delete from private.email_lookup_attempts;` in the SQL Editor.

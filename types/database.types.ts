@@ -38,7 +38,7 @@ export type Database = {
     };
     Functions: {
       email_exists: {
-        Args: { p_email: string };
+        Args: { p_email: string; p_client_key: string };
         Returns: boolean;
       };
     };
