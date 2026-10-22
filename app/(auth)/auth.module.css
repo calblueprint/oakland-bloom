@@ -151,6 +151,22 @@
   height: 0.9375rem;
 }
 
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* per-field message under a box; indented to line up with the input text */
+.fieldError {
+  margin: 0;
+  padding-left: 1rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.125rem;
+  color: #f35c57;
+}
+
 .error {
   font-size: 0.9375rem;
   font-weight: 500;

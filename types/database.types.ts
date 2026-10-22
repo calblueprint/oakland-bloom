@@ -10,25 +10,217 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5";
+    PostgrestVersion: "14.17";
+  };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
   };
   public: {
     Tables: {
-      user_profiles: {
+      booking_event: {
         Row: {
-          first_name: string | null;
-          last_name: string | null;
-          user_id: string;
+          amenity: string;
+          approval_status: string;
+          end_time: string;
+          has_conflicts: string[];
+          id: string;
+          num_people: number;
+          start_time: string;
+          user: string;
         };
         Insert: {
-          first_name?: string | null;
-          last_name?: string | null;
-          user_id?: string;
+          amenity: string;
+          approval_status: string;
+          end_time: string;
+          has_conflicts: string[];
+          id: string;
+          num_people: number;
+          start_time: string;
+          user: string;
         };
         Update: {
-          first_name?: string | null;
-          last_name?: string | null;
-          user_id?: string;
+          amenity?: string;
+          approval_status?: string;
+          end_time?: string;
+          has_conflicts?: string[];
+          id?: string;
+          num_people?: number;
+          start_time?: string;
+          user?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "booking_event_user_fkey";
+            columns: ["user"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
+      };
+      past_items: {
+        Row: {
+          chef_id: string;
+          meal_id: string;
+          name: string;
+          price: number;
+        };
+        Insert: {
+          chef_id: string;
+          meal_id: string;
+          name: string;
+          price: number;
+        };
+        Update: {
+          chef_id?: string;
+          meal_id?: string;
+          name?: string;
+          price?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "past_items_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "whatsapp_user";
+            referencedColumns: ["chef_id"];
+          },
+        ];
+      };
+      restaurants: {
+        Row: {
+          address: string | null;
+          created_at: string;
+          cuisine: string | null;
+          id: string;
+          name: string | null;
+          userid: string;
+        };
+        Insert: {
+          address?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          id?: string;
+          name?: string | null;
+          userid: string;
+        };
+        Update: {
+          address?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          id?: string;
+          name?: string | null;
+          userid?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "restaurants_userid_fkey";
+            columns: ["userid"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
+      };
+      users: {
+        Row: {
+          email: string;
+          is_admin: boolean;
+          is_approved: boolean;
+          name: string;
+          phone: string;
+          userid: string;
+        };
+        Insert: {
+          email: string;
+          is_admin?: boolean;
+          is_approved?: boolean;
+          name: string;
+          phone: string;
+          userid: string;
+        };
+        Update: {
+          email?: string;
+          is_admin?: boolean;
+          is_approved?: boolean;
+          name?: string;
+          phone?: string;
+          userid?: string;
+        };
+        Relationships: [];
+      };
+      whatsapp_catering: {
+        Row: {
+          catering_id: string;
+          chef: string;
+          day_created: string;
+          is_accepted: boolean;
+          meal_name: string;
+          num_people: number;
+        };
+        Insert: {
+          catering_id: string;
+          chef: string;
+          day_created: string;
+          is_accepted: boolean;
+          meal_name: string;
+          num_people: number;
+        };
+        Update: {
+          catering_id?: string;
+          chef?: string;
+          day_created?: string;
+          is_accepted?: boolean;
+          meal_name?: string;
+          num_people?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_catering_chef_fkey";
+            columns: ["chef"];
+            isOneToOne: false;
+            referencedRelation: "whatsapp_user";
+            referencedColumns: ["chef_id"];
+          },
+        ];
+      };
+      whatsapp_user: {
+        Row: {
+          chef_id: string;
+          name: string;
+          phone: string;
+        };
+        Insert: {
+          chef_id: string;
+          name: string;
+          phone: string;
+        };
+        Update: {
+          chef_id?: string;
+          name?: string;
+          phone?: string;
         };
         Relationships: [];
       };
@@ -38,7 +230,7 @@ export type Database = {
     };
     Functions: {
       email_exists: {
-        Args: { p_email: string; p_client_key: string };
+        Args: { p_client_key: string; p_email: string };
         Returns: boolean;
       };
     };
@@ -169,6 +361,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

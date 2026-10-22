@@ -11,16 +11,36 @@ type FieldProps = Omit<ComponentProps<"input">, "className"> & {
   label: string;
 };
 
-export function TextField({ id, label, ...inputProps }: FieldProps) {
+export function TextField({
+  id,
+  label,
+  error,
+  ...inputProps
+}: FieldProps & {
+  // shown under the box, which turns red. tied to the input for screen readers
+  error?: string;
+}) {
+  const errorId = `${id}-error`;
   return (
-    <>
+    <div className={styles.fieldGroup}>
       <label htmlFor={id} className={styles.srOnly}>
         {label}
       </label>
       <div className={styles.field}>
-        <input id={id} className={styles.input} {...inputProps} />
+        <input
+          id={id}
+          className={styles.input}
+          {...inputProps}
+          aria-invalid={error ? true : inputProps["aria-invalid"]}
+          aria-describedby={error ? errorId : inputProps["aria-describedby"]}
+        />
       </div>
-    </>
+      {error && (
+        <p id={errorId} className={styles.fieldError}>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { parseEmailParam } from "@/lib/auth/validation";
-import SignupForm from "./SignupForm";
+import AccountForm from "../AccountForm";
 
 export default async function SignupPage({
   searchParams,
@@ -12,5 +12,5 @@ export default async function SignupPage({
   // no usable email means they skipped the first screen, so send them back
   if (!email) redirect("/login");
 
-  return <SignupForm email={email} />;
+  return <AccountForm mode="signup" email={email} />;
 }

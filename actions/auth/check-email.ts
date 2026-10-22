@@ -1,8 +1,8 @@
 "use server";
 
-import { createHash } from "crypto";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { createHash } from "crypto";
 import { isValidEmail, normalizeEmail } from "@/lib/auth/validation";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import Logger from "../logging";
