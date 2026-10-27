@@ -20,15 +20,37 @@ const FIXTURES = join(
   "whatsapp",
 );
 
-/** Meta fixtures are JSON; Twilio fixtures are raw form-encoded text. */
+/**
+ * Meta fixtures are JSON; Twilio fixtures are raw form-encoded text. Twilio
+ * sends one message per request and throws on a bad one, so it never has
+ * per-message rejections.
+ */
 function parseFixture(name, contents) {
   if (name.startsWith("meta-")) return parseMetaPayload(JSON.parse(contents));
-  if (name.startsWith("twilio-")) return parseTwilioPayload(contents.trim());
+  if (name.startsWith("twilio-")) {
+    return { messages: parseTwilioPayload(contents.trim()), rejected: [] };
+  }
   throw new Error(`Fixture ${name} must start with "meta-" or "twilio-".`);
 }
 
+/** Classifies a parsed batch so it can be compared to the declared outcome. */
+function outcomeOf({ messages, rejected }) {
+  if (messages.length > 0) return rejected.length > 0 ? "partial" : "message";
+  return rejected.length > 0 ? "rejection" : "empty";
+}
+
+const OUTCOME_DESCRIPTIONS = {
+  rejection: "validation rejection",
+  message: "an inbound message",
+  empty: "no inbound messages",
+  partial: "accepted and rejected messages",
+};
+
 const EXPECTED_OUTCOMES = new Map([
+  ["meta-button-reply.json", "message"],
+  ["meta-interactive-reply.json", "message"],
   ["meta-malformed.json", "rejection"],
+  ["meta-partial-batch.json", "partial"],
   ["meta-status-callback.json", "empty"],
   ["meta-unrecognized-response.json", "message"],
   ["meta-valid-response.json", "message"],
@@ -58,36 +80,32 @@ for (const name of files) {
       throw new Error("Fixture has no declared expected outcome.");
     }
     const contents = readFileSync(join(FIXTURES, name), "utf8");
-    const messages = parseFixture(name, contents);
+    const batch = parseFixture(name, contents);
+    const actual = outcomeOf(batch);
 
-    if (expected === "rejection") {
+    if (actual !== expected) {
       throw new Error(
-        "Expected validation rejection, but fixture was accepted.",
-      );
-    }
-    if (expected === "message" && messages.length === 0) {
-      throw new Error(
-        "Expected an inbound message, but fixture produced none.",
-      );
-    }
-    if (expected === "empty" && messages.length !== 0) {
-      throw new Error(
-        "Expected no inbound messages, but fixture produced a message.",
+        `Expected ${OUTCOME_DESCRIPTIONS[expected]}, but fixture produced ${OUTCOME_DESCRIPTIONS[actual]}.`,
       );
     }
 
-    if (messages.length === 0) {
+    if (actual === "empty") {
       process.stdout.write(
         "  no inbound messages (status callback or empty batch)\n",
       );
-      continue;
     }
 
-    for (const message of messages) {
+    for (const message of batch.messages) {
       process.stdout.write(
         `  ok  ${message.provider}  ${message.providerMessageId}\n` +
           `      from: ${message.from}\n` +
           `      text: ${JSON.stringify(message.text)}\n`,
+      );
+    }
+    for (const { providerMessageId, reason } of batch.rejected) {
+      rejections += 1;
+      process.stdout.write(
+        `  rejected (meta) ${providerMessageId ?? "<no id>"}: ${reason}\n`,
       );
     }
   } catch (error) {
@@ -106,6 +124,6 @@ for (const name of files) {
 process.stdout.write(
   `\n${files.length} fixtures processed, ${rejections} rejected by validation.\n` +
     `${unexpectedFailures} unexpected failures.\n` +
-    "Rejections are expected for the *-malformed fixtures.\n",
+    "Rejections are expected for the *-malformed and *-partial-batch fixtures.\n",
 );
 process.exitCode = unexpectedFailures > 0 ? 1 : 0;

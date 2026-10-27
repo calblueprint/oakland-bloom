@@ -23,6 +23,22 @@ export interface InboundMessage {
 
 export type Provider = "meta" | "twilio";
 
+/** A single message dropped from a batch, kept so callers can log or alert. */
+export interface RejectedMessage {
+  /** Provider message ID with prefix, or null when the message had none. */
+  providerMessageId: string | null;
+  reason: string;
+}
+
+/**
+ * Result of parsing one webhook POST. Per-message problems land in `rejected`
+ * so one unsupported message never blocks the valid ones batched with it.
+ */
+export interface InboundBatch {
+  messages: InboundMessage[];
+  rejected: RejectedMessage[];
+}
+
 /**
  * Thrown when a payload cannot be normalized — missing fields, wrong shape, or
  * an unsupported message type. Distinct from a message whose *text* we don't

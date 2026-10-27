@@ -19,7 +19,11 @@ const json = name => JSON.parse(readFileSync(join(FIXTURES, name), "utf8"));
 const text = name => readFileSync(join(FIXTURES, name), "utf8").trim();
 
 test("normalizes a valid Meta response", () => {
-  const [message, ...rest] = parseMetaPayload(json("meta-valid-response.json"));
+  const { messages, rejected } = parseMetaPayload(
+    json("meta-valid-response.json"),
+  );
+  const [message, ...rest] = messages;
+  assert.deepEqual(rejected, []);
   assert.equal(rest.length, 0);
   assert.equal(message.provider, "meta");
   assert.equal(message.from, "15555550123");
@@ -37,7 +41,7 @@ test("normalizes a valid Twilio response to the same shape", () => {
 });
 
 test("both providers produce identical fields for the same message", () => {
-  const [meta] = parseMetaPayload(json("meta-valid-response.json"));
+  const [meta] = parseMetaPayload(json("meta-valid-response.json")).messages;
   const [twilio] = parseTwilioPayload(text("twilio-valid-response.txt"));
   // This is the point of the normalized type: downstream code can't tell them
   // apart except by the provider tag and ID.
@@ -48,23 +52,23 @@ test("both providers produce identical fields for the same message", () => {
 
 test("keeps unrecognized text as a valid message", () => {
   // Unrecognized intent is NOT a parse failure — a human still needs to read it.
-  const [meta] = parseMetaPayload(json("meta-unrecognized-response.json"));
+  const [meta] = parseMetaPayload(
+    json("meta-unrecognized-response.json"),
+  ).messages;
   assert.equal(meta.text, "cant do sat but sunday works, whats the headcount?");
 
   const [twilio] = parseTwilioPayload(text("twilio-unrecognized-response.txt"));
   assert.equal(twilio.text, "who is this?");
 });
 
-test("rejects a malformed Meta payload explicitly", () => {
-  assert.throws(
-    () => parseMetaPayload(json("meta-malformed.json")),
-    error => {
-      assert.ok(error instanceof InboundParseError);
-      assert.equal(error.provider, "meta");
-      assert.match(error.message, /missing a string `id`/);
-      return true;
-    },
-  );
+test("rejects a malformed Meta message explicitly", () => {
+  // A message without an ID can't be deduplicated across webhook retries.
+  assert.deepEqual(parseMetaPayload(json("meta-malformed.json")), {
+    messages: [],
+    rejected: [
+      { providerMessageId: null, reason: "Message is missing a string `id`." },
+    ],
+  });
 });
 
 test("rejects a malformed Twilio payload explicitly", () => {
@@ -81,7 +85,10 @@ test("rejects a malformed Twilio payload explicitly", () => {
 
 test("ignores Meta delivery-status callbacks without failing", () => {
   // Status callbacks share the webhook URL but carry no `messages` array.
-  assert.deepEqual(parseMetaPayload(json("meta-status-callback.json")), []);
+  assert.deepEqual(parseMetaPayload(json("meta-status-callback.json")), {
+    messages: [],
+    rejected: [],
+  });
 });
 
 test("walks every entry, change, and message in a batch", () => {
@@ -103,7 +110,9 @@ test("walks every entry, change, and message in a batch", () => {
     ],
   };
   assert.deepEqual(
-    parseMetaPayload(batched).map(message => message.providerMessageId),
+    parseMetaPayload(batched).messages.map(
+      message => message.providerMessageId,
+    ),
     [
       "meta:first",
       "meta:second",
@@ -120,10 +129,7 @@ test("rejects non-text Meta message types", () => {
   delete message.text;
   message.type = "image";
   message.image = { id: "media-id", mime_type: "image/jpeg" };
-  assert.throws(
-    () => parseMetaPayload(payload),
-    /Unsupported message type "image"/,
-  );
+  rejectsMessage(payload, /Unsupported message type "image"/);
 });
 
 test("rejects Twilio media messages", () => {
@@ -168,6 +174,12 @@ const metaWithMessage = overrides => {
   Object.assign(payload.entry[0].changes[0].value.messages[0], overrides);
   return payload;
 };
+const rejectsMessage = (payload, reason) => {
+  const { messages, rejected } = parseMetaPayload(payload);
+  assert.deepEqual(messages, []);
+  assert.equal(rejected.length, 1);
+  assert.match(rejected[0].reason, reason);
+};
 const rejectsFrom = (provider, fn) =>
   assert.throws(fn, error => {
     assert.ok(error instanceof InboundParseError);
@@ -193,13 +205,13 @@ test("rejects non-record Twilio input with a provider-specific parse error", () 
 
 test("rejects blank provider message IDs without rewriting valid opaque IDs", () => {
   for (const id of ["", " ", "\n\t"]) {
-    rejectsFrom("meta", () => parseMetaPayload(metaWithMessage({ id })));
+    rejectsMessage(metaWithMessage({ id }), /missing a string `id`/);
     rejectsFrom("twilio", () =>
       parseTwilioPayload({ ...twilioRecord(), MessageSid: id }),
     );
   }
   assert.equal(
-    parseMetaPayload(metaWithMessage({ id: "opaque-example-id" }))[0]
+    parseMetaPayload(metaWithMessage({ id: "opaque-example-id" })).messages[0]
       .providerMessageId,
     "meta:opaque-example-id",
   );
@@ -215,7 +227,7 @@ test("rejects malformed sender numbers instead of producing invalid lookup keys"
     "012345",
     "1234567890123456",
   ]) {
-    rejectsFrom("meta", () => parseMetaPayload(metaWithMessage({ from })));
+    rejectsMessage(metaWithMessage({ from }), /`from`/);
     rejectsFrom("twilio", () =>
       parseTwilioPayload({ ...twilioRecord(), From: `whatsapp:${from}` }),
     );
@@ -260,7 +272,7 @@ test("preserves empty text, whitespace, Unicode, and form-encoded punctuation", 
     "OB12 + yes & maybe=tomorrow",
   ]) {
     assert.equal(
-      parseMetaPayload(metaWithMessage({ text: { body } }))[0].text,
+      parseMetaPayload(metaWithMessage({ text: { body } })).messages[0].text,
       body,
     );
     const record = { ...twilioRecord(), Body: body };
@@ -274,7 +286,7 @@ test("preserves empty text, whitespace, Unicode, and form-encoded punctuation", 
   }
 });
 
-test("rejects malformed Meta batches instead of returning partially parsed messages", () => {
+test("rejects malformed Meta envelopes outright", () => {
   for (const payload of [
     [],
     { object: "whatsapp_business_account", entry: [null] },
@@ -287,7 +299,99 @@ test("rejects malformed Meta batches instead of returning partially parsed messa
   ]) {
     rejectsFrom("meta", () => parseMetaPayload(payload));
   }
+});
+
+test("keeps valid messages when another message in the batch is rejected", () => {
+  // Meta retries the whole POST on failure, so throwing here would drop chef
+  // A's "OB12 yes" on every retry just because chef B sent a location.
+  const { messages, rejected } = parseMetaPayload(
+    json("meta-partial-batch.json"),
+  );
+  assert.deepEqual(
+    messages.map(message => message.text),
+    ["OB12 yes"],
+  );
+  assert.equal(rejected.length, 1);
+  assert.ok(rejected[0].providerMessageId.startsWith("meta:wamid."));
+  assert.match(rejected[0].reason, /Unsupported message type "location"/);
+
   const payload = json("meta-valid-response.json");
-  payload.entry[0].changes[0].value.messages.push({ from: "15555550123" });
-  rejectsFrom("meta", () => parseMetaPayload(payload));
+  payload.entry[0].changes[0].value.messages.push(null, {
+    from: "15555550123",
+  });
+  const mixed = parseMetaPayload(payload);
+  assert.equal(mixed.messages.length, 1);
+  assert.deepEqual(
+    mixed.rejected.map(({ providerMessageId }) => providerMessageId),
+    [null, null],
+  );
+});
+
+test("uses the tapped label as text for Meta quick-reply and interactive replies", () => {
+  // Template messages outside the 24-hour window use reply buttons, so a tap
+  // is the most likely catering reply and must not be dropped.
+  assert.equal(
+    parseMetaPayload(json("meta-button-reply.json")).messages[0].text,
+    "Yes",
+  );
+  assert.equal(
+    parseMetaPayload(json("meta-interactive-reply.json")).messages[0].text,
+    "No",
+  );
+  const listReply = metaWithMessage({
+    type: "interactive",
+    interactive: {
+      type: "list_reply",
+      list_reply: { id: "OB12_YES", title: "OB12 yes" },
+    },
+  });
+  delete listReply.entry[0].changes[0].value.messages[0].text;
+  assert.equal(parseMetaPayload(listReply).messages[0].text, "OB12 yes");
+});
+
+test("rejects reply messages that are missing their label", () => {
+  rejectsMessage(
+    metaWithMessage({ type: "button", button: { payload: "OB12_YES" } }),
+    /button\.text/,
+  );
+  rejectsMessage(
+    metaWithMessage({
+      type: "interactive",
+      interactive: { type: "nfm_reply" },
+    }),
+    /button_reply\.title/,
+  );
+});
+
+test("rejects Twilio location shares instead of passing them as empty text", () => {
+  const location = {
+    ...twilioRecord(),
+    Body: "",
+    Latitude: "37.8044",
+    Longitude: "-122.2712",
+  };
+  rejectsFrom("twilio", () => parseTwilioPayload(location));
+  rejectsFrom("twilio", () =>
+    parseTwilioPayload({ ...location, MessageType: "location" }),
+  );
+  for (const messageType of ["location", "image", "interactive"]) {
+    rejectsFrom("twilio", () =>
+      parseTwilioPayload({ ...twilioRecord(), MessageType: messageType }),
+    );
+  }
+});
+
+test("accepts Twilio quick-reply taps, which carry the label in Body", () => {
+  const [message] = parseTwilioPayload({
+    ...twilioRecord(),
+    Body: "Yes",
+    MessageType: "button",
+    ButtonText: "Yes",
+    ButtonPayload: "OB12_YES",
+  });
+  assert.equal(message.text, "Yes");
+  assert.equal(
+    parseTwilioPayload({ ...twilioRecord(), MessageType: "text" })[0].text,
+    "OB12 yes",
+  );
 });

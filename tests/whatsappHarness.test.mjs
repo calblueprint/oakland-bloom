@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -45,12 +46,12 @@ function runHarness(change = () => {}) {
   }
 }
 
-test("harness succeeds offline with the two expected validation rejections", () => {
+test("harness succeeds offline with the three expected validation rejections", () => {
   const result = runHarness();
   assert.equal(result.status, 0, result.stderr);
   assert.match(
     result.stdout,
-    /7 fixtures processed, 2 rejected by validation\./,
+    /10 fixtures processed, 3 rejected by validation\./,
   );
   assert.match(result.stdout, /0 unexpected failures\./);
 });
@@ -63,8 +64,11 @@ test("harness fails when a valid fixture is rejected", () => {
     writeFileSync(path, JSON.stringify(payload));
   });
   assert.equal(result.status, 1, result.stderr);
-  assert.match(result.stdout, /UNEXPECTED InboundParseError:/);
-  assert.match(result.stdout, /2 rejected by validation\./);
+  assert.match(
+    result.stdout,
+    /Expected an inbound message, but fixture produced validation rejection/,
+  );
+  assert.match(result.stdout, /3 rejected by validation\./);
   assert.match(result.stdout, /1 unexpected failures\./);
 });
 
@@ -78,9 +82,9 @@ test("harness fails when a malformed fixture is accepted", () => {
   assert.equal(result.status, 1, result.stderr);
   assert.match(
     result.stdout,
-    /Expected validation rejection, but fixture was accepted/,
+    /Expected validation rejection, but fixture produced an inbound message/,
   );
-  assert.match(result.stdout, /1 rejected by validation\./);
+  assert.match(result.stdout, /2 rejected by validation\./);
   assert.match(result.stdout, /1 unexpected failures\./);
 });
 
@@ -90,7 +94,7 @@ test("harness fails on invalid JSON even in a malformed fixture", () => {
   });
   assert.equal(result.status, 1, result.stderr);
   assert.match(result.stdout, /UNEXPECTED SyntaxError:/);
-  assert.match(result.stdout, /1 rejected by validation\./);
+  assert.match(result.stdout, /2 rejected by validation\./);
   assert.match(result.stdout, /1 unexpected failures\./);
 });
 
@@ -111,7 +115,7 @@ test("harness fails on unexpected parser exceptions", () => {
     result.stdout,
     /UNEXPECTED TypeError: synthetic parser regression/,
   );
-  assert.match(result.stdout, /1 rejected by validation\./);
+  assert.match(result.stdout, /2 rejected by validation\./);
   assert.match(result.stdout, /3 unexpected failures\./);
 });
 
@@ -126,31 +130,22 @@ test("harness fails when an expected fixture is missing", () => {
   );
   assert.match(
     result.stdout,
-    /6 fixtures processed, 2 rejected by validation\./,
+    /9 fixtures processed, 3 rejected by validation\./,
   );
   assert.match(result.stdout, /1 unexpected failures\./);
 });
 
 test("harness fails when the fixture directory is empty", () => {
   const result = runHarness(fixtures => {
-    for (const name of [
-      "meta-valid-response.json",
-      "meta-unrecognized-response.json",
-      "meta-status-callback.json",
-      "meta-malformed.json",
-      "twilio-valid-response.txt",
-      "twilio-unrecognized-response.txt",
-      "twilio-malformed.txt",
-    ]) {
-      rmSync(join(fixtures, name));
-    }
+    rmSync(fixtures, { recursive: true });
+    mkdirSync(fixtures);
   });
   assert.equal(result.status, 1, result.stderr);
   assert.match(
     result.stdout,
     /0 fixtures processed, 0 rejected by validation\./,
   );
-  assert.match(result.stdout, /7 unexpected failures\./);
+  assert.match(result.stdout, /10 unexpected failures\./);
 });
 
 test("harness fails when a fixture has no declared outcome", () => {
@@ -175,7 +170,7 @@ test("harness fails when a text fixture produces no messages", () => {
   assert.equal(result.status, 1, result.stderr);
   assert.match(
     result.stdout,
-    /Expected an inbound message, but fixture produced none/,
+    /Expected an inbound message, but fixture produced no inbound messages/,
   );
   assert.match(result.stdout, /1 unexpected failures\./);
 });
@@ -190,7 +185,7 @@ test("harness fails when a status fixture produces messages", () => {
   assert.equal(result.status, 1, result.stderr);
   assert.match(
     result.stdout,
-    /Expected no inbound messages, but fixture produced a message/,
+    /Expected no inbound messages, but fixture produced an inbound message/,
   );
   assert.match(result.stdout, /1 unexpected failures\./);
 });

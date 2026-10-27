@@ -7,7 +7,7 @@ credentials, no network, no database — run it on a fresh clone.
 
 ```bash
 pnpm harness:whatsapp   # print normalized output for every fixture
-pnpm test:whatsapp      # assert parser behavior and harness failure handling
+pnpm test              # all unit tests, including the WhatsApp parser and harness tests
 ```
 
 Needs Node 22.9+ (`package.json` sets `engines.node >= 22.9.0`). Both scripts use
@@ -16,28 +16,32 @@ dependencies.
 
 ## Expected result
 
-`pnpm harness:whatsapp` processes 7 fixtures and ends with:
+`pnpm harness:whatsapp` processes 10 fixtures and ends with:
 
 ```
-7 fixtures processed, 2 rejected by validation.
+10 fixtures processed, 3 rejected by validation.
 0 unexpected failures.
 ```
 
 Per fixture:
 
-| Fixture                            | Result                                           |
-| ---------------------------------- | ------------------------------------------------ |
-| `meta-valid-response.json`         | ok — `15555550123` / `"OB12 yes"`                |
-| `meta-unrecognized-response.json`  | ok — unrecognized text, still valid              |
-| `meta-status-callback.json`        | no inbound messages (delivery receipt)           |
-| `meta-malformed.json`              | rejected — ``Message is missing a string `id`.`` |
-| `twilio-valid-response.txt`        | ok — `15555550123` / `"OB12 yes"`                |
-| `twilio-unrecognized-response.txt` | ok — unrecognized text, still valid              |
-| `twilio-malformed.txt`             | rejected — ``Missing `MessageSid`.``             |
+| Fixture                            | Result                                               |
+| ---------------------------------- | ---------------------------------------------------- |
+| `meta-valid-response.json`         | ok — `15555550123` / `"OB12 yes"`                    |
+| `meta-button-reply.json`           | ok — quick-reply tap, text is the label `"Yes"`      |
+| `meta-interactive-reply.json`      | ok — interactive button tap, text is `"No"`          |
+| `meta-unrecognized-response.json`  | ok — unrecognized text, still valid                  |
+| `meta-partial-batch.json`          | partial — `"OB12 yes"` kept, location share rejected |
+| `meta-status-callback.json`        | no inbound messages (delivery receipt)               |
+| `meta-malformed.json`              | rejected — ``Message is missing a string `id`.``     |
+| `twilio-valid-response.txt`        | ok — `15555550123` / `"OB12 yes"`                    |
+| `twilio-unrecognized-response.txt` | ok — unrecognized text, still valid                  |
+| `twilio-malformed.txt`             | rejected — ``Missing `MessageSid`.``                 |
 
-The two named malformed fixtures must throw `InboundParseError`. Those expected
+Each fixture declares one outcome in `EXPECTED_OUTCOMES`: `message`, `empty`,
+`rejection`, or `partial` (some messages accepted, some rejected). Expected
 rejections are successful checks. The harness exits with code 0 only when every
-fixture has its declared expected outcome. The harness requires all seven named
+fixture has its declared expected outcome. The harness requires all ten named
 fixtures and rejects unknown fixture names. Rejecting a valid fixture, accepting
 a malformed fixture, a text fixture producing no messages, a status fixture
 producing messages, invalid JSON, missing fixtures, and unexpected exceptions
@@ -50,6 +54,21 @@ requires declaring its outcome in `EXPECTED_OUTCOMES` in the runner.
 (`"cant do sat but sunday works"`) normalizes fine. Deciding what it _means_ is
 a later concern — a human or a parser reads it downstream. Only structurally
 broken payloads are rejected.
+
+**One bad message never blocks the batch.** Meta can batch several messages in
+one POST and retries the whole POST on failure. `parseMetaPayload` returns
+`{ messages, rejected }`: a bad message lands in `rejected` with its ID and
+reason, and the valid ones still come through. Only a broken envelope (wrong
+`object`, missing `entry`/`changes`/`value`) throws. Twilio sends one message
+per POST, so `parseTwilioPayload` still throws on a bad one.
+
+**Reply buttons count as text.** Messages outside WhatsApp's 24-hour window are
+templates, which will likely use Yes/No quick-reply buttons. Meta `button` and
+`interactive` (`button_reply` / `list_reply`) messages normalize with the tapped
+label as `text`. Twilio already puts the label in `Body` (`MessageType=button`).
+Location shares, media, and other types are rejected on both providers. Twilio
+location shares are caught by `Latitude`/`Longitude` or `MessageType`, since they
+arrive with an empty `Body`.
 
 **Malformed payloads fail loudly.** `meta-malformed.json` omits the message
 `id`; `twilio-malformed.txt` omits `MessageSid`. Both are the provider's
@@ -81,7 +100,7 @@ suite alongside the existing lint, formatting, and TypeScript checks.
 ```
 lib/whatsapp/
   inboundMessage.ts   InboundMessage type, InboundParseError, normalizePhone
-  parseMeta.ts        Meta Cloud API (JSON)  -> InboundMessage[]
+  parseMeta.ts        Meta Cloud API (JSON)  -> InboundBatch
   parseTwilio.ts      Twilio (form-encoded)  -> InboundMessage[]
   index.ts            re-exports
 tests/
@@ -105,7 +124,7 @@ calls:
 provider  ->  app/api/whatsapp/webhook/route.ts  ->  parseMetaPayload(body)
                                                         |
                                                         v
-                                                 InboundMessage[]  ->  persistence
+                                          InboundBatch.messages  ->  persistence
 ```
 
 That route does not exist yet, and is out of scope for this sprint. When it is

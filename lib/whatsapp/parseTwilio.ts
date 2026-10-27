@@ -36,6 +36,21 @@ export function parseTwilioPayload(payload: unknown): InboundMessage[] {
   // means this is not a text message webhook.
   if (body === null) fail("Missing `Body`; not a text message payload.");
 
+  // Location shares send `Body=""` plus coordinates, so they would otherwise
+  // pass as empty text. Quick-reply taps send `MessageType=button` with the
+  // button label in `Body`, so they are handled like typed text.
+  const messageType = params.get("MessageType");
+  if (
+    messageType !== null &&
+    messageType !== "text" &&
+    messageType !== "button"
+  )
+    fail(
+      `Unsupported message type ${JSON.stringify(messageType)}; only text and reply buttons are handled.`,
+    );
+  if (params.has("Latitude") || params.has("Longitude"))
+    fail("Unsupported location message; only text is handled.");
+
   // Media messages carry NumMedia > 0. Out of scope this sprint, so fail loudly.
   const numMedia = params.get("NumMedia");
   if (numMedia !== null) {
