@@ -51,7 +51,7 @@ test("harness succeeds offline with the three expected validation rejections", (
   assert.equal(result.status, 0, result.stderr);
   assert.match(
     result.stdout,
-    /10 fixtures processed, 3 rejected by validation\./,
+    /15 fixtures processed, 3 rejected by validation\./,
   );
   assert.match(result.stdout, /0 unexpected failures\./);
 });
@@ -116,7 +116,7 @@ test("harness fails on unexpected parser exceptions", () => {
     /UNEXPECTED TypeError: synthetic parser regression/,
   );
   assert.match(result.stdout, /2 rejected by validation\./);
-  assert.match(result.stdout, /3 unexpected failures\./);
+  assert.match(result.stdout, /5 unexpected failures\./);
 });
 
 test("harness fails when an expected fixture is missing", () => {
@@ -130,7 +130,7 @@ test("harness fails when an expected fixture is missing", () => {
   );
   assert.match(
     result.stdout,
-    /9 fixtures processed, 3 rejected by validation\./,
+    /14 fixtures processed, 3 rejected by validation\./,
   );
   assert.match(result.stdout, /1 unexpected failures\./);
 });
@@ -145,7 +145,7 @@ test("harness fails when the fixture directory is empty", () => {
     result.stdout,
     /0 fixtures processed, 0 rejected by validation\./,
   );
-  assert.match(result.stdout, /10 unexpected failures\./);
+  assert.match(result.stdout, /15 unexpected failures\./);
 });
 
 test("harness fails when a fixture has no declared outcome", () => {

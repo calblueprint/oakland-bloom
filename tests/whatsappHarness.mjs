@@ -2,8 +2,8 @@
  * Local inbound-message harness.
  *
  * Runs every fixture in tests/fixtures/whatsapp through the provider parsers and
- * prints the normalized result or a readable validation error. No network, no
- * provider credentials, no database.
+ * prints the normalized result, its parsed catering response, or a readable
+ * validation error. No network, no provider credentials, no database.
  *
  * Run with: pnpm harness:whatsapp
  */
@@ -11,6 +11,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { InboundParseError } from "../lib/whatsapp/inboundMessage.ts";
+import { parseCateringResponse } from "../lib/whatsapp/parseCateringResponse.ts";
 import { parseMetaPayload } from "../lib/whatsapp/parseMeta.ts";
 import { parseTwilioPayload } from "../lib/whatsapp/parseTwilio.ts";
 
@@ -39,6 +40,13 @@ function outcomeOf({ messages, rejected }) {
   return rejected.length > 0 ? "rejection" : "empty";
 }
 
+function describeResponse(response) {
+  if (response.kind === "unrecognized")
+    return `unrecognized (${response.reason})`;
+  const interest = response.interested ? "interested" : "not interested";
+  return `${response.opportunityRef} ${interest}`;
+}
+
 const OUTCOME_DESCRIPTIONS = {
   rejection: "validation rejection",
   message: "an inbound message",
@@ -51,10 +59,15 @@ const EXPECTED_OUTCOMES = new Map([
   ["meta-interactive-reply.json", "message"],
   ["meta-malformed.json", "rejection"],
   ["meta-partial-batch.json", "partial"],
+  ["meta-reply-extra-whitespace.json", "message"],
+  ["meta-reply-no.json", "message"],
+  ["meta-reply-unsupported-answer.json", "message"],
   ["meta-status-callback.json", "empty"],
   ["meta-unrecognized-response.json", "message"],
   ["meta-valid-response.json", "message"],
   ["twilio-malformed.txt", "rejection"],
+  ["twilio-reply-missing-reference.txt", "message"],
+  ["twilio-reply-mixed-case.txt", "message"],
   ["twilio-unrecognized-response.txt", "message"],
   ["twilio-valid-response.txt", "message"],
 ]);
@@ -99,7 +112,8 @@ for (const name of files) {
       process.stdout.write(
         `  ok  ${message.provider}  ${message.providerMessageId}\n` +
           `      from: ${message.from}\n` +
-          `      text: ${JSON.stringify(message.text)}\n`,
+          `      text: ${JSON.stringify(message.text)}\n` +
+          `      parsed: ${describeResponse(parseCateringResponse(message.text))}\n`,
       );
     }
     for (const { providerMessageId, reason } of batch.rejected) {
