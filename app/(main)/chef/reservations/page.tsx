@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ReservationCard } from "@/components/ReservationCard";
+import styles from "@/components/ReservationCard.module.css";
 import { mockReservations } from "@/data/mockReservations";
 
 export default function ReservationsPage() {
@@ -10,9 +11,11 @@ export default function ReservationsPage() {
       {mockReservations.length == 0 ? (
         <p>You haven&apos;t requested any reservations yet.</p>
       ) : (
-        mockReservations.map(reservation => (
-          <ReservationCard key={reservation.id} reservation={reservation} />
-        ))
+        <div className={styles.reservationList}>
+          {mockReservations.map(reservation => (
+            <ReservationCard key={reservation.id} reservation={reservation} />
+          ))}
+        </div>
       )}
 
       {/* return navigation; links back to chef page */}

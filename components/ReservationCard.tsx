@@ -1,4 +1,5 @@
 import type { Reservation } from "@/types/reservations";
+import styles from "./ReservationCard.module.css";
 
 type ReservationCardProps = {
   reservation: Reservation;
@@ -25,7 +26,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
   const formattedEndTime = timeFormatter.format(new Date(reservation.end_time));
 
   return (
-    <div>
+    <div className={styles.card}>
       <h2>{reservation.amenity}</h2>
       <p>Date: {formattedDate}</p>
       <p>
