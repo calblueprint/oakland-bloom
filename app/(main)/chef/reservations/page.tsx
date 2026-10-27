@@ -7,9 +7,13 @@ export default function ReservationsPage() {
     <main>
       <h1>My Reservations</h1>
 
-      {mockReservations.map(reservation => (
-        <ReservationCard key={reservation.id} reservation={reservation} />
-      ))}
+      {mockReservations.length == 0 ? (
+        <p>You haven&apos;t requested any reservations yet.</p>
+      ) : (
+        mockReservations.map(reservation => (
+          <ReservationCard key={reservation.id} reservation={reservation} />
+        ))
+      )}
 
       {/* return navigation; links back to chef page */}
       <Link
