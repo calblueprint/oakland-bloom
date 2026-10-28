@@ -120,7 +120,7 @@ await test(
       );
     }
     t.diagnostic(
-      "Independent database check: Chef 1 owns 4 fixtures; Chef 2 owns 1.",
+      "Independent database check: Chef 1 owns 3 fixtures; Chef 2 owns 1.",
     );
 
     await t.test("signed-out request is rejected", async () => {

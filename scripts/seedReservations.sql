@@ -30,9 +30,9 @@ begin
     end if;
 end $$;
 
--- Chef 1: pending, approved, denied, and past-approved.
+-- Chef 1: pending, approved, and past-approved.
 -- Chef 2: one approved booking for real cross-owner isolation checks.
--- Pending/denied share a start time to exercise stable ordering by ID.
+-- Retired sample 003 is intentionally omitted to avoid overlapping July 10 bookings.
 -- PostgreSQL infers the empty array type from the destination column.
 insert into oak10_seed_bookings
     (id, amenity, "user", start_time, end_time, num_people,
@@ -44,9 +44,6 @@ values
     ('0a100000-0000-4000-a000-000000000002', 'kitchen',
      current_setting('oak10.user1')::uuid,
      '2030-07-11T09:00:00-07:00', '2030-07-11T11:00:00-07:00', 4, '{}', 'approved'),
-    ('0a100000-0000-4000-a000-000000000003', 'kitchen',
-     current_setting('oak10.user1')::uuid,
-     '2030-07-10T09:00:00-07:00', '2030-07-10T10:00:00-07:00', 3, '{}', 'denied'),
     ('0a100000-0000-4000-a000-000000000004', 'kitchen',
      current_setting('oak10.user1')::uuid,
      '2020-07-10T16:00:00Z', '2020-07-10T17:00:00Z', 2, '{}', 'approved'),
@@ -107,7 +104,7 @@ begin
     if (select count(*) from public.users
         where userid in (select userid from oak10_seed_users)) <> 2
        or (select count(*) from public.booking_event
-           where id in (select id from oak10_seed_bookings)) <> 5
+           where id in (select id from oak10_seed_bookings)) <> 4
     then
         raise exception 'OAK-10 fixture counts do not match; transaction rolled back.';
     end if;

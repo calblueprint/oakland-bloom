@@ -81,6 +81,42 @@ export type Database = {
           },
         ];
       };
+      restaurants: {
+        Row: {
+          address: string | null;
+          created_at: string;
+          cuisine: string | null;
+          id: string;
+          name: string | null;
+          userid: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          address?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          id?: string;
+          name?: string | null;
+          userid: string;
+        };
+        Update: {
+          address?: string | null;
+          created_at?: string;
+          cuisine?: string | null;
+          id?: string;
+          name?: string | null;
+          userid?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "restaurants_userid_fkey";
+            columns: ["userid"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
+      };
       users: {
         Row: {
           email: string;
@@ -93,8 +129,8 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           email: string;
-          is_admin: boolean;
-          is_approved: boolean;
+          is_admin?: boolean;
+          is_approved?: boolean;
           name: string;
           phone: string;
           userid: string;
@@ -169,7 +205,18 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      email_exists: { Args: { p_email: string }; Returns: boolean };
+      email_exists: {
+        Args: { p_email: string };
+        Returns: boolean;
+      };
+      get_calendar_occupied_periods: {
+        Args: { p_end: string; p_start: string };
+        Returns: {
+          amenity: string;
+          end_time: string;
+          start_time: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;
