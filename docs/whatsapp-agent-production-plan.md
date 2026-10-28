@@ -471,6 +471,25 @@ No webhook tells us the chef is typing, and a business can't show "online"
   message ([concurrency](https://chat-sdk.dev/docs/concurrency)).
 - **Then show "read + typing" right away.** Refresh typing at about 20 s if the model is
   still working.
+- **Progress lines when it's slow.** WhatsApp has no temporary status messages: any text
+  we send stays in the chat as a normal bubble. So a progress line has to read like
+  something a coordinator would actually text, not a spinner label.
+  - **When:** only if a tool is still running about 4 s after typing started. Never more
+    than one per turn. Fast turns get typing alone.
+  - **What:** a short line the server writes, picked by which tool is running and
+    localized to the chef's language:
+    - `gigs_get` → "one sec, pulling up OB12"
+    - `gigs_list` / `my_status` → "let me check what you've got"
+    - `interest_set` → "one sec"
+    - `human_help` → "let me grab someone from the team"
+    - media download → "got your photo, one sec"
+  - **Never claims an outcome before the commit.** No "confirmed", "saved", or "done"
+    in a progress line. The write can still fail or roll back, and the final
+    server-authored receipt is the only confirmation. Avoid robotic labels like
+    "searching…" or "processing…".
+  - Typing is refreshed after the progress line until the real reply goes out.
+  - It's a normal service message, so it's billed like one (§II pricing). That's
+    another reason to send it only on slow turns.
 - **Pace like a person.** The first bubble goes out about 1 s + 30 ms per character
   after the wait ends, capped at 6 s, and never under 1 s. Long instant replies read as
   a bot. The evidence for complexity-scaled delays is real but mixed (Gnewuch et al.,
@@ -648,6 +667,9 @@ need it to work every time.
   - fact cap
   - burst aggregation
   - mid-reply cancel
+  - progress line: sent only past the ~4 s threshold, at most once per turn, and never
+    contains a success word ("confirmed", "saved", "done"), even on a turn whose write
+    later rolls back
 - Assert outcomes (rows written, outbox contents), not wording.
 
 **Nightly, live model, non-blocking**
@@ -706,6 +728,7 @@ Meta test number.
 11. Add the human feel (§IV.1):
     - the 3 s burst wait in front of the drain loop
     - read + typing, the `bubbles[]` output with a paced sender, and mid-reply cancel
+    - per-tool progress lines for slow turns
     - reactions for acknowledgements
     - the style rules in the prompt, plus the banned-phrase lint
 12. Expand the tools (§IV.2): the MTP six first, then `profile_update`,
