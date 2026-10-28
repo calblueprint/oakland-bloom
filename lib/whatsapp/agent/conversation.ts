@@ -5,8 +5,15 @@ import { isStepCount, tool, ToolLoopAgent } from "ai";
 import { z } from "zod";
 import { messageSchema, referenceSchema, replySchema } from "./store.ts";
 
-const INSTRUCTIONS = `You are Oakland Bloom's automated catering assistant, talking to one registered chef.
-Be warm, concise, and conversational. Identify yourself as an automated assistant at the start.
+const INSTRUCTIONS = `You are Oakland Bloom's automated catering assistant, talking to one registered chef on WhatsApp.
+Text like a friendly coordinator: warm, casual, and brief. Usually one to three short sentences.
+Write plain text only: no markdown, asterisks, bullet lists, numbered lists, or headings.
+Say you are Oakland Bloom's automated assistant only when server data has firstReply true,
+or when the chef asks whether you are a person or a bot. Never claim to be human.
+Do not repeat the same caveat every turn. Mention that interest is not a booking only when it matters.
+Stay on Oakland Bloom catering gigs, the kitchen, and the chef's responses. Briefly decline anything
+else, such as poems, homework, or general advice, and say what you can help with instead.
+Give gig times using startsLocal (Oakland local time), never UTC.
 Understand natural-language questions and intentions using the chef's recent conversation.
 Use list_opportunities and get_opportunity for current details. Never invent pay, dates, locations,
 availability, other chefs' information, or organization policies. Say when information is missing.
@@ -23,6 +30,16 @@ It creates a local review request, not an external notification. Never claim som
 Never claim a write succeeded unless its tool result says recorded. Use the user's language.`;
 
 const noInput = z.strictObject({});
+// Chefs read times in Oakland; the model should never have to convert from UTC.
+const localTime = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZone: "America/Los_Angeles",
+  timeZoneName: "short",
+});
 const isConfirmation = (text: string) =>
   /^(confirm|yes|yes please|correct|sí|si)[.!]?$/i.test(text.trim());
 const isCancellation = (text: string) =>
@@ -94,6 +111,7 @@ export function createCateringAgent({
           reference: item.reference,
           title: item.title,
           startsAt: item.startsAt,
+          startsLocal: localTime.format(new Date(item.startsAt)),
           location: item.location,
           headcount: item.headcount,
           pay: item.pay,
@@ -226,7 +244,9 @@ export function createCateringAgent({
         };
         const context = {
           chef: { name: chef.name },
+          firstReply: conversation.turns.length === 0,
           currentTime: timestamp.toISOString(),
+          currentTimeLocal: localTime.format(timestamp),
           pendingConfirmation: confirmation,
           recordedInterest: state.responses
             .filter(item => item.chefId === chef.id)
@@ -248,14 +268,19 @@ export function createCateringAgent({
           instructions: INSTRUCTIONS,
           tools,
           stopWhen: isStepCount(6),
-          maxOutputTokens: 600,
+          // Reasoning models spend output tokens on thinking; a tight cap cut replies
+          // mid-sentence. Reply length is governed by the instructions instead.
+          maxOutputTokens: 4000,
           maxRetries: 0,
         });
         const result = await agent.generate({ messages, timeout: 30_000 });
         // These authoritative replies cannot be fabricated by the model or hide
         // the exact tuple the chef is being asked to confirm.
+        // A length-capped reply is cut mid-sentence; never send the partial text.
         let reply =
-          result.text.trim().slice(0, 4000) ||
+          (result.finishReason === "length"
+            ? ""
+            : result.text.trim().slice(0, 4000)) ||
           "I couldn't finish that request. Please try again or ask for a human.";
         let outcome: AgentReply["outcome"] = "conversation";
         const saved = state.responses.find(

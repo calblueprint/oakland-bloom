@@ -147,6 +147,50 @@ test("agent reads actual scoped opportunity details through SDK tool calls", asy
   assert.deepEqual((await f.state()).responses, []);
 });
 
+test("a reply cut off by the output cap is never sent to the chef", async t => {
+  // Reasoning models can spend the cap on thinking; partial text reads as broken.
+  const f = await fixture(t);
+  const truncated = {
+    ...finalText("I can't confirm it starts after"),
+    finishReason: { unified: "length", raw: undefined },
+  };
+  const agent = createCateringAgent({
+    model: scriptedModel(truncated),
+    store: f.store,
+    now: () => f.now,
+  });
+  const result = await agent.respond(f.message("only if it starts after 2pm"));
+  assert.doesNotMatch(result.reply, /starts after/);
+  assert.match(result.reply, /couldn't finish/);
+});
+
+test("gig times reach the model in Oakland local time, not UTC", async t => {
+  // Chefs plan their day in Pacific time; a UTC timestamp led to wrong answers.
+  const f = await fixture(t);
+  const { result } = await respond(f, "When is OB12?", [
+    toolStep(call("get_opportunity", { reference: "OB12" })),
+  ]);
+  assert.equal(
+    result.toolCalls[0].output.startsLocal,
+    "Sun, Nov 1, 5:00 PM PST",
+  );
+});
+
+test("the automated-assistant disclosure is requested only on the first reply", async t => {
+  // Disclosing once is honest; repeating it every message makes the chat robotic.
+  const f = await fixture(t);
+  const first = await respond(f, "hi");
+  const second = await respond(f, "what gigs are open?");
+  assert.match(
+    JSON.stringify(first.model.doGenerateCalls[0].prompt),
+    /\\"firstReply\\":true/,
+  );
+  assert.match(
+    JSON.stringify(second.model.doGenerateCalls[0].prompt),
+    /\\"firstReply\\":false/,
+  );
+});
+
 test("later confirmation records only the exact server-proposed tuple", async t => {
   const f = await fixture(t);
   const proposal = await respond(f, "I am interested in OB12", [propose()]);
