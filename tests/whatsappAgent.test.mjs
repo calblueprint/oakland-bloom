@@ -573,3 +573,22 @@ test("a large parallel tool batch cannot bypass the eight-execution budget", asy
   assert.match(result.reply, /haven't saved/);
   assert.deepEqual((await f.state()).responses, []);
 });
+
+test("photo messages from the parsers are accepted, not thrown away by the agent schema", async t => {
+  // Parsers now emit media, reply context, and send time; the strict agent
+  // schema must accept them or every chef photo would fail the turn.
+  const f = await fixture(t);
+  const message = f.message("", {
+    media: {
+      kind: "image",
+      mediaId: "m1",
+      mimeType: "image/jpeg",
+      sha256: "abc=",
+    },
+    contextMessageId: "meta:wamid.gig",
+    sentAt: "2026-10-27T17:59:00.000Z",
+  });
+  const { result } = await respond(f, message);
+  assert.equal(result.outcome, "conversation");
+  assert.equal((await f.state()).receipts[0].message.media.kind, "image");
+});

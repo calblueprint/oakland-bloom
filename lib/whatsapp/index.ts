@@ -2,6 +2,7 @@ export {
   InboundParseError,
   normalizePhone,
   type InboundBatch,
+  type InboundMedia,
   type InboundMessage,
   type Provider,
   type RejectedMessage,
