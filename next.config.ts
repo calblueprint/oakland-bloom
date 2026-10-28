@@ -1,8 +1,5 @@
 import type { NextConfig } from "next";
 
-const nextConfig: NextConfig = {
-  // readable class names in dev and consistent ones between server and client
-  compiler: { styledComponents: true },
-};
+const nextConfig: NextConfig = {/* config options here */};
 
 export default nextConfig;

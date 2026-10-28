@@ -2,12 +2,13 @@
 
 import { ComponentProps, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { loginWithEmailPassword } from "@/actions/auth";
 import dot from "@/assets/images/dot.svg";
+import styles from "../../auth.module.css";
 import AuthShell from "../../AuthShell";
 import { PasswordField, TextField } from "../../fields";
-import { ErrorText, Form, SubmitButton, TextLink } from "../../styles";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1070
 const WRONG_PASSWORD_ERROR = "Password is incorrect.";
@@ -54,13 +55,17 @@ export default function PasswordForm({ email }: { email: string }) {
       heading="Welcome Back"
       footer={
         <>
-          <TextLink href="/login">Use a different email</TextLink>
+          <Link href="/login" className={styles.link}>
+            Use a different email
+          </Link>
           <Image src={dot} alt="" />
-          <TextLink href="/forgot-password">Reset password</TextLink>
+          <Link href="/forgot-password" className={styles.link}>
+            Reset password
+          </Link>
         </>
       }
     >
-      <Form onSubmit={handleSignIn}>
+      <form onSubmit={handleSignIn} className={styles.form}>
         {/* "username" ties the saved password to this email in password managers */}
         <TextField
           id="email"
@@ -84,12 +89,16 @@ export default function PasswordForm({ email }: { email: string }) {
           required
         />
 
-        {error && <ErrorText role="alert">{error}</ErrorText>}
+        {error && (
+          <p className={styles.error} role="alert">
+            {error}
+          </p>
+        )}
 
-        <SubmitButton type="submit" disabled={isLoading}>
+        <button type="submit" className={styles.button} disabled={isLoading}>
           Continue
-        </SubmitButton>
-      </Form>
+        </button>
+      </form>
     </AuthShell>
   );
 }

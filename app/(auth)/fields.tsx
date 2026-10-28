@@ -3,9 +3,9 @@
 import { ComponentProps, useState } from "react";
 import Image from "next/image";
 import eyeIcon from "@/assets/images/eye.svg";
-import { Field, Input, SrOnlyLabel, Toggle } from "./styles";
+import styles from "./auth.module.css";
 
-type FieldProps = Omit<ComponentProps<"input">, "className" | "ref"> & {
+type FieldProps = Omit<ComponentProps<"input">, "className"> & {
   id: string;
   // read by screen readers only, the design shows the placeholder instead
   label: string;
@@ -14,10 +14,12 @@ type FieldProps = Omit<ComponentProps<"input">, "className" | "ref"> & {
 export function TextField({ id, label, ...inputProps }: FieldProps) {
   return (
     <>
-      <SrOnlyLabel htmlFor={id}>{label}</SrOnlyLabel>
-      <Field>
-        <Input id={id} {...inputProps} />
-      </Field>
+      <label htmlFor={id} className={styles.srOnly}>
+        {label}
+      </label>
+      <div className={styles.field}>
+        <input id={id} className={styles.input} {...inputProps} />
+      </div>
     </>
   );
 }
@@ -32,12 +34,20 @@ export function PasswordField({
 
   return (
     <>
-      <SrOnlyLabel htmlFor={id}>{label}</SrOnlyLabel>
-      <Field>
-        <Input id={id} type={visible ? "text" : "password"} {...inputProps} />
+      <label htmlFor={id} className={styles.srOnly}>
+        {label}
+      </label>
+      <div className={styles.field}>
+        <input
+          id={id}
+          type={visible ? "text" : "password"}
+          className={styles.input}
+          {...inputProps}
+        />
         {/* toggle buttons keep a fixed label; aria-pressed carries the state */}
-        <Toggle
+        <button
           type="button"
+          className={styles.toggle}
           onClick={() => setVisible(v => !v)}
           aria-label="Show password"
           aria-pressed={visible}
@@ -45,8 +55,8 @@ export function PasswordField({
           disabled={inputProps.disabled}
         >
           <Image src={eyeIcon} alt="" />
-        </Toggle>
-      </Field>
+        </button>
+      </div>
     </>
   );
 }
