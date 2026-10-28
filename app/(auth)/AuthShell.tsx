@@ -1,9 +1,18 @@
 import { ReactNode } from "react";
 import { Instrument_Sans } from "next/font/google";
-import Image from "next/image";
 import glow from "@/assets/images/bg-glow.png";
 import logo from "@/assets/images/oakland-bloom-logo.png";
-import styles from "./auth.module.css";
+import {
+  Card,
+  Content,
+  Glow,
+  GlowImage,
+  Header,
+  Heading,
+  Links,
+  Logo,
+  Page,
+} from "./styles";
 
 // 400 is for the pending approval message, 500 for everything else
 const instrumentSans = Instrument_Sans({
@@ -23,34 +32,23 @@ export default function AuthShell({
   footer?: ReactNode;
 }) {
   return (
-    <main className={`${styles.page} ${instrumentSans.className}`}>
-      <div className={styles.glow}>
-        <Image
-          src={glow}
-          alt=""
-          fill
-          sizes="100vw"
-          className={styles.glowImage}
-        />
-      </div>
+    <Page className={instrumentSans.className}>
+      <Glow>
+        <GlowImage src={glow} alt="" fill sizes="100vw" />
+      </Glow>
 
-      <div className={styles.card}>
-        <div className={styles.content}>
-          <div className={styles.header}>
-            <Image
-              src={logo}
-              alt="Oakland Bloom"
-              className={styles.logo}
-              priority
-            />
-            <h1 className={styles.heading}>{heading}</h1>
-          </div>
+      <Card>
+        <Content>
+          <Header>
+            <Logo src={logo} alt="Oakland Bloom" priority />
+            <Heading>{heading}</Heading>
+          </Header>
 
           {children}
-        </div>
+        </Content>
 
-        {footer && <div className={styles.links}>{footer}</div>}
-      </div>
-    </main>
+        {footer && <Links>{footer}</Links>}
+      </Card>
+    </Page>
   );
 }

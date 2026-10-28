@@ -1,7 +1,6 @@
 "use client";
 
 import { ComponentProps, useState } from "react";
-import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
 import { SignUpErrorCode, signUpRestaurant } from "@/actions/auth";
 import {
@@ -9,9 +8,20 @@ import {
   meetsPasswordRules,
   passwordRules,
 } from "@/lib/auth/validation";
-import styles from "../auth.module.css";
 import AuthShell from "../AuthShell";
 import { PasswordField, TextField } from "../fields";
+import {
+  CheckIcon,
+  CheckItem,
+  CheckLine,
+  Checklist,
+  ErrorText,
+  Form,
+  LinkButton,
+  SrOnly,
+  SubmitButton,
+  TextLink,
+} from "../styles";
 
 // Figma (account): https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1260
 // Figma (restaurant): https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1281
@@ -111,28 +121,19 @@ export default function SignupForm({ email }: { email: string }) {
     setStep("account");
   };
 
-  const errorMessage = error && (
-    <p className={styles.error} role="alert">
-      {error}
-    </p>
-  );
+  const errorMessage = error && <ErrorText role="alert">{error}</ErrorText>;
 
   if (step === "restaurant") {
     return (
       <AuthShell
         heading="Tell Us About Your Restaurant"
         footer={
-          <button
-            type="button"
-            className={styles.link}
-            onClick={goBack}
-            disabled={isLoading}
-          >
+          <LinkButton type="button" onClick={goBack} disabled={isLoading}>
             Go back
-          </button>
+          </LinkButton>
         }
       >
-        <form onSubmit={handleCreateAccount} className={styles.form}>
+        <Form onSubmit={handleCreateAccount}>
           <TextField
             id="restaurantName"
             label="Restaurant name"
@@ -175,10 +176,10 @@ export default function SignupForm({ email }: { email: string }) {
 
           {errorMessage}
 
-          <button type="submit" className={styles.button} disabled={isLoading}>
+          <SubmitButton type="submit" disabled={isLoading}>
             Create Account
-          </button>
-        </form>
+          </SubmitButton>
+        </Form>
       </AuthShell>
     );
   }
@@ -186,13 +187,9 @@ export default function SignupForm({ email }: { email: string }) {
   return (
     <AuthShell
       heading="Create Your Account"
-      footer={
-        <Link href="/login" className={styles.link}>
-          Use a different email
-        </Link>
-      }
+      footer={<TextLink href="/login">Use a different email</TextLink>}
     >
-      <form onSubmit={handleContinue} className={styles.form}>
+      <Form onSubmit={handleContinue}>
         {/* "username" ties the new password to this email in password managers */}
         <TextField
           id="email"
@@ -260,31 +257,25 @@ export default function SignupForm({ email }: { email: string }) {
         {/* always mounted so screen readers hear rules flip as they type */}
         <div id="password-rules" aria-live="polite">
           {showChecklist && (
-            <ul className={styles.checklist}>
+            <Checklist>
               {passwordRules.map(rule => {
                 const met = rule.test(password);
                 return (
-                  <li key={rule.label} className={styles.checkItem}>
-                    <span className={styles.checkIcon} aria-hidden="true">
-                      {met ? "✓" : "○"}
-                    </span>
+                  <CheckItem key={rule.label}>
+                    <CheckIcon aria-hidden="true">{met ? "✓" : "○"}</CheckIcon>
                     {rule.label}
-                    <span className={styles.srOnly}>
-                      {met ? "(met)" : "(not met)"}
-                    </span>
-                  </li>
+                    <SrOnly>{met ? "(met)" : "(not met)"}</SrOnly>
+                  </CheckItem>
                 );
               })}
-            </ul>
+            </Checklist>
           )}
 
           {allRulesMet && (
-            <p className={styles.checkItem}>
-              <span className={styles.checkIcon} aria-hidden="true">
-                ✓
-              </span>
+            <CheckLine>
+              <CheckIcon aria-hidden="true">✓</CheckIcon>
               Password requirements met
-            </p>
+            </CheckLine>
           )}
         </div>
 
@@ -305,26 +296,20 @@ export default function SignupForm({ email }: { email: string }) {
             />
 
             {confirmPassword.length > 0 && (
-              <p
-                id="password-match"
-                className={styles.checkItem}
-                aria-live="polite"
-              >
-                <span className={styles.checkIcon} aria-hidden="true">
+              <CheckLine id="password-match" aria-live="polite">
+                <CheckIcon aria-hidden="true">
                   {passwordsMatch ? "✓" : "✕"}
-                </span>
+                </CheckIcon>
                 {passwordsMatch ? "Passwords match" : "Passwords don't match"}
-              </p>
+              </CheckLine>
             )}
           </>
         )}
 
         {errorMessage}
 
-        <button type="submit" className={styles.button}>
-          Continue
-        </button>
-      </form>
+        <SubmitButton type="submit">Continue</SubmitButton>
+      </Form>
     </AuthShell>
   );
 }
