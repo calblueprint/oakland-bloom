@@ -63,6 +63,16 @@ const messageSchema = z
     from: phone,
     text: z.string().max(4000),
     provider: z.enum(["meta", "twilio"]),
+    media: z
+      .strictObject({
+        kind: z.enum(["image", "sticker"]),
+        mediaId: z.string().min(1).max(2000),
+        mimeType: z.string().min(1).max(200),
+        sha256: z.string().max(200).optional(),
+      })
+      .optional(),
+    contextMessageId: z.string().max(500).optional(),
+    sentAt: z.iso.datetime().optional(),
   })
   .refine(value => value.providerMessageId.startsWith(`${value.provider}:`), {
     message: "Message ID must belong to its provider.",

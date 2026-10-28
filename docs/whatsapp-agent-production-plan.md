@@ -287,8 +287,7 @@ Rules:
      maps to `wa_deliveries.provider_message_id` and so to the opportunity.
    - Otherwise the server resolves the gig by the `OB12` code, or by the chef's single
      most recent open delivery. If that's ambiguous, the agent asks.
-   - Add `contextMessageId` and the provider timestamp to `InboundMessage`; it has
-     neither today.
+   - `InboundMessage` carries `contextMessageId` and `sentAt` (done).
 
 ### 4. Human takeover
 
@@ -429,15 +428,16 @@ chef with no answer:
 Voice notes use this same download path plus a transcription step. They are planned in
 §IV.4.
 
-**Code changes this implies**
+**Parser support (done)**
 
-- `InboundMessage` gains an optional `media?: { kind: "image" | "sticker"; providerMediaId;
-mimeType; sha256?; caption? }`. `text` becomes the caption, or `""`.
-- `parseMeta.ts` accepts `image` and `sticker` (it currently throws for media,
-  `parseMeta.ts:102`). `parseTwilio.ts` accepts `NumMedia ≥ 1` with
-  `MediaUrl0`/`MediaContentType0` (it currently throws, `parseTwilio.ts:54-62`). Twilio
-  media is fetched with basic auth, not a Meta media ID.
-- `messageSchema` in `store.ts` allows empty text when media is present.
+- `InboundMessage` has an optional `media: { kind: "image" | "sticker"; mediaId;
+mimeType; sha256? }`. `text` is the caption, or `""`. `mediaId` is a Meta media ID or
+  Twilio's `MediaUrl0`, since Twilio media is fetched by URL with account auth.
+- `parseMeta.ts` accepts `image` and `sticker`. `parseTwilio.ts` accepts one JPEG, PNG,
+  or WebP attachment.
+- Other types are still rejected. `RejectedMessage.from` keeps the sender, so the
+  webhook can send the "can't open that" reply.
+- The agent's `messageSchema` accepts `media`, `contextMessageId`, and `sentAt`.
 
 ---
 

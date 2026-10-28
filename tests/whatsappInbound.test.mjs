@@ -47,7 +47,12 @@ test("both providers produce identical fields for the same message", () => {
   // apart except by the provider tag and ID.
   assert.equal(meta.from, twilio.from);
   assert.equal(meta.text, twilio.text);
-  assert.deepEqual(Object.keys(meta).sort(), Object.keys(twilio).sort());
+  // Twilio's inbound webhook carries no send time, so only Meta has `sentAt`.
+  const shared = message =>
+    Object.keys(message)
+      .filter(key => key !== "sentAt")
+      .sort();
+  assert.deepEqual(shared(meta), shared(twilio));
 });
 
 test("keeps unrecognized text as a valid message", () => {
@@ -66,7 +71,11 @@ test("rejects a malformed Meta message explicitly", () => {
   assert.deepEqual(parseMetaPayload(json("meta-malformed.json")), {
     messages: [],
     rejected: [
-      { providerMessageId: null, reason: "Message is missing a string `id`." },
+      {
+        providerMessageId: null,
+        from: "15555550123",
+        reason: "Message is missing a string `id`.",
+      },
     ],
   });
 });
@@ -123,21 +132,137 @@ test("walks every entry, change, and message in a batch", () => {
   );
 });
 
-test("rejects non-text Meta message types", () => {
+const metaMedia = (type, media) => {
   const payload = json("meta-valid-response.json");
   const message = payload.entry[0].changes[0].value.messages[0];
   delete message.text;
-  message.type = "image";
-  message.image = { id: "media-id", mime_type: "image/jpeg" };
-  rejectsMessage(payload, /Unsupported message type "image"/);
+  message.type = type;
+  message[type] = media;
+  return payload;
+};
+
+test("keeps Meta photos as media with the caption as text", () => {
+  // Chefs send menus and kitchen photos; dropping them would lose the message.
+  const { messages, rejected } = parseMetaPayload(
+    metaMedia("image", {
+      id: "media-id",
+      mime_type: "image/jpeg",
+      sha256: "abc=",
+      caption: "my menu for OB12",
+    }),
+  );
+  assert.deepEqual(rejected, []);
+  assert.equal(messages[0].text, "my menu for OB12");
+  assert.deepEqual(messages[0].media, {
+    kind: "image",
+    mediaId: "media-id",
+    mimeType: "image/jpeg",
+    sha256: "abc=",
+  });
 });
 
-test("rejects Twilio media messages", () => {
-  const payload = text("twilio-valid-response.txt").replace(
-    "NumMedia=0",
-    "NumMedia=1",
+test("an uncaptioned photo or sticker is still a message, with empty text", () => {
+  // The agent must still answer a bare photo instead of ignoring the chef.
+  for (const type of ["image", "sticker"]) {
+    const [message] = parseMetaPayload(
+      metaMedia(type, { id: "m1", mime_type: "image/webp" }),
+    ).messages;
+    assert.equal(message.text, "");
+    assert.equal(message.media.kind, type);
+  }
+});
+
+test("rejects Meta media without an ID or MIME type, since it can't be fetched", () => {
+  rejectsMessage(metaMedia("image", { mime_type: "image/jpeg" }), /image\.id/);
+  rejectsMessage(metaMedia("sticker", { id: "m1" }), /mime_type/);
+});
+
+test("rejected unsupported messages keep the sender so the chef can get a reply", () => {
+  // A voice note must not end in silence: the webhook replies "can't open that".
+  const { messages, rejected } = parseMetaPayload(
+    metaMedia("audio", { id: "a1", mime_type: "audio/ogg", voice: true }),
   );
-  assert.throws(() => parseTwilioPayload(payload), /Unsupported media message/);
+  assert.deepEqual(messages, []);
+  assert.equal(rejected[0].from, "15555550123");
+  assert.match(rejected[0].reason, /Unsupported message type "audio"/);
+});
+
+test("keeps the swiped-reply target so a reply maps to the exact gig message", () => {
+  const [message] = parseMetaPayload(
+    metaWithMessage({ context: { from: "15555550100", id: "wamid.gig" } }),
+  ).messages;
+  assert.equal(message.contextMessageId, "meta:wamid.gig");
+
+  // Forwarded messages have `context` with no ID; that is not a reply target.
+  const [forwarded] = parseMetaPayload(
+    metaWithMessage({ context: { forwarded: true } }),
+  ).messages;
+  assert.equal(forwarded.contextMessageId, undefined);
+});
+
+test("converts Meta's Unix timestamp and rejects malformed ones", () => {
+  const [message] = parseMetaPayload(
+    metaWithMessage({ timestamp: "1760000000" }),
+  ).messages;
+  assert.equal(message.sentAt, "2025-10-09T08:53:20.000Z");
+  rejectsMessage(metaWithMessage({ timestamp: "soon" }), /timestamp/);
+});
+
+test("keeps Twilio photos and stickers, addressed by their media URL", () => {
+  const photo = {
+    ...twilioRecord(),
+    Body: "kitchen sink is broken",
+    NumMedia: "1",
+    MessageType: "image",
+    MediaUrl0:
+      "https://api.twilio.com/2010-04-01/Accounts/AC/Messages/MM/Media/ME",
+    MediaContentType0: "image/jpeg",
+  };
+  const [message] = parseTwilioPayload(photo);
+  assert.equal(message.text, "kitchen sink is broken");
+  assert.deepEqual(message.media, {
+    kind: "image",
+    mediaId: photo.MediaUrl0,
+    mimeType: "image/jpeg",
+  });
+
+  const [sticker] = parseTwilioPayload({
+    ...photo,
+    Body: "",
+    MessageType: "sticker",
+    MediaContentType0: "image/webp",
+  });
+  assert.equal(sticker.media.kind, "sticker");
+});
+
+test("rejects Twilio media that can't be handled instead of passing it as text", () => {
+  const base = {
+    ...twilioRecord(),
+    NumMedia: "1",
+    MediaUrl0: "https://api.twilio.com/media/ME1",
+    MediaContentType0: "image/jpeg",
+  };
+  rejectsFrom("twilio", () =>
+    parseTwilioPayload({ ...base, MediaContentType0: "audio/ogg" }),
+  );
+  rejectsFrom("twilio", () => parseTwilioPayload({ ...base, NumMedia: "2" }));
+  rejectsFrom("twilio", () =>
+    parseTwilioPayload({ ...base, MediaUrl0: "http://insecure/ME1" }),
+  );
+  const { MediaUrl0, ...noUrl } = base;
+  assert.ok(MediaUrl0);
+  rejectsFrom("twilio", () => parseTwilioPayload(noUrl));
+  rejectsFrom("twilio", () =>
+    parseTwilioPayload({ ...twilioRecord(), MessageType: "image" }),
+  );
+});
+
+test("keeps the Twilio replied-to message ID", () => {
+  const [message] = parseTwilioPayload({
+    ...twilioRecord(),
+    OriginalRepliedMessageSid: "SMgig",
+  });
+  assert.equal(message.contextMessageId, "twilio:SMgig");
 });
 
 test("rejects payloads that are not WhatsApp webhooks", () => {

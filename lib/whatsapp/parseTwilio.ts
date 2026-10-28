@@ -1,4 +1,4 @@
-import type { InboundMessage } from "./inboundMessage.ts";
+import type { InboundMedia, InboundMessage } from "./inboundMessage.ts";
 import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
 
 /**
@@ -17,7 +17,15 @@ export function parseTwilioPayload(payload: unknown): InboundMessage[] {
   };
 
   const params = toParams(payload, fail);
-  for (const field of ["MessageSid", "From", "Body", "NumMedia"]) {
+  for (const field of [
+    "MessageSid",
+    "From",
+    "Body",
+    "NumMedia",
+    "MediaUrl0",
+    "MediaContentType0",
+    "OriginalRepliedMessageSid",
+  ]) {
     if (params.getAll(field).length > 1) fail(`Duplicate \`${field}\` field.`);
   }
 
@@ -38,39 +46,65 @@ export function parseTwilioPayload(payload: unknown): InboundMessage[] {
 
   // Location shares send `Body=""` plus coordinates, so they would otherwise
   // pass as empty text. Quick-reply taps send `MessageType=button` with the
-  // button label in `Body`, so they are handled like typed text.
+  // button label in `Body`, so they are handled like typed text. Image and
+  // sticker messages are checked against their media fields below.
   const messageType = params.get("MessageType");
   if (
     messageType !== null &&
-    messageType !== "text" &&
-    messageType !== "button"
+    !["text", "button", "image", "sticker"].includes(messageType)
   )
     fail(
-      `Unsupported message type ${JSON.stringify(messageType)}; only text and reply buttons are handled.`,
+      `Unsupported message type ${JSON.stringify(messageType)}; only text, reply buttons, images, and stickers are handled.`,
     );
   if (params.has("Latitude") || params.has("Longitude"))
     fail("Unsupported location message; only text is handled.");
 
-  // Media messages carry NumMedia > 0. Out of scope this sprint, so fail loudly.
+  const message: InboundMessage = {
+    providerMessageId: `twilio:${sid as string}`,
+    from: phone,
+    text: body as string,
+    provider: "twilio",
+  };
+
+  // Media messages carry NumMedia > 0 and the file as MediaUrl0. WhatsApp sends
+  // one attachment per message; anything else fails loudly.
   const numMedia = params.get("NumMedia");
   if (numMedia !== null) {
     if (!/^\d+$/.test(numMedia))
       fail("`NumMedia` must be a nonnegative integer.");
-    if (Number(numMedia) > 0) {
-      fail(
-        `Unsupported media message (NumMedia=${numMedia}); only text is handled.`,
-      );
-    }
+    if (Number(numMedia) > 1)
+      fail(`Unsupported media message (NumMedia=${numMedia}); expected one.`);
+    if (Number(numMedia) === 1) message.media = twilioMedia(params, fail);
   }
+  if (
+    (messageType === "image" || messageType === "sticker") &&
+    message.media === undefined
+  )
+    fail(`\`MessageType=${messageType}\` is missing its media fields.`);
 
-  return [
-    {
-      providerMessageId: `twilio:${sid as string}`,
-      from: phone,
-      text: body as string,
-      provider: "twilio",
-    },
-  ];
+  const repliedTo = params.get("OriginalRepliedMessageSid");
+  if (repliedTo !== null && repliedTo.trim() !== "")
+    message.contextMessageId = `twilio:${repliedTo}`;
+
+  return [message];
+}
+
+/** Images are JPEG/PNG; WhatsApp stickers arrive as WebP. */
+function twilioMedia(
+  params: URLSearchParams,
+  fail: (reason: string) => never,
+): InboundMedia {
+  const url = params.get("MediaUrl0");
+  const mimeType = params.get("MediaContentType0");
+  if (url === null || !url.startsWith("https://"))
+    fail("Media message is missing an https `MediaUrl0`.");
+  if (mimeType === "image/jpeg" || mimeType === "image/png")
+    return { kind: "image", mediaId: url as string, mimeType };
+  if (mimeType === "image/webp")
+    return { kind: "sticker", mediaId: url as string, mimeType };
+  return fail(
+    `Unsupported media type ${JSON.stringify(mimeType)}; only images and stickers are handled.`,
+  );
 }
 
 function toParams(
