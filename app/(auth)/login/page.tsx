@@ -3,9 +3,9 @@
 import { ComponentProps, useState } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { continueWithEmail } from "@/actions/auth";
-import styles from "../auth.module.css";
 import AuthShell from "../AuthShell";
 import { TextField } from "../fields";
+import { ErrorText, Form, SubmitButton } from "../styles";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1460
 const INVALID_EMAIL_ERROR = "Enter a valid email address.";
@@ -45,7 +45,7 @@ export default function StartPage() {
 
   return (
     <AuthShell heading="Sign In or Create Your Account">
-      <form onSubmit={handleContinue} className={styles.form}>
+      <Form onSubmit={handleContinue}>
         <TextField
           id="email"
           label="Email"
@@ -60,16 +60,12 @@ export default function StartPage() {
           required
         />
 
-        {error && (
-          <p className={styles.error} role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorText role="alert">{error}</ErrorText>}
 
-        <button type="submit" className={styles.button} disabled={isLoading}>
+        <SubmitButton type="submit" disabled={isLoading}>
           Continue
-        </button>
-      </form>
+        </SubmitButton>
+      </Form>
     </AuthShell>
   );
 }
