@@ -24,6 +24,31 @@ function transactionClient(unsafe) {
 
 const databaseUrl = "postgresql://test:secret@example.invalid:5432/postgres";
 
+test("optional calendar seed shares the original guarded transaction", async () => {
+  const base = readFileSync(
+    new URL("../scripts/seedReservations.sql", import.meta.url),
+    "utf8",
+  );
+  const samples = readFileSync(
+    new URL("../scripts/seedCalendarReservations.sql", import.meta.url),
+    "utf8",
+  );
+  let executed = false;
+  await runSeed({
+    databaseUrl,
+    includeCalendarSamples: true,
+    createClient: () => ({
+      begin: transactionClient(source => {
+        assert.equal(source, `${base}\n${samples}`);
+        executed = true;
+        return { simple: async () => {} };
+      }),
+      end: async () => {},
+    }),
+  });
+  assert.ok(executed);
+});
+
 test("rejects missing/invalid configuration without creating a connection", async () => {
   const createClient = () => {
     throw new Error("Must not connect");
