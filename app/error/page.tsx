@@ -1,10 +1,11 @@
 import Link from "next/link";
+import { ErrorMain } from "./styles";
 
 export default function ErrorPage() {
   return (
-    <main style={{ padding: "4rem 1rem", textAlign: "center" }}>
+    <ErrorMain>
       <h1>Something went wrong</h1>
       <Link href="/">Go back home</Link>
-    </main>
+    </ErrorMain>
   );
 }

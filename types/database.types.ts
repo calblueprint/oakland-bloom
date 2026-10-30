@@ -233,6 +233,14 @@ export type Database = {
         Args: { p_client_key: string; p_email: string };
         Returns: boolean;
       };
+      get_calendar_occupied_periods: {
+        Args: { p_end: string; p_start: string };
+        Returns: {
+          amenity: string;
+          end_time: string;
+          start_time: string;
+        }[];
+      };
     };
     Enums: {
       [_ in never]: never;

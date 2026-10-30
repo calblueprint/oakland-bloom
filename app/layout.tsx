@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "@/styles/global.css";
 import { AuthProvider } from "@/contexts/AuthProvider";
+import StyledComponentsRegistry from "@/lib/registry";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 
 // font definitions
@@ -25,9 +26,14 @@ export default async function RootLayout({
   return (
     <html lang="en">
       <body className={sans.className}>
-        <AuthProvider userId={user?.id ?? null} userEmail={user?.email ?? null}>
-          {children}
-        </AuthProvider>
+        <StyledComponentsRegistry>
+          <AuthProvider
+            userId={user?.id ?? null}
+            userEmail={user?.email ?? null}
+          >
+            {children}
+          </AuthProvider>
+        </StyledComponentsRegistry>
       </body>
     </html>
   );

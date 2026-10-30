@@ -3,6 +3,7 @@
   "version": "0.1.1",
   "private": true,
   "scripts": {
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
@@ -16,7 +17,11 @@
     "pre-commit": "concurrently \"pnpm run tsc\" \"pnpm run lint\" \"pnpm run prettier\"",
     "setup:styled-components": "node ./setup-scripts/setup styled-components",
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
-    "delete-setup": "node ./setup-scripts/delete-setup"
+    "delete-setup": "node ./setup-scripts/delete-setup",
+    "seed:reservations": "node scripts/seedReservations.mjs",
+    "test:reservations:live": "node tests/getChefReservations.live.test.mjs --live",
+    "types:database": "node scripts/generateDatabaseTypes.mjs",
+    "test:seed:live": "node tests/seedReservations.live.test.mjs --live"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -24,7 +29,8 @@
     "next": "^16.3.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "server-only": "^0.0.1"
+    "server-only": "^0.0.1",
+    "styled-components": "^6.6.0"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
@@ -39,6 +45,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.6",
     "husky": "^9.1.7",
+    "postgres": "3.4.7",
     "prettier": "^3.9.8",
     "supabase": "^2.121.0",
     "typescript": "^5.9.3"
