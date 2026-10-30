@@ -5,7 +5,22 @@ import { signOut } from "@/actions/auth";
 import { getAccount } from "@/lib/auth/account";
 import { getAccountStatus } from "@/lib/auth/accountStatus";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import styles from "./accounts.module.css";
+import {
+  Actions,
+  ApproveButton,
+  Card,
+  DenyButton,
+  Details,
+  ErrorText,
+  Fields,
+  Header,
+  Heading,
+  LinkButton,
+  List,
+  Notice,
+  Page,
+  RestaurantName,
+} from "./styles";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -17,6 +32,12 @@ const errors: Record<string, string> = {
   incomplete: "That account hasn't finished onboarding yet.",
   failed: "Couldn't update that account. Refresh and try again.",
 };
+
+// users only stores the full name, so split it back into first and last
+function splitName(name: string | null) {
+  const [firstName = "", ...lastName] = (name ?? "").trim().split(/\s+/);
+  return { firstName, lastName: lastName.join(" ") };
+}
 
 // chef accounts that finished onboarding and are waiting on an admin
 async function getAccountsAwaitingApproval() {
@@ -69,9 +90,9 @@ export default async function AdminAccountsPage({
   const errorMessage = error && errors[error];
 
   return (
-    <main className={`${styles.page} ${instrumentSans.className}`}>
-      <header className={styles.header}>
-        <h1 className={styles.heading}>Accounts Awaiting Approval</h1>
+    <Page className={instrumentSans.className}>
+      <Header>
+        <Heading>Accounts Awaiting Approval</Heading>
         <form
           action={async () => {
             "use server";
@@ -79,85 +100,84 @@ export default async function AdminAccountsPage({
             if (result?.error) redirect("/error");
           }}
         >
-          <button type="submit" className={styles.link}>
-            Sign out
-          </button>
+          <LinkButton type="submit">Sign out</LinkButton>
         </form>
-      </header>
+      </Header>
 
       {done === "approve" && (
-        <p className={styles.notice} role="status">
+        <Notice role="status">
           Account approved. The chef can now sign in and use the app.
-        </p>
+        </Notice>
       )}
       {done === "deny" && (
-        <p className={styles.notice} role="status">
+        <Notice role="status">
           Account denied and deleted. The chef would need to sign up again.
-        </p>
+        </Notice>
       )}
-      {errorMessage && (
-        <p className={styles.error} role="alert">
-          {errorMessage}
-        </p>
-      )}
+      {errorMessage && <ErrorText role="alert">{errorMessage}</ErrorText>}
 
       {accounts.length === 0 ? (
-        <p className={styles.empty}>No accounts are waiting for approval.</p>
+        <Notice>No accounts are waiting for approval.</Notice>
       ) : (
-        <ul className={styles.list}>
-          {accounts.map(({ user, restaurant }) => (
-            <li key={user.userid} className={styles.card}>
-              <div className={styles.details}>
-                <h2 className={styles.restaurantName}>{restaurant?.name}</h2>
-                <dl className={styles.fields}>
-                  <dt>Chef</dt>
-                  <dd>{user.name}</dd>
-                  <dt>Email</dt>
-                  <dd>{user.email}</dd>
-                  <dt>Phone</dt>
-                  <dd>{user.phone}</dd>
-                  <dt>Address</dt>
-                  <dd>{restaurant?.address}</dd>
-                  <dt>Cuisine</dt>
-                  <dd>{restaurant?.cuisine}</dd>
-                  <dt>Signed up</dt>
-                  <dd>
-                    {restaurant &&
-                      new Date(restaurant.created_at).toLocaleDateString(
-                        "en-US",
-                        {
-                          dateStyle: "medium",
-                          timeZone: "America/Los_Angeles",
-                        },
-                      )}
-                  </dd>
-                </dl>
-              </div>
+        <List>
+          {accounts.map(({ user, restaurant }) => {
+            const { firstName, lastName } = splitName(user.name);
+            return (
+              <Card key={user.userid}>
+                <Details>
+                  <RestaurantName>{restaurant?.name}</RestaurantName>
+                  <Fields>
+                    <dt>First name</dt>
+                    <dd>{firstName}</dd>
+                    <dt>Last name</dt>
+                    <dd>{lastName}</dd>
+                    <dt>Email</dt>
+                    <dd>{user.email}</dd>
+                    <dt>Phone</dt>
+                    <dd>{user.phone}</dd>
+                    <dt>Restaurant</dt>
+                    <dd>{restaurant?.name}</dd>
+                    <dt>Address</dt>
+                    <dd>{restaurant?.address}</dd>
+                    <dt>Cuisine</dt>
+                    <dd>{restaurant?.cuisine}</dd>
+                    <dt>Signed up</dt>
+                    <dd>
+                      {restaurant &&
+                        new Date(restaurant.created_at).toLocaleDateString(
+                          "en-US",
+                          {
+                            dateStyle: "medium",
+                            timeZone: "America/Los_Angeles",
+                          },
+                        )}
+                    </dd>
+                  </Fields>
+                </Details>
 
-              <div className={styles.actions}>
-                <form action={approveAccount.bind(null, user.userid)}>
-                  <button
-                    type="submit"
-                    className={styles.approve}
-                    aria-label={`Approve ${restaurant?.name}`}
-                  >
-                    Approve
-                  </button>
-                </form>
-                <form action={denyAccount.bind(null, user.userid)}>
-                  <button
-                    type="submit"
-                    className={styles.deny}
-                    aria-label={`Deny ${restaurant?.name}`}
-                  >
-                    Deny
-                  </button>
-                </form>
-              </div>
-            </li>
-          ))}
-        </ul>
+                <Actions>
+                  <form action={approveAccount.bind(null, user.userid)}>
+                    <ApproveButton
+                      type="submit"
+                      aria-label={`Approve ${restaurant?.name}`}
+                    >
+                      Approve
+                    </ApproveButton>
+                  </form>
+                  <form action={denyAccount.bind(null, user.userid)}>
+                    <DenyButton
+                      type="submit"
+                      aria-label={`Deny ${restaurant?.name}`}
+                    >
+                      Deny
+                    </DenyButton>
+                  </form>
+                </Actions>
+              </Card>
+            );
+          })}
+        </List>
       )}
-    </main>
+    </Page>
   );
 }

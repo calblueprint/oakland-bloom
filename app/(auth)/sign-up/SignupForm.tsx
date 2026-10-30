@@ -2,11 +2,23 @@
 
 import { ComponentProps, useState } from "react";
 import { unstable_rethrow } from "next/navigation";
-import { SignUpErrorCode, signUpRestaurant } from "@/actions/auth";
 import {
+  OnboardingErrorCode,
+  saveOnboarding,
+  signOut,
+  SignUpErrorCode,
+  signUpRestaurant,
+} from "@/actions/auth";
+import {
+  accountFields,
   MAX_TEXT_LENGTH,
   meetsPasswordRules,
+  OnboardingField,
+  OnboardingFieldErrors,
+  OnboardingInput,
   passwordRules,
+  restaurantFields,
+  validateOnboarding,
 } from "@/lib/auth/validation";
 import AuthShell from "../AuthShell";
 import { PasswordField, TextField } from "../fields";
@@ -35,27 +47,68 @@ const signUpErrors: Record<SignUpErrorCode, string> = {
   unknown: "Couldn't create your account. Please try again.",
 };
 
+const onboardingErrors: Record<OnboardingErrorCode, string> = {
+  invalid_input: "Some details need fixing. Check the highlighted fields.",
+  unknown: "Couldn't save your information. Please try again.",
+};
+
 const PASSWORD_RULES_ERROR = "Password doesn't meet the requirements yet.";
 
-export default function SignupForm({ email }: { email: string }) {
+// onboarding: already signed in but info is missing, so the same screens
+// prefilled with what's saved, no password, saved with saveOnboarding
+export default function SignupForm({
+  email,
+  onboarding,
+}: {
+  email: string;
+  onboarding?: OnboardingInput;
+}) {
+  const isOnboarding = onboarding !== undefined;
+
   // which screen we're on, so info from screen 1 stays when moving to screen 2
   const [step, setStep] = useState<"account" | "restaurant">("account");
 
   // screen 1: account info
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState(onboarding?.firstName ?? "");
+  const [lastName, setLastName] = useState(onboarding?.lastName ?? "");
+  const [phone, setPhone] = useState(onboarding?.phone ?? "");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordFocused, setPasswordFocused] = useState(false);
 
   // screen 2: restaurant info
-  const [restaurantName, setRestaurantName] = useState("");
-  const [restaurantAddress, setRestaurantAddress] = useState("");
-  const [cuisine, setCuisine] = useState("");
+  const [restaurantName, setRestaurantName] = useState(
+    onboarding?.restaurantName ?? "",
+  );
+  const [restaurantAddress, setRestaurantAddress] = useState(
+    onboarding?.restaurantAddress ?? "",
+  );
+  const [cuisine, setCuisine] = useState(onboarding?.cuisine ?? "");
 
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<OnboardingFieldErrors>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  const profile: OnboardingInput = {
+    firstName,
+    lastName,
+    phone,
+    restaurantName,
+    restaurantAddress,
+    cuisine,
+  };
+
+  // onboarding checks a screen's fields before moving on. returns true if they pass
+  const checkFields = (fields: OnboardingField[]) => {
+    if (!isOnboarding) return true;
+    const errors = validateOnboarding(profile, fields);
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  // a field's error clears as soon as they start fixing it
+  const clearFieldError = (field: OnboardingField) =>
+    setFieldErrors(errors => ({ ...errors, [field]: undefined }));
 
   const allRulesMet = meetsPasswordRules(password);
   const passwordsMatch = confirmPassword === password;
@@ -68,6 +121,11 @@ export default function SignupForm({ email }: { email: string }) {
   const handleContinue: ComponentProps<"form">["onSubmit"] = e => {
     e.preventDefault();
     setError(null);
+
+    if (isOnboarding) {
+      if (checkFields(accountFields)) setStep("restaurant");
+      return;
+    }
 
     if (!allRulesMet) {
       setError(PASSWORD_RULES_ERROR);
@@ -85,9 +143,26 @@ export default function SignupForm({ email }: { email: string }) {
   const handleCreateAccount: ComponentProps<"form">["onSubmit"] = async e => {
     e.preventDefault();
     setError(null);
+    if (!checkFields(restaurantFields)) return;
     setIsLoading(true);
 
     try {
+      if (isOnboarding) {
+        // redirects by itself on success, so only failures come back
+        const result = await saveOnboarding(profile);
+        if (result?.error) {
+          const serverFieldErrors = result.fieldErrors ?? {};
+          setFieldErrors(serverFieldErrors);
+          // send them back to the screen with the problem, everything still filled in
+          if (accountFields.some(field => serverFieldErrors[field])) {
+            setStep("account");
+          }
+          setError(onboardingErrors[result.error]);
+          setIsLoading(false);
+        }
+        return;
+      }
+
       const result = await signUpRestaurant({
         email,
         password,
@@ -133,7 +208,8 @@ export default function SignupForm({ email }: { email: string }) {
           </LinkButton>
         }
       >
-        <Form onSubmit={handleCreateAccount}>
+        {/* onboarding's own field errors replace the browser's tooltips */}
+        <Form onSubmit={handleCreateAccount} noValidate={isOnboarding}>
           <TextField
             id="restaurantName"
             label="Restaurant name"
@@ -141,9 +217,13 @@ export default function SignupForm({ email }: { email: string }) {
             autoComplete="organization"
             placeholder="Restaurant name"
             value={restaurantName}
-            onChange={e => setRestaurantName(e.target.value)}
+            onChange={e => {
+              setRestaurantName(e.target.value);
+              clearFieldError("restaurantName");
+            }}
             disabled={isLoading}
             maxLength={MAX_TEXT_LENGTH}
+            error={fieldErrors.restaurantName}
             autoFocus
             required
           />
@@ -155,9 +235,13 @@ export default function SignupForm({ email }: { email: string }) {
             autoComplete="street-address"
             placeholder="Restaurant address"
             value={restaurantAddress}
-            onChange={e => setRestaurantAddress(e.target.value)}
+            onChange={e => {
+              setRestaurantAddress(e.target.value);
+              clearFieldError("restaurantAddress");
+            }}
             disabled={isLoading}
             maxLength={MAX_TEXT_LENGTH}
+            error={fieldErrors.restaurantAddress}
             required
           />
 
@@ -168,16 +252,20 @@ export default function SignupForm({ email }: { email: string }) {
             autoComplete="off"
             placeholder="Cuisine"
             value={cuisine}
-            onChange={e => setCuisine(e.target.value)}
+            onChange={e => {
+              setCuisine(e.target.value);
+              clearFieldError("cuisine");
+            }}
             disabled={isLoading}
             maxLength={MAX_TEXT_LENGTH}
+            error={fieldErrors.cuisine}
             required
           />
 
           {errorMessage}
 
           <SubmitButton type="submit" disabled={isLoading}>
-            Create Account
+            {isOnboarding ? "Submit for Approval" : "Create Account"}
           </SubmitButton>
         </Form>
       </AuthShell>
@@ -186,10 +274,23 @@ export default function SignupForm({ email }: { email: string }) {
 
   return (
     <AuthShell
-      heading="Create Your Account"
-      footer={<TextLink href="/login">Use a different email</TextLink>}
+      heading={isOnboarding ? "Finish Your Account" : "Create Your Account"}
+      footer={
+        // onboarding is already signed in, so there's no other email to go back to
+        isOnboarding ? (
+          <form
+            action={async () => {
+              await signOut();
+            }}
+          >
+            <LinkButton type="submit">Sign out</LinkButton>
+          </form>
+        ) : (
+          <TextLink href="/login">Use a different email</TextLink>
+        )
+      }
     >
-      <Form onSubmit={handleContinue}>
+      <Form onSubmit={handleContinue} noValidate={isOnboarding}>
         {/* "username" ties the new password to this email in password managers */}
         <TextField
           id="email"
@@ -207,8 +308,12 @@ export default function SignupForm({ email }: { email: string }) {
           autoComplete="given-name"
           placeholder="First name"
           value={firstName}
-          onChange={e => setFirstName(e.target.value)}
+          onChange={e => {
+            setFirstName(e.target.value);
+            clearFieldError("firstName");
+          }}
           maxLength={MAX_TEXT_LENGTH}
+          error={fieldErrors.firstName}
           autoFocus
           required
         />
@@ -220,8 +325,12 @@ export default function SignupForm({ email }: { email: string }) {
           autoComplete="family-name"
           placeholder="Last name"
           value={lastName}
-          onChange={e => setLastName(e.target.value)}
+          onChange={e => {
+            setLastName(e.target.value);
+            clearFieldError("lastName");
+          }}
           maxLength={MAX_TEXT_LENGTH}
+          error={fieldErrors.lastName}
           required
         />
 
@@ -232,76 +341,88 @@ export default function SignupForm({ email }: { email: string }) {
           autoComplete="tel"
           placeholder="Phone number"
           value={phone}
-          onChange={e => setPhone(e.target.value)}
+          onChange={e => {
+            setPhone(e.target.value);
+            clearFieldError("phone");
+          }}
           maxLength={MAX_TEXT_LENGTH}
+          error={fieldErrors.phone}
           required
         />
 
-        <PasswordField
-          id="password"
-          label="Create password"
-          autoComplete="new-password"
-          placeholder="Create password"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          onFocus={() => setPasswordFocused(true)}
-          onBlur={() => setPasswordFocused(false)}
-          aria-describedby="password-rules"
-          aria-invalid={
-            error === PASSWORD_RULES_ERROR ||
-            error === signUpErrors.weak_password
-          }
-          required
-        />
-
-        {/* always mounted so screen readers hear rules flip as they type */}
-        <div id="password-rules" aria-live="polite">
-          {showChecklist && (
-            <Checklist>
-              {passwordRules.map(rule => {
-                const met = rule.test(password);
-                return (
-                  <CheckItem key={rule.label}>
-                    <CheckIcon aria-hidden="true">{met ? "✓" : "○"}</CheckIcon>
-                    {rule.label}
-                    <SrOnly>{met ? "(met)" : "(not met)"}</SrOnly>
-                  </CheckItem>
-                );
-              })}
-            </Checklist>
-          )}
-
-          {allRulesMet && (
-            <CheckLine>
-              <CheckIcon aria-hidden="true">✓</CheckIcon>
-              Password requirements met
-            </CheckLine>
-          )}
-        </div>
-
-        {allRulesMet && (
+        {!isOnboarding && (
           <>
             <PasswordField
-              id="confirmPassword"
-              label="Confirm password"
+              id="password"
+              label="Create password"
               autoComplete="new-password"
-              placeholder="Confirm password"
-              value={confirmPassword}
-              onChange={e => setConfirmPassword(e.target.value)}
-              aria-describedby={
-                confirmPassword.length > 0 ? "password-match" : undefined
+              placeholder="Create password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
+              aria-describedby="password-rules"
+              aria-invalid={
+                error === PASSWORD_RULES_ERROR ||
+                error === signUpErrors.weak_password
               }
-              aria-invalid={confirmPassword.length > 0 && !passwordsMatch}
               required
             />
 
-            {confirmPassword.length > 0 && (
-              <CheckLine id="password-match" aria-live="polite">
-                <CheckIcon aria-hidden="true">
-                  {passwordsMatch ? "✓" : "✕"}
-                </CheckIcon>
-                {passwordsMatch ? "Passwords match" : "Passwords don't match"}
-              </CheckLine>
+            {/* always mounted so screen readers hear rules flip as they type */}
+            <div id="password-rules" aria-live="polite">
+              {showChecklist && (
+                <Checklist>
+                  {passwordRules.map(rule => {
+                    const met = rule.test(password);
+                    return (
+                      <CheckItem key={rule.label}>
+                        <CheckIcon aria-hidden="true">
+                          {met ? "✓" : "○"}
+                        </CheckIcon>
+                        {rule.label}
+                        <SrOnly>{met ? "(met)" : "(not met)"}</SrOnly>
+                      </CheckItem>
+                    );
+                  })}
+                </Checklist>
+              )}
+
+              {allRulesMet && (
+                <CheckLine>
+                  <CheckIcon aria-hidden="true">✓</CheckIcon>
+                  Password requirements met
+                </CheckLine>
+              )}
+            </div>
+
+            {allRulesMet && (
+              <>
+                <PasswordField
+                  id="confirmPassword"
+                  label="Confirm password"
+                  autoComplete="new-password"
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  aria-describedby={
+                    confirmPassword.length > 0 ? "password-match" : undefined
+                  }
+                  aria-invalid={confirmPassword.length > 0 && !passwordsMatch}
+                  required
+                />
+
+                {confirmPassword.length > 0 && (
+                  <CheckLine id="password-match" aria-live="polite">
+                    <CheckIcon aria-hidden="true">
+                      {passwordsMatch ? "✓" : "✕"}
+                    </CheckIcon>
+                    {passwordsMatch
+                      ? "Passwords match"
+                      : "Passwords don't match"}
+                  </CheckLine>
+                )}
+              </>
             )}
           </>
         )}

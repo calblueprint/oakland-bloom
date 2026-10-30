@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import AccountForm from "@/app/(auth)/AccountForm";
+import SignupForm from "@/app/(auth)/sign-up/SignupForm";
 import { getAccount } from "@/lib/auth/account";
 
 // signed in, but some profile or restaurant info is missing (e.g. sign-up saved
@@ -11,11 +11,5 @@ export default async function OnboardingPage() {
     redirect(account.homePath);
   }
 
-  return (
-    <AccountForm
-      mode="onboarding"
-      email={account.email}
-      initial={account.saved}
-    />
-  );
+  return <SignupForm email={account.email} onboarding={account.saved} />;
 }
