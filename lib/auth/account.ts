@@ -39,11 +39,18 @@ export const getAccount = cache(async () => {
   const status = getAccountStatus({ user: row, restaurant });
   const isAdmin = row?.is_admin === true;
 
-  // users only stores the full name, so split what sign-up sent for the form
+  // users only stores the full name. sign-up's first/last split is more
+  // accurate than splitting on spaces, but only while it still matches the
+  // saved name (a retried onboarding save can change the row, not metadata)
   const meta = user.user_metadata ?? {};
   const fromSignup = (key: string) =>
     typeof meta[key] === "string" ? (meta[key] as string) : "";
-  const [savedFirst = "", ...savedLast] = (row?.name ?? "").trim().split(/\s+/);
+  const savedName = (row?.name ?? "").trim();
+  const signupName = [fromSignup("first_name"), fromSignup("last_name")];
+  const [firstName = "", ...lastName] =
+    !savedName || signupName.join(" ").trim() === savedName
+      ? signupName
+      : savedName.split(/\s+/);
 
   return {
     userId: user.id,
@@ -53,8 +60,8 @@ export const getAccount = cache(async () => {
     homePath: homePathFor({ isAdmin, status }),
     // what's already saved, so onboarding doesn't ask for it again
     saved: {
-      firstName: fromSignup("first_name") || savedFirst,
-      lastName: fromSignup("last_name") || savedLast.join(" "),
+      firstName,
+      lastName: lastName.join(" "),
       phone: row?.phone || fromSignup("phone"),
       restaurantName: restaurant?.name || fromSignup("restaurant_name"),
       restaurantAddress:

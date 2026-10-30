@@ -82,11 +82,11 @@ export async function signUpRestaurant(
   const supabase = await getSupabaseServerClient();
   const origin = (await headers()).get("origin");
   const { data, error } = await supabase.auth.signUp({
-    email: normalizeEmail(input.email),
+    email,
     password,
     options: {
       // where the "verify your email" link sends them. without it Supabase uses the project's Site URL
-      emailRedirectTo: `${origin}/auth/callback`,
+      emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
       data: profile,
     },
   });

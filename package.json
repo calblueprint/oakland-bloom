@@ -11,6 +11,7 @@
     "tsc": "pnpm exec tsc --noEmit",
     "prettier": "pnpm exec prettier --check .",
     "prettier:fix": "pnpm exec prettier --write .",
+    "test": "node --test tests/*.test.mjs",
     "prepare": "husky",
     "pre-commit": "concurrently \"pnpm run tsc\" \"pnpm run lint\" \"pnpm run prettier\"",
     "setup:styled-components": "node ./setup-scripts/setup styled-components",
