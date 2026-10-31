@@ -176,9 +176,21 @@ export default function SignupForm({
 
       // redirects by itself on success, so only failures come back
       if (result?.error) {
-        // password problem lives on screen 1, so send them back there with everything still filled in
-        if (result.error === "weak_password") setStep("account");
-        setError(signUpErrors[result.error]);
+        const serverFieldErrors = result.fieldErrors ?? {};
+        setFieldErrors(serverFieldErrors);
+        // password and account fields live on screen 1, so send them back there with everything still filled in
+        if (
+          result.error === "weak_password" ||
+          accountFields.some(field => serverFieldErrors[field])
+        ) {
+          setStep("account");
+        }
+        // field errors show under their boxes instead of a generic message
+        setError(
+          Object.keys(serverFieldErrors).length > 0
+            ? null
+            : signUpErrors[result.error],
+        );
         setIsLoading(false);
       }
     } catch (err) {
