@@ -119,3 +119,29 @@ pnpm dev
 ```
 
 Then, navigate to http://localhost:3000 to launch the web application.
+
+## Auth setup
+
+1. Copy `example.env` to `.env.local` and fill in the values from Supabase
+   (Project Settings > API Keys). `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is the
+   publishable key. `SUPABASE_SERVICE_ROLE_KEY` is the secret key, is server
+   only, and must never be prefixed with `NEXT_PUBLIC_`.
+2. Install dependencies with `pnpm install`.
+3. Apply database migrations.
+   - Shared dev project: `pnpm supabase link --project-ref <ref>` then `pnpm supabase db push`
+   - Local Supabase: `pnpm supabase start` then `pnpm supabase db reset`
+4. Run `pnpm dev`.
+5. Making the first admin: sign up in the app, then run this in the Supabase
+   SQL Editor with your email:
+
+   ```sql
+   update public.users set is_admin = true, is_approved = true where email = 'you@example.com';
+   ```
+
+### Email lookup
+
+The Start screen calls the `continueWithEmail` server action, which calls the
+`email_exists` Postgres function using the secret key. The function can't be
+called with the publishable key. Lookups are limited to 10 per client per
+10 minutes. To reset the limit during development, run
+`delete from private.email_lookup_attempts;` in the SQL Editor.

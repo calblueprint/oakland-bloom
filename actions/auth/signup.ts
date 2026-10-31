@@ -4,10 +4,12 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import {
+  cleanOnboardingInput,
   isValidEmail,
-  MAX_TEXT_LENGTH,
   meetsPasswordRules,
   normalizeEmail,
+  OnboardingFieldErrors,
+  validateOnboarding,
 } from "@/lib/auth/validation";
 import { getSupabaseServerClient } from "@/lib/supabase";
 import Logger from "../logging";
@@ -49,10 +51,15 @@ function toErrorCode(code: string | undefined): SignUpErrorCode {
   }
 }
 
+export type SignUpResult = {
+  error: SignUpErrorCode;
+  fieldErrors?: OnboardingFieldErrors;
+};
+
 // redirects on success, so only failures come back
 export async function signUpRestaurant(
   input: SignUpInput,
-): Promise<{ error: SignUpErrorCode }> {
+): Promise<SignUpResult> {
   const email = normalizeEmail(clean(input?.email));
   const password = typeof input?.password === "string" ? input.password : "";
   // profile info saved on the user. no role or approval is set here on purpose
@@ -66,10 +73,10 @@ export async function signUpRestaurant(
   };
 
   // the form checks all of this too, but this endpoint is callable directly
-  const profileValid = Object.values(profile).every(
-    value => value.length > 0 && value.length <= MAX_TEXT_LENGTH,
-  );
-  if (!isValidEmail(email) || !profileValid) return { error: "invalid_input" };
+  const fieldErrors = validateOnboarding(cleanOnboardingInput(input));
+  if (!isValidEmail(email) || Object.keys(fieldErrors).length > 0) {
+    return { error: "invalid_input", fieldErrors };
+  }
   if (!meetsPasswordRules(password)) return { error: "weak_password" };
 
   const supabase = await getSupabaseServerClient();
@@ -79,7 +86,7 @@ export async function signUpRestaurant(
     password,
     options: {
       // where the "verify your email" link sends them. without it Supabase uses the project's Site URL
-      emailRedirectTo: origin ? `${origin}/login` : undefined,
+      emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
       data: profile,
     },
   });

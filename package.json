@@ -28,6 +28,7 @@
     "next": "^16.3.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
+    "server-only": "^0.0.1",
     "styled-components": "^6.6.0"
   },
   "devDependencies": {
@@ -45,6 +46,7 @@
     "husky": "^9.1.7",
     "postgres": "3.4.7",
     "prettier": "^3.9.8",
+    "supabase": "^2.121.0",
     "typescript": "^5.9.3"
   },
   "engines": {
