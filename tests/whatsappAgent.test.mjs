@@ -4,7 +4,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import { MockLanguageModelV4 } from "ai/test";
-import { createCateringAgent } from "../lib/whatsapp/agent/conversation.ts";
+import {
+  createCateringAgent,
+  resolveAgentModel,
+} from "../lib/whatsapp/agent/conversation.ts";
 import { FileAgentStore } from "../lib/whatsapp/agent/store.ts";
 
 const NOW = "2026-10-27T18:00:00.000Z";
@@ -591,4 +594,54 @@ test("photo messages from the parsers are accepted, not thrown away by the agent
   const { result } = await respond(f, message);
   assert.equal(result.outcome, "conversation");
   assert.equal((await f.state()).receipts[0].message.media.kind, "image");
+});
+
+// Model configuration is checked without sending any provider requests.
+test("direct Anthropic configuration uses its own key without a Gateway key", () => {
+  const configured = resolveAgentModel({
+    WHATSAPP_AGENT_PROVIDER: "anthropic",
+    WHATSAPP_AGENT_MODEL: "native-claude-model-for-test",
+    ANTHROPIC_API_KEY: "fake-local-test-credential",
+  });
+  assert.equal(configured.model.modelId, "native-claude-model-for-test");
+  assert.match(configured.model.provider, /^anthropic/);
+  assert.equal(configured.label, "Anthropic native-claude-model-for-test");
+});
+
+test("Gateway configuration keeps provider/model routing", () => {
+  assert.deepEqual(
+    resolveAgentModel({
+      WHATSAPP_AGENT_MODEL: "provider/model-for-test",
+      AI_GATEWAY_API_KEY: "fake-local-test-credential",
+    }),
+    {
+      model: "provider/model-for-test",
+      label: "AI Gateway provider/model-for-test",
+    },
+  );
+});
+
+test("missing credentials and invalid provider configuration fail before making a request", () => {
+  for (const config of [
+    {},
+    { WHATSAPP_AGENT_MODEL: "provider/model-for-test" },
+    {
+      WHATSAPP_AGENT_PROVIDER: "anthropic",
+      WHATSAPP_AGENT_MODEL: "test-model",
+    },
+    {
+      WHATSAPP_AGENT_PROVIDER: "unsupported",
+      WHATSAPP_AGENT_MODEL: "test-model",
+    },
+    {
+      WHATSAPP_AGENT_PROVIDER: "anthropic",
+      WHATSAPP_AGENT_MODEL: "anthropic/test-model",
+      ANTHROPIC_API_KEY: "fake-local-test-credential",
+    },
+  ]) {
+    assert.throws(
+      () => resolveAgentModel(config),
+      /Set |must be|native model ID/,
+    );
+  }
 });

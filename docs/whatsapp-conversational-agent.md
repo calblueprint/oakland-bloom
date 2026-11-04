@@ -39,10 +39,9 @@ request; it does not notify staff.
 
 ## Code
 
-- `lib/whatsapp/agent/conversation.ts`: handle one turn and choose the final reply.
+- `lib/whatsapp/agent/conversation.ts`: model setup, one turn, and the final reply.
 - `lib/whatsapp/agent/tools.ts`: five tools and their access/confirmation checks.
 - `lib/whatsapp/agent/store.ts`: validated JSON, file locking, and atomic saves.
-- `lib/whatsapp/agent/model.ts`: select the live model/provider.
 
 State lives in `.local/whatsapp-agent/demo.json` or `live.json`. The file store
 is for development; a stopped process may leave a stale lock. Neither CLI mode

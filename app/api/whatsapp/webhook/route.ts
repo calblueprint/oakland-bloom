@@ -1,4 +1,5 @@
-import { createSupabaseIngest } from "@/lib/whatsapp/supabaseIngest";
+import type { InboundBatch } from "@/lib/whatsapp/inboundMessage";
+import { createClient } from "@supabase/supabase-js";
 import {
   handleMetaWebhook,
   verifyMetaSubscription,
@@ -34,4 +35,19 @@ function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`${name} is not set.`);
   return value;
+}
+
+/** Builds the server-only callback that saves a batch before the webhook acknowledges it. */
+function createSupabaseIngest(url: string, secretKey: string) {
+  // Provider callbacks have no logged-in chef; use the private server key.
+  const client = createClient(url, secretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return async (batch: InboundBatch): Promise<void> => {
+    // RPC means "call a database function". It saves the batch in one transaction
+    // and deduplicates provider IDs. The proposed migration must be applied first.
+    const { error } = await client.rpc("ingest_inbound", { batch });
+    // Throw returned database errors so the handler sends 503 for a provider retry.
+    if (error) throw new Error(`ingest_inbound failed: ${error.message}`);
+  };
 }
