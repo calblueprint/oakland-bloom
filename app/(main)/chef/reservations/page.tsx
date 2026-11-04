@@ -1,8 +1,7 @@
-import Link from "next/link";
+import NavButton from "@/components/NavButton";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationList } from "@/components/ReservationList";
 import { mockReservations } from "@/data/mockReservations";
-import NavButton from "@/components/NavButton";
 
 export default function ReservationsPage() {
   return (
@@ -20,20 +19,6 @@ export default function ReservationsPage() {
       )}
 
       {/* return navigation; links back to chef page */}
-      <Link
-        href="/chef"
-        style={{
-          display: "inline-block",
-          padding: "12px 24px",
-          backgroundColor: "#4f4f4f",
-          color: "white",
-          borderRadius: "8px",
-          textDecoration: "none",
-          marginTop: "16px",
-        }}
-      >
-        Back to Home
-      </Link>
       <NavButton href="/chef">Back to Home</NavButton>
     </main>
   );
