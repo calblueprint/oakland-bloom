@@ -51,6 +51,8 @@ The Statement of Work in Notion is the authoritative scope — this is a summary
 
 ### Docs
 
+- [`docs/whatsapp-code-walkthrough.md`](docs/whatsapp-code-walkthrough.md) — start
+  here to understand and explain the WhatsApp code, with an example conversation.
 - [`docs/whatsapp-bot-research.md`](docs/whatsapp-bot-research.md) — WhatsApp API
   research, provider comparison, proposed bot architecture and message flow (OAK-8).
 - [`docs/whatsapp-conversational-agent.md`](docs/whatsapp-conversational-agent.md) —

@@ -21,6 +21,7 @@ import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
  * Shape verified against Meta's docs — see docs/whatsapp-bot-research.md §III.4.
  */
 export function parseMetaPayload(payload: unknown): InboundBatch {
+  // Throw a validation error labeled with the provider that supplied the payload.
   const fail = (reason: string): never => {
     throw new InboundParseError("meta", reason);
   };
@@ -49,15 +50,17 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
       const value = change.value;
       if (!isRecord(value)) return fail("Change is missing a `value` object.");
 
-      const raw = value.messages;
+      const rawMessages = value.messages;
       // Delivery/read status callbacks have no `messages` key. Not an error.
-      if (raw === undefined) continue;
-      if (!Array.isArray(raw)) fail("`value.messages` is not an array.");
+      if (rawMessages === undefined) continue;
+      if (!Array.isArray(rawMessages))
+        fail("`value.messages` is not an array.");
 
-      for (const message of raw as unknown[]) {
+      for (const message of rawMessages as unknown[]) {
         try {
           messages.push(parseMetaMessage(message, fail));
         } catch (error) {
+          // Invalid message data is recoverable; unexpected code errors are not.
           if (!(error instanceof InboundParseError)) throw error;
           rejected.push({
             providerMessageId: messageId(message),
@@ -72,6 +75,7 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
   return { messages, rejected };
 }
 
+/** Validates one Meta message and returns normalized content, sender, reply context, and time. */
 function parseMetaMessage(
   message: unknown,
   fail: (reason: string) => never,
@@ -105,6 +109,7 @@ function parseMetaMessage(
   if (timestamp !== undefined) {
     if (typeof timestamp !== "string" || !/^\d{1,12}$/.test(timestamp))
       fail("Message `timestamp` must be Unix seconds as a string.");
+    // Meta sends Unix seconds; callers receive the same ISO date format as storage.
     parsed.sentAt = new Date(Number(timestamp) * 1000).toISOString();
   }
 
@@ -155,6 +160,7 @@ function messageContent(
   return { text: messageText(message, type, fail) };
 }
 
+/** Returns typed text or a tapped reply label; throws for unsupported or malformed content. */
 function messageText(
   message: Record<string, unknown>,
   type: unknown,
@@ -192,18 +198,22 @@ function messageText(
   );
 }
 
+/** Extracts a valid normalized sender for accepted/rejected records, or returns null. */
 function senderPhone(message: unknown): string | null {
   if (!isRecord(message) || typeof message.from !== "string") return null;
   const phone = normalizePhone(message.from);
   return /^[1-9]\d{1,14}$/.test(phone) ? phone : null;
 }
 
+/** Returns an intact provider ID with a meta: prefix, or null when the ID is missing/blank. */
 function messageId(message: unknown): string | null {
   if (!isRecord(message)) return null;
   const id = message.id;
+  // Provider IDs are opaque: check for a blank value, but preserve its contents.
   return typeof id === "string" && id.trim() !== "" ? `meta:${id}` : null;
 }
 
+/** Checks whether a value is a non-null object rather than an array or primitive. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

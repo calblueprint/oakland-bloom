@@ -44,11 +44,13 @@ export function verifyMetaSubscription(
   return new Response("Forbidden", { status: 403 });
 }
 
+/** Checks a POST signature, parses/saves its batch, and returns the matching HTTP response. */
 export async function handleMetaWebhook(
   request: Request,
   config: MetaWebhookConfig,
 ): Promise<Response> {
   const log = config.log ?? console.error;
+  // Check the original text first. Reformatting JSON would change its signature.
   const raw = await request.text();
 
   if (
@@ -83,6 +85,8 @@ export async function handleMetaWebhook(
   }
 
   try {
+    // This is the important order: save first, then tell Meta we accepted it.
+    // The webhook stops here; a future worker will run the agent and send replies.
     await config.ingest(batch);
   } catch (error) {
     log(
@@ -106,6 +110,7 @@ export function isValidSignature(
   return safeEqual(header.slice("sha256=".length), expected);
 }
 
+/** Compares equal-length secret/signature bytes without a timing-revealing string comparison. */
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);

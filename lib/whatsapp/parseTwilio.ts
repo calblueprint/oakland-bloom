@@ -5,18 +5,21 @@ import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
  * Twilio inbound webhook payload.
  *
  * Twilio POSTs form-encoded bodies, not JSON, and sends exactly one message per
- * request — so this returns a one-message array to match the Meta parser's shape.
+ * request — so a valid payload returns a one-message array. Meta instead returns
+ * a batch with separate accepted and rejected messages.
  * Accepts either a parsed record or a raw `application/x-www-form-urlencoded`
  * string, since a webhook route may hand over either.
  *
  * Shape verified against Twilio's docs — see docs/whatsapp-bot-research.md §I.
  */
 export function parseTwilioPayload(payload: unknown): InboundMessage[] {
+  // Throw a validation error labeled with the provider that supplied the payload.
   const fail = (reason: string): never => {
     throw new InboundParseError("twilio", reason);
   };
 
   const params = toParams(payload, fail);
+  // Repeated core fields could disagree; reject instead of silently choosing one.
   for (const field of [
     "MessageSid",
     "From",
@@ -83,19 +86,22 @@ export function parseTwilioPayload(payload: unknown): InboundMessage[] {
     fail(`\`MessageType=${messageType}\` is missing its media fields.`);
 
   const repliedTo = params.get("OriginalRepliedMessageSid");
+  // Preserve the quoted message's ID, not the current reply's ID. Twilio does
+  // not supply a sent timestamp here, so this parser does not invent one.
   if (repliedTo !== null && repliedTo.trim() !== "")
     message.contextMessageId = `twilio:${repliedTo}`;
 
   return [message];
 }
 
-/** Images are JPEG/PNG; WhatsApp stickers arrive as WebP. */
+/** Converts URL/MIME form fields to an image or sticker reference; rejects unsupported media. */
 function twilioMedia(
   params: URLSearchParams,
   fail: (reason: string) => never,
 ): InboundMedia {
   const url = params.get("MediaUrl0");
   const mimeType = params.get("MediaContentType0");
+  // Keep a reference for a later authenticated download; no network work here.
   if (url === null || !url.startsWith("https://"))
     fail("Media message is missing an https `MediaUrl0`.");
   if (mimeType === "image/jpeg" || mimeType === "image/png")
@@ -107,6 +113,7 @@ function twilioMedia(
   );
 }
 
+/** Converts a raw form, URLSearchParams, or string-valued record into readable form fields. */
 function toParams(
   payload: unknown,
   fail: (reason: string) => never,
@@ -122,6 +129,7 @@ function toParams(
     if (prototype !== Object.prototype && prototype !== null) {
       fail("Payload must be a plain string record.");
     }
+    // URLSearchParams would turn objects or arrays into strings and hide bad input.
     for (const [field, value] of Object.entries(payload)) {
       if (typeof value !== "string") fail(`\`${field}\` must be a string.`);
     }

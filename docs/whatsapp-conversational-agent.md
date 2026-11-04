@@ -89,7 +89,8 @@ Recent conversation is model context, not permission to write.
 
 ## State and Integration Plan
 
-`lib/whatsapp/agent/conversation.ts` owns the tool loop and server checks;
+`lib/whatsapp/agent/conversation.ts` coordinates each conversation turn;
+`lib/whatsapp/agent/tools.ts` defines the five operations and their permission checks;
 `lib/whatsapp/agent/store.ts` owns validated local state. The model sees the last
 12 conversation turns, while authoritative chef assignments, pending proposals,
 interest responses, handoffs, and replay receipts live separately in the store.
@@ -110,8 +111,9 @@ treating it as an interest response. Production requires an adapter and schema
 design for transactional writes, authorization, provider-message idempotency,
 retention, and concurrency.
 
-This change adds no server route, provider transport, webhook verification, or
-Supabase changes. A production integration must verify inbound signatures,
-resolve trusted sender identity, and persist before acknowledging delivery. Keep
-the agent import separate from `lib/whatsapp/index.ts` so the dependency-free
+The current branch also includes a separate Meta webhook, API client, and proposed
+database migration. The webhook verifies signatures and awaits database ingest,
+but it does not run this agent or send automatic replies yet. See the
+[code walkthrough](whatsapp-code-walkthrough.md) for those two separate paths.
+Keep the agent import separate from `lib/whatsapp/index.ts` so the dependency-free
 parser harness remains usable without installing the agent SDK.

@@ -1,8 +1,9 @@
 /**
  * Catering reply parsing.
  *
- * Works on `InboundMessage.text` only, so it never sees provider payloads and
- * applies identically to Meta and Twilio messages. Supported replies:
+ * This is a strict text-only shortcut, separate from the conversational agent.
+ * It reads `InboundMessage.text` only; it does not inspect provider payloads,
+ * attachments, or conversation history. Supported replies:
  *
  *   OB12 yes   interested in opportunity OB12
  *   OB12 no    not interested in opportunity OB12
@@ -41,9 +42,12 @@ export type UnrecognizedReason =
 const OPPORTUNITY_REF = /^OB[1-9]\d*$/i;
 const ANSWERS: Record<string, boolean> = { yes: true, no: false };
 
+/** Converts strict "OB12 yes/no" text into interest, or returns why it was not recognized. */
 export function parseCateringResponse(text: string): CateringResponse {
   const words = text.trim().split(/\s+/).filter(Boolean);
+  // Check whether one word is an opportunity reference such as OB12.
   const isRef = (word: string): boolean => OPPORTUNITY_REF.test(word);
+  // Return a structured explanation instead of guessing a yes/no answer.
   const unrecognized = (reason: UnrecognizedReason): UnrecognizedResponse => ({
     kind: "unrecognized",
     reason,
@@ -51,6 +55,8 @@ export function parseCateringResponse(text: string): CateringResponse {
 
   if (!words.some(isRef)) return unrecognized("missing-reference");
 
+  // Accept only two words: reference first, then yes/no. Extra words could add
+  // conditions ("OB12 yes if...") and must stay unrecognized rather than imply consent.
   // A reference exists, so if it isn't the first word it is somewhere in `rest`.
   const [ref, ...rest] = words;
   if (rest.length > 1 || rest.some(isRef)) return unrecognized("ambiguous");

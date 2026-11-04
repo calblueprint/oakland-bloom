@@ -43,6 +43,7 @@ export class MetaApiError extends Error {
   readonly code: number | null;
   readonly retryable: boolean;
 
+  /** Keeps the HTTP/API error codes and marks whether retrying might succeed. */
   constructor(status: number, code: number | null, message: string) {
     super(message);
     this.name = "MetaApiError";
@@ -59,11 +60,13 @@ const MEDIA_LIMITS: Record<string, number> = {
   "image/webp": 500 * 1024,
 };
 
+/** Takes private Meta settings and returns messaging/media methods using that account. */
 export function createMetaClient(config: MetaClientConfig) {
   const doFetch = config.fetch ?? fetch;
   const base = `https://graph.facebook.com/${config.apiVersion}`;
   const auth = { Authorization: `Bearer ${config.accessToken}` };
 
+  /** Sends an authenticated Graph request and returns its JSON object, or throws a MetaApiError. */
   async function graph(
     path: string,
     init: { method: "GET" | "POST"; json?: unknown; form?: FormData },
@@ -98,6 +101,7 @@ export function createMetaClient(config: MetaClientConfig) {
     return body;
   }
 
+  /** Adds the shared WhatsApp envelope, sends content to a recipient, and returns its prefixed ID. */
   async function send(to: string, message: Record<string, unknown>) {
     const body = await graph(`${config.phoneNumberId}/messages`, {
       method: "POST",
@@ -120,7 +124,8 @@ export function createMetaClient(config: MetaClientConfig) {
   }
 
   return {
-    /** Free-form text; only inside the 24h window. Optionally quotes a chef message. */
+    /** Sends text to a phone number, optionally quoting a message, and returns the sent ID. */
+    // The caller must enforce the 24-hour window before using free-form text.
     async sendText(
       to: string,
       text: string,
@@ -133,7 +138,7 @@ export function createMetaClient(config: MetaClientConfig) {
       });
     },
 
-    /** Approved template; the only send allowed outside the 24h window. */
+    /** Sends an approved template with variables/optional image and returns the sent ID. */
     async sendTemplate(
       to: string,
       template: TemplateMessage,
@@ -165,7 +170,7 @@ export function createMetaClient(config: MetaClientConfig) {
       });
     },
 
-    /** Uploaded image with an optional caption; only inside the 24h window. */
+    /** Sends an uploaded image ID with optional caption/reply context and returns the sent ID. */
     async sendImage(
       to: string,
       mediaId: string,
@@ -183,7 +188,7 @@ export function createMetaClient(config: MetaClientConfig) {
       });
     },
 
-    /** React to a chef message, e.g. 🙏 for "thanks" instead of a text reply. */
+    /** Adds an emoji reaction to an existing message and returns the reaction's sent ID. */
     async sendReaction(
       to: string,
       messageId: string,
@@ -196,8 +201,8 @@ export function createMetaClient(config: MetaClientConfig) {
     },
 
     /**
-     * Blue ticks plus "typing…" in one call. Show typing only when a reply will
-     * follow: it clears when we reply or after 25 seconds.
+     * Marks a message read, optionally shows typing, and resolves when Meta accepts it.
+     * Show typing only when a reply will follow; it clears when we reply or after 25 seconds.
      */
     async markReadAndTyping(
       messageId: string,
@@ -214,7 +219,7 @@ export function createMetaClient(config: MetaClientConfig) {
       });
     },
 
-    /** Upload once per gig; the returned ID can be reused for 30 days. */
+    /** Uploads image bytes with their MIME type/name and returns Meta's reusable media ID. */
     async uploadMedia(
       bytes: Uint8Array,
       mimeType: string,
@@ -239,7 +244,7 @@ export function createMetaClient(config: MetaClientConfig) {
     },
 
     /**
-     * Fetch inbound media by ID and verify it before anyone stores or reads it.
+     * Takes a media ID/optional hash and returns verified bytes plus the MIME type.
      * The download URL expires after 5 minutes, so it is resolved fresh here
      * and never returned. Webhook media IDs themselves expire after 7 days.
      */
@@ -272,6 +277,7 @@ export function createMetaClient(config: MetaClientConfig) {
         );
       }
 
+      // Step 1 fetched file metadata; step 2 downloads the actual image bytes.
       const response = await doFetch(info.url, { headers: auth });
       if (!response.ok) {
         throw new MetaApiError(
@@ -305,12 +311,14 @@ export type MetaClient = ReturnType<typeof createMetaClient>;
 
 /** Media we refuse to keep: wrong type, too large, or a hash mismatch. Not retryable. */
 export class MediaRejectedError extends Error {
+  /** Creates a non-retryable error explaining why an attachment was refused. */
   constructor(message: string) {
     super(message);
     this.name = "MediaRejectedError";
   }
 }
 
+/** Removes our meta: prefix for Meta's API; throws if the ID belongs to another provider. */
 function wamid(messageId: string): string {
   if (!messageId.startsWith("meta:")) {
     throw new Error(
@@ -320,12 +328,14 @@ function wamid(messageId: string): string {
   return messageId.slice("meta:".length);
 }
 
+/** Builds Meta's quoted-message context from an optional reply ID, or returns an empty object. */
 function replyContext(replyTo: string | undefined) {
   return replyTo === undefined
     ? {}
     : { context: { message_id: wamid(replyTo) } };
 }
 
+/** Checks downloaded bytes against an expected SHA-256 encoded as base64 or hex. */
 function sha256Matches(bytes: Uint8Array, expected: string): boolean {
   const digest = createHash("sha256").update(bytes).digest();
   return (
@@ -334,6 +344,7 @@ function sha256Matches(bytes: Uint8Array, expected: string): boolean {
   );
 }
 
+/** Checks whether decoded API data is a non-null object rather than an array or primitive. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

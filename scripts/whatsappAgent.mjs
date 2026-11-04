@@ -12,6 +12,7 @@ import {
   FICTIONAL_SEED,
 } from "./whatsappAgentDemo.mjs";
 
+/** Prints one agent reply with the tool inputs/results that produced it. */
 function printResponse(response) {
   for (const trace of response.toolCalls) {
     console.log(
@@ -21,6 +22,7 @@ function printResponse(response) {
   console.log(`assistant [${response.outcome}]: ${response.reply}\n`);
 }
 
+/** Runs the scripted demo by default, or an interactive local conversation with --live. */
 async function main() {
   const args = process.argv.slice(2);
   if (args.length > 1 || (args.length === 1 && args[0] !== "--live")) {
@@ -56,6 +58,7 @@ async function main() {
 
   const store = new FileAgentStore(statePath, FICTIONAL_SEED);
   const agent = createCateringAgent({ model, store });
+  // Wrap terminal text as a message from the fictional chef and return the agent's reply.
   const respond = async text =>
     agent.respond({
       provider: "meta",

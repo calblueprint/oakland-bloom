@@ -8,9 +8,9 @@
 export interface InboundMessage {
   /**
    * Provider-assigned message ID. Meta sends `wamid.…`, Twilio sends `SM…`.
-   * Carries a provider prefix so IDs stay unique if we ever run both.
-   * This is the idempotency key: providers retry and guarantee no exactly-once
-   * delivery, so the eventual persistence layer must treat repeats as no-ops.
+   * Keep the original ID intact and add a provider prefix to avoid collisions.
+   * Providers may deliver the same message more than once; persistence uses
+   * this full value to avoid processing a retry as a new message.
    */
   providerMessageId: string;
   /** Sender's phone number, digits only, no `+` or `whatsapp:` prefix. */
@@ -22,7 +22,7 @@ export interface InboundMessage {
   text: string;
   /** Which provider produced this message. */
   provider: Provider;
-  /** Attached image or sticker. The bytes are fetched later, never in the webhook. */
+  /** Attachment reference only; parsing does not download the image or sticker. */
   media?: InboundMedia;
   /**
    * Provider message ID (with prefix) of the message the chef replied to, when
@@ -76,6 +76,7 @@ export interface InboundBatch {
 export class InboundParseError extends Error {
   readonly provider: Provider;
 
+  /** Creates a parse error that identifies the provider and explains the invalid input. */
   constructor(provider: Provider, message: string) {
     super(message);
     this.name = "InboundParseError";

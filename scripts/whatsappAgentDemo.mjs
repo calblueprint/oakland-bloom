@@ -31,6 +31,7 @@ export const DEMO_TURNS = [
   "confirm",
 ];
 
+/** Wraps scripted content/finish reason in the response shape expected by the AI SDK. */
 function result(content, reason) {
   return {
     content,
@@ -43,6 +44,7 @@ function result(content, reason) {
   };
 }
 
+/** Builds a mock model response requesting a named tool with the supplied arguments. */
 function call(toolName, input) {
   return result(
     [
@@ -57,10 +59,12 @@ function call(toolName, input) {
   );
 }
 
+/** Builds a mock model response containing an ordinary assistant reply. */
 function text(value) {
   return result([{ type: "text", text: value }], "stop");
 }
 
+/** Reads the latest successful result of a named tool; throws if the demo flow went wrong. */
 function latestToolOutput(prompt, name) {
   const output = prompt
     .filter(message => message.role === "tool")
