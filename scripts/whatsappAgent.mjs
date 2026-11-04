@@ -27,10 +27,10 @@ function printResponse(response) {
 /** Runs the scripted demo by default, or an interactive local conversation with --live. */
 async function main() {
   const args = process.argv.slice(2);
-  if (args.length > 1 || (args.length === 1 && args[0] !== "--live")) {
-    throw new Error("Usage: pnpm agent:whatsapp [--live]");
+  if (args.some(arg => arg !== "--live" && arg !== "--reset")) {
+    throw new Error("Usage: pnpm agent:whatsapp [--live] [--reset]");
   }
-  const live = args[0] === "--live";
+  const live = args.includes("--live");
   const root = fileURLToPath(new URL("../", import.meta.url));
   const statePath = resolve(
     root,
@@ -59,6 +59,14 @@ async function main() {
   }
 
   const store = new FileAgentStore(statePath, FICTIONAL_SEED);
+  // Clear only this mode's fictional session, after validating model settings.
+  // reset uses the same lock as a turn so it cannot race an active conversation.
+  if (args.includes("--reset")) {
+    await store.reset();
+    console.log(
+      "Cleared local session: history, confirmations, help requests, and test responses.\n",
+    );
+  }
   const agent = createCateringAgent({ model, store });
   // Wrap terminal text as a message from the fictional chef and return the agent's reply.
   const respond = async text =>
