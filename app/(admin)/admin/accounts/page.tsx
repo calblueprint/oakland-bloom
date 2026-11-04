@@ -44,20 +44,28 @@ async function getAccountsAwaitingApproval() {
   // RLS only lets users read their own rows, so admins list accounts with the
   // service role. this runs on the server, after the admin check below
   const supabase = getSupabaseAdminClient();
-  const [usersResult, restaurantsResult] = await Promise.all([
-    supabase
-      .from("users")
-      .select("userid, email, name, phone, is_approved")
-      .eq("is_approved", false)
-      .eq("is_admin", false),
-    supabase
-      .from("restaurants")
-      .select("userid, name, address, cuisine, created_at"),
-  ]);
-
-  if (usersResult.error || restaurantsResult.error) {
+  const usersResult = await supabase
+    .from("users")
+    .select("userid, email, name, phone, is_approved")
+    .eq("is_approved", false)
+    .eq("is_admin", false);
+  if (usersResult.error) {
     throw new Error("Unable to load accounts awaiting approval.", {
-      cause: usersResult.error ?? restaurantsResult.error,
+      cause: usersResult.error,
+    });
+  }
+
+  // only the waiting accounts' restaurants, not every chef's
+  const restaurantsResult = await supabase
+    .from("restaurants")
+    .select("userid, name, address, cuisine, created_at")
+    .in(
+      "userid",
+      usersResult.data.map(user => user.userid),
+    );
+  if (restaurantsResult.error) {
+    throw new Error("Unable to load accounts awaiting approval.", {
+      cause: restaurantsResult.error,
     });
   }
 

@@ -42,6 +42,7 @@ await test(
       "utf8",
     )
       .replaceAll("public.users", "pg_temp.users")
+      .replaceAll("public.restaurants", "pg_temp.restaurants")
       .replaceAll("public.booking_event", "pg_temp.booking_event")
       .replaceAll("auth.users", "pg_temp.auth_users");
     const user1 = "11111111-1111-4111-a111-111111111111";
@@ -49,11 +50,24 @@ await test(
     try {
       await db.begin(async sql => {
         await sql`create temporary table users (like public.users including all) on commit drop`;
+        await sql`create temporary table restaurants (like public.restaurants including all) on commit drop`;
         await sql`create temporary table booking_event (like public.booking_event including all) on commit drop`;
         await sql`create temporary table auth_users (id uuid, email text) on commit drop`;
         await sql`insert into auth_users values (${user1}::uuid, 'one@example.invalid'), (${user2}::uuid, 'two@example.invalid')`;
         await sql`select set_config('oak10.user1', ${user1}, true), set_config('oak10.user2', ${user2}, true)`;
+        // what the sign-up trigger leaves behind: an unapproved, unfinished profile
+        await sql`insert into pg_temp.users (userid, email, name, phone, is_admin, is_approved) values (${user1}::uuid, 'one@example.invalid', '', '', false, false)`;
         await sql.unsafe(source).simple();
+        const profiles =
+          await sql`select u.userid, u.is_approved, r.name is not null as has_restaurant from pg_temp.users u left join pg_temp.restaurants r on r.userid = u.userid order by u.userid`;
+        assert.deepEqual(
+          [...profiles],
+          [
+            { userid: user1, is_approved: true, has_restaurant: true },
+            { userid: user2, is_approved: true, has_restaurant: true },
+          ],
+          "Seed must take over trigger-created profiles and finish onboarding.",
+        );
         const owners =
           await sql`select "user", count(*)::int as count from pg_temp.booking_event group by "user" order by "user"`;
         assert.deepEqual(

@@ -1,7 +1,13 @@
 -- OAK-10 DEVELOPMENT ONLY: two application profiles for the existing test Auth users.
 -- Never creates Auth accounts, stores passwords, changes RLS, or deletes old data.
+-- The two test profiles are owned by this seed: since the pending-accounts
+-- migration, a sign-up trigger creates an unapproved public.users row for every
+-- Auth user, so the seed overwrites those two rows (and only those two) instead of
+-- treating them as a collision, and gives each an approved restaurant so the
+-- test chefs can use the app.
 -- The runner owns the transaction and supplies transaction-local user settings.
-lock table public.users, public.booking_event in share row exclusive mode;
+lock table public.users, public.restaurants, public.booking_event
+    in share row exclusive mode;
 
 create temporary table oak10_seed_users on commit drop as
 select userid, email, name, is_admin, is_approved, phone
@@ -58,17 +64,6 @@ values
 do $$
 begin
     if exists (
-        select 1 from public.users existing
-        join oak10_seed_users fixture on existing.userid = fixture.userid
-        where row(existing.userid, existing.email, existing.name,
-                  existing.is_admin, existing.is_approved, existing.phone)
-            is distinct from
-              row(fixture.userid, fixture.email, fixture.name,
-                  fixture.is_admin, fixture.is_approved, fixture.phone)
-    ) then
-        raise exception 'OAK-10 profile collision or edited fixture. No records changed.';
-    end if;
-    if exists (
         select 1 from public.booking_event existing
         join oak10_seed_bookings fixture on existing.id = fixture.id
         where row(existing.id, existing.amenity, existing."user", existing.start_time,
@@ -87,9 +82,20 @@ insert into public.users (userid, email, name, is_admin, is_approved, phone)
 select fixture.userid, fixture.email, fixture.name, fixture.is_admin,
        fixture.is_approved, fixture.phone
 from oak10_seed_users fixture
-where not exists (
-    select 1 from public.users existing where existing.userid = fixture.userid
-);
+on conflict (userid) do update
+set email = excluded.email,
+    name = excluded.name,
+    is_admin = excluded.is_admin,
+    is_approved = excluded.is_approved,
+    phone = excluded.phone;
+
+insert into public.restaurants (userid, name, address, cuisine)
+select fixture.userid, fixture.name || ' Kitchen', '1 Test Way, Oakland, CA', 'Test cuisine'
+from oak10_seed_users fixture
+on conflict (userid) do update
+set name = excluded.name,
+    address = excluded.address,
+    cuisine = excluded.cuisine;
 
 insert into public.booking_event
     (id, amenity, "user", start_time, end_time, num_people,
