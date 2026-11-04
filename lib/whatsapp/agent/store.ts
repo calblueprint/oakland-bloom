@@ -24,6 +24,7 @@ const opportunitySchema = z.strictObject({
   pay: z.string().max(200).nullable(),
   details: z.string().max(2000),
   status: z.enum(["open", "closed"]),
+  // This assignment list controls who may see or respond to the gig.
   chefIds: z.array(id),
 });
 
@@ -32,6 +33,7 @@ export const seedSchema = z.strictObject({
   opportunities: z.array(opportunitySchema),
 });
 
+// Keep the exact proposed gig/answer separate from the model's chat text.
 const pendingSchema = z.strictObject({
   reference: referenceSchema,
   interested: z.boolean(),
@@ -123,6 +125,7 @@ export type Conversation = AgentState["conversations"][number];
 export type Opportunity = z.infer<typeof opportunitySchema>;
 export type PendingConfirmation = z.infer<typeof pendingSchema>;
 export type AgentStore = {
+  // Agent code uses this interface so a future database store can replace files.
   transaction<T>(run: (draft: AgentState) => Promise<T>): Promise<T>;
 };
 
@@ -172,11 +175,14 @@ export class FileAgentStore implements AgentStore {
         receipts: [],
       };
     }
+    // Parsing catches a broken saved file before any tool can act on its data.
     return stateSchema.parse(data);
   }
 
   /** Runs a callback on a locked draft, saves it on success, and returns the callback's result. */
   async transaction<T>(run: (draft: AgentState) => Promise<T>): Promise<T> {
+    // 0700 allows only the current user to access the state directory;
+    // files below use 0600 so only that user can read or write them.
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
     const lockPath = `${this.path}.lock`;
     // Exclusive creation works across store instances/processes. Fail rather than
@@ -184,17 +190,21 @@ export class FileAgentStore implements AgentStore {
     const lock = await open(lockPath, "wx", 0o600);
     const temporary = `${this.path}.${randomUUID()}.tmp`;
     try {
+      // This draft lives in memory. Tools change it, not the saved file.
       const draft = await this.readState();
       const result = await run(draft);
       // Write a private temporary file first. A failed turn or write leaves the
       // existing file intact; rename replaces it only after the write completes.
       const file = await open(temporary, "wx", 0o600);
       try {
+        // Validate again after the tools ran, before replacing good saved state.
         await file.writeFile(JSON.stringify(stateSchema.parse(draft), null, 2));
+        // Ask the OS to flush the new file before making it the current state.
         await file.sync();
       } finally {
         await file.close();
       }
+      // Readers see the old complete file or the new complete file.
       await rename(temporary, this.path);
       return result;
     } finally {

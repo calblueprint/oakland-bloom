@@ -6,11 +6,13 @@ export function resolveAgentModel(env: Record<string, string | undefined>): {
   model: LanguageModel;
   label: string;
 } {
+  // Configuration chooses the model. Importing this module alone makes no API call.
   const provider = env.WHATSAPP_AGENT_PROVIDER?.trim() || "gateway";
   const modelId = env.WHATSAPP_AGENT_MODEL?.trim();
   if (!modelId) throw new Error("Set WHATSAPP_AGENT_MODEL in .env.local.");
 
   if (provider === "anthropic") {
+    // Direct Anthropic requests use its own model ID and API key.
     const apiKey = env.ANTHROPIC_API_KEY?.trim();
     if (!apiKey) throw new Error("Set ANTHROPIC_API_KEY in .env.local.");
     if (modelId.includes("/")) {
@@ -28,6 +30,7 @@ export function resolveAgentModel(env: Record<string, string | undefined>): {
   }
 
   if (provider === "gateway") {
+    // The SDK resolves a model string through its default Gateway provider.
     if (!env.AI_GATEWAY_API_KEY?.trim()) {
       throw new Error("Set AI_GATEWAY_API_KEY in .env.local.");
     }

@@ -21,6 +21,7 @@ import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
  * Shape verified against Meta's docs — see docs/whatsapp-bot-research.md §III.4.
  */
 export function parseMetaPayload(payload: unknown): InboundBatch {
+  // Throw a validation error labeled with the provider that supplied the payload.
   const fail = (reason: string): never => {
     throw new InboundParseError("meta", reason);
   };
@@ -39,6 +40,8 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
   const messages: InboundMessage[] = [];
   const rejected: RejectedMessage[] = [];
 
+  // Meta nests batches at three levels. Walk every item so we do not lose a
+  // second chef's message just because it arrived in the same HTTP request.
   for (const entry of entries as unknown[]) {
     if (!isRecord(entry)) return fail("`entry` item is not an object.");
     const changes = entry.changes;
@@ -58,6 +61,7 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
         try {
           messages.push(parseMetaMessage(message, fail));
         } catch (error) {
+          // Invalid message data is recoverable; unexpected code errors are not.
           if (!(error instanceof InboundParseError)) throw error;
           rejected.push({
             providerMessageId: messageId(message),
@@ -71,6 +75,7 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
   return { messages, rejected };
 }
 
+/** Validates one Meta message and returns the shared sender, text, and ID format. */
 function parseMetaMessage(
   message: unknown,
   fail: (reason: string) => never,
@@ -139,12 +144,14 @@ function messageText(
   );
 }
 
+/** Keeps a usable ID even when the rest of the message is rejected. */
 function messageId(message: unknown): string | null {
   if (!isRecord(message)) return null;
   const id = message.id;
   return typeof id === "string" && id.trim() !== "" ? `meta:${id}` : null;
 }
 
+/** Narrows unknown JSON to an object before we read its fields. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

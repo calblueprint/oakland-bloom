@@ -12,11 +12,13 @@ import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
  * Shape verified against Twilio's docs — see docs/whatsapp-bot-research.md §I.
  */
 export function parseTwilioPayload(payload: unknown): InboundMessage[] {
+  // Throw a validation error labeled with the provider that supplied the payload.
   const fail = (reason: string): never => {
     throw new InboundParseError("twilio", reason);
   };
 
   const params = toParams(payload, fail);
+  // Repeated core fields could disagree; reject instead of silently choosing one.
   for (const field of ["MessageSid", "From", "Body", "NumMedia"]) {
     if (params.getAll(field).length > 1) fail(`Duplicate \`${field}\` field.`);
   }
@@ -73,6 +75,7 @@ export function parseTwilioPayload(payload: unknown): InboundMessage[] {
   ];
 }
 
+/** Converts a raw form, URLSearchParams, or string-valued record into readable form fields. */
 function toParams(
   payload: unknown,
   fail: (reason: string) => never,
@@ -88,6 +91,7 @@ function toParams(
     if (prototype !== Object.prototype && prototype !== null) {
       fail("Payload must be a plain string record.");
     }
+    // URLSearchParams would turn objects or arrays into strings and hide bad input.
     for (const [field, value] of Object.entries(payload)) {
       if (typeof value !== "string") fail(`\`${field}\` must be a string.`);
     }
