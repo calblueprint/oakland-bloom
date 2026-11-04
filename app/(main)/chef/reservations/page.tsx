@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationList } from "@/components/ReservationList";
 import { mockReservations } from "@/data/mockReservations";
+import NavButton from "@/components/NavButton";
 
 export default function ReservationsPage() {
   return (
@@ -33,6 +34,7 @@ export default function ReservationsPage() {
       >
         Back to Home
       </Link>
+      <NavButton href="/chef">Back to Home</NavButton>
     </main>
   );
 }
