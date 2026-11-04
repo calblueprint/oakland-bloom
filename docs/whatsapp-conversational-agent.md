@@ -10,6 +10,7 @@ confirmation before saving. Interest is not a booking.
 pnpm install
 pnpm agent:whatsapp        # Scripted offline demo, no API key needed
 pnpm agent:whatsapp --live # Interactive model; uses paid API calls
+pnpm agent:whatsapp --live --reset # Clear the live session, then start chatting
 ```
 
 For live mode, set these in the ignored `.env.local` file:
@@ -23,6 +24,9 @@ WHATSAPP_AGENT_MODEL=your-native-claude-model-id
 AI Gateway is also supported: set the provider to `gateway`, use
 `AI_GATEWAY_API_KEY`, and choose a `provider/model` ID. Type `/exit` to quit.
 Use fictional data: live mode sends conversation context to the model service.
+`--reset` clears history, pending confirmations, help requests, replay receipts,
+and saved test responses for the selected mode. Chefs/gigs and the other mode
+are preserved. Use `pnpm agent:whatsapp --reset` for a fresh scripted demo.
 
 ## How It Works
 

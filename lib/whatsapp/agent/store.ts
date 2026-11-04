@@ -189,6 +189,16 @@ export class FileAgentStore implements AgentStore {
     return stateSchema.parse(data);
   }
 
+  /** Clears this local session under the file lock, preserving chef and opportunity data. */
+  async reset(): Promise<void> {
+    await this.transaction(async state => {
+      state.conversations = [];
+      state.responses = [];
+      state.handoffs = [];
+      state.receipts = [];
+    });
+  }
+
   /** Runs a callback on a locked draft, saves it on success, and returns the callback's result. */
   async transaction<T>(run: (draft: AgentState) => Promise<T>): Promise<T> {
     // 0700 allows only the current user to access the state directory;

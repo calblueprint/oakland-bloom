@@ -1,8 +1,18 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  rm,
+  symlink,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
+import { fileURLToPath } from "node:url";
 import { MockLanguageModelV4 } from "ai/test";
 import {
   createCateringAgent,
@@ -138,6 +148,98 @@ const propose = (
   sourceQuote = "interested",
 ) => toolStep(call("propose_interest", { reference, interested, sourceQuote }));
 const record = () => toolStep(call("record_interest"));
+
+test("reset clears session memory and test responses while preserving chefs and gigs", async t => {
+  const f = await fixture(t);
+  await respond(f, "interested", [propose()]);
+  await respond(f, "confirm", [record()]);
+  await respond(f, "a person please", [
+    toolStep(call("request_human_help", { reason: "Chef requested a person" })),
+  ]);
+  await respond(f, "interested", [propose()]);
+  const before = await f.state();
+  assert.ok(before.conversations[0].pending);
+  assert.equal(before.responses.length, 1);
+  assert.equal(before.handoffs.length, 1);
+  await f.store.reset();
+  assert.deepEqual(await f.state(), {
+    ...SEED,
+    version: 1,
+    conversations: [],
+    responses: [],
+    handoffs: [],
+    receipts: [],
+  });
+  const fresh = await respond(f, "yo");
+  assert.match(
+    JSON.stringify(fresh.model.doGenerateCalls[0].prompt),
+    /\\"firstReply\\":true/,
+  );
+  assert.doesNotMatch(
+    JSON.stringify(fresh.model.doGenerateCalls[0].prompt),
+    /review queue/,
+  );
+});
+
+test("CLI reset is explicit, respects mode, and validates options before clearing", async t => {
+  // Run copies in a temporary project so this test never clears the user's chats.
+  const root = await mkdtemp(join(tmpdir(), "whatsapp-cli-test-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const source = fileURLToPath(new URL("../", import.meta.url));
+  await cp(join(source, "lib/whatsapp"), join(root, "lib/whatsapp"), {
+    recursive: true,
+  });
+  await mkdir(join(root, "scripts"));
+  for (const name of ["whatsappAgent.mjs", "whatsappAgentDemo.mjs"]) {
+    await cp(join(source, "scripts", name), join(root, "scripts", name));
+  }
+  await symlink(
+    join(source, "node_modules"),
+    join(root, "node_modules"),
+    "dir",
+  );
+  const run = (...flags) =>
+    spawnSync(
+      process.execPath,
+      [
+        "--experimental-strip-types",
+        "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+        "scripts/whatsappAgent.mjs",
+        ...flags,
+      ],
+      {
+        cwd: root,
+        encoding: "utf8",
+        input: "/exit\n",
+        env: {
+          ...process.env,
+          WHATSAPP_AGENT_PROVIDER: "anthropic",
+          WHATSAPP_AGENT_MODEL: "test-model",
+          ANTHROPIC_API_KEY: "fake-test-key",
+        },
+      },
+    );
+  const demo = join(root, ".local/whatsapp-agent/demo.json");
+  const live = join(root, ".local/whatsapp-agent/live.json");
+  for (let i = 0; i < 2; i++) {
+    const result = run();
+    assert.equal(result.status, 0, result.stderr);
+  }
+  const saved = await readFile(demo, "utf8");
+  assert.equal(JSON.parse(saved).responses.length, 2);
+  await writeFile(live, saved);
+  assert.equal(run("--reset", "--unknown").status, 1);
+  assert.equal(await readFile(demo, "utf8"), saved);
+  const resetDemo = run("--reset");
+  assert.equal(resetDemo.status, 0, resetDemo.stderr);
+  assert.match(resetDemo.stdout, /Cleared local session/);
+  assert.equal(JSON.parse(await readFile(demo, "utf8")).responses.length, 1);
+  assert.equal(await readFile(live, "utf8"), saved);
+  const resetLive = run("--reset", "--live");
+  assert.equal(resetLive.status, 0, resetLive.stderr);
+  assert.deepEqual(JSON.parse(await readFile(live, "utf8")).conversations, []);
+  assert.equal(JSON.parse(await readFile(demo, "utf8")).responses.length, 1);
+});
 
 test("agent reads actual scoped opportunity details through SDK tool calls", async t => {
   const f = await fixture(t);
@@ -519,6 +621,7 @@ test("file lock rejects simultaneous turns without losing data and permits safe 
       secondAgent.respond(slowMessage),
       error => error.code === "EEXIST",
     );
+    await assert.rejects(f.store.reset(), error => error.code === "EEXIST");
     assert.equal(secondModel.doGenerateCalls.length, 0);
     assert.deepEqual(await f.state(), before);
   } finally {
