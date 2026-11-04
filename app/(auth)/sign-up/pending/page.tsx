@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { parseEmailParam } from "@/lib/auth/validation";
-import styles from "../../auth.module.css";
 import AuthShell from "../../AuthShell";
+import { Message, MessageEmail, TextLink } from "../../styles";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1300
 export default async function PendingApprovalPage({
@@ -18,27 +17,22 @@ export default async function PendingApprovalPage({
   return (
     <AuthShell
       heading="Pending Approval"
-      footer={
-        <Link href="/login" className={styles.link}>
-          Back to sign in
-        </Link>
-      }
+      footer={<TextLink href="/login">Back to sign in</TextLink>}
     >
-      <div className={styles.message}>
+      <Message>
         <p>
           Thanks for signing up! We&apos;re reviewing your restaurant
           information.
         </p>
         <p>
-          First, check your inbox at{" "}
-          <span className={styles.messageEmail}>{email}</span> and click the
-          link to verify your email.
+          First, check your inbox at <MessageEmail>{email}</MessageEmail> and
+          click the link to verify your email.
         </p>
         <p>
-          We&apos;ll email <span className={styles.messageEmail}>{email}</span>{" "}
-          once your account has been approved.
+          We&apos;ll email <MessageEmail>{email}</MessageEmail> once your
+          account has been approved.
         </p>
-      </div>
+      </Message>
     </AuthShell>
   );
 }
