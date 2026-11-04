@@ -1,37 +1,18 @@
-# Local WhatsApp Conversational Agent
+# Local WhatsApp Agent
 
-This prototype connects normalized inbound messages to an AI SDK tool loop,
-chef-scoped tools, and a local JSON store. It supports questions and natural
-follow-up conversation, with server-controlled confirmation before saving an
-interest response. Interest does not constitute a booking.
+A local chatbot for chefs to ask about catering gigs and record interest.
+The AI SDK model chooses tools; code checks access and requires a separate
+confirmation before saving. Interest is not a booking.
 
-## Run the Scripted Offline Demo
-
-Install project dependencies with `pnpm install`, then run:
+## Run
 
 ```bash
-pnpm agent:whatsapp
+pnpm install
+pnpm agent:whatsapp        # Scripted offline demo, no API key needed
+pnpm agent:whatsapp --live # Interactive model; uses paid API calls
 ```
 
-The default mode uses the SDK's `MockLanguageModelV4`; it makes no paid model
-calls and requires no provider credentials. Three scripted messages exercise the
-real agent and tools:
-
-1. “tell me about OB12” reads opportunity details through `get_opportunity`.
-2. “that works, count me in” calls `propose_interest`; the server asks for
-   confirmation without recording interest.
-3. “confirm” calls `record_interest`; the server reports the saved response.
-
-The CLI prints its mode, state file, replies, and tool inputs and outputs. The
-demo persists fictional state in `.local/whatsapp-agent/demo.json`. Each run uses
-new provider-prefixed message IDs, so repeating the demo exercises the tools
-again. Its model decisions are scripted: this validates SDK orchestration,
-confirmation, and persistence, not a model's ability to interpret natural language.
-
-## Opt Into an Interactive Model
-
-Configure `.env.local` with the provider credentials and model ID you want to
-use. For a direct Anthropic API key:
+For live mode, set these in the ignored `.env.local` file:
 
 ```dotenv
 WHATSAPP_AGENT_PROVIDER=anthropic
@@ -39,81 +20,36 @@ ANTHROPIC_API_KEY=your-key
 WHATSAPP_AGENT_MODEL=your-native-claude-model-id
 ```
 
-The direct provider sends requests to Anthropic's API using `@ai-sdk/anthropic`.
-Choose a native model ID returned by Anthropic's Models API. The developer's
-local `.env.local` selects a model; no credential is stored in tracked files.
+AI Gateway is also supported: set the provider to `gateway`, use
+`AI_GATEWAY_API_KEY`, and choose a `provider/model` ID. Type `/exit` to quit.
+Use fictional data: live mode sends conversation context to the model service.
 
-Alternatively, for AI Gateway:
+## How It Works
 
-```dotenv
-WHATSAPP_AGENT_PROVIDER=gateway
-AI_GATEWAY_API_KEY=your-key
-WHATSAPP_AGENT_MODEL=your-provider/your-model
-```
+1. Identify the chef from the sender's phone and load their recent conversation.
+2. Let the model request tools to list gigs, read details, propose interest,
+   record confirmed interest, or request human help.
+3. Save the reply, history, and tool changes together. Duplicate message IDs
+   return the saved reply without repeating the work.
 
-```bash
-pnpm agent:whatsapp --live
-```
+Example: “tell me about OB12” reads details; “count me in” creates a proposal;
+“confirm” saves interest. Proposals expire after 15 minutes or an intervening turn.
+Tools only access that chef's assigned, open gigs. Human help adds a local review
+request; it does not notify staff.
 
-Only explicit `--live` mode makes model API calls, which may incur charges. It
-uses the selected provider and model without a hardcoded model version.
-Type conversational questions as the fixed fictional chef; use `/exit` to leave.
-A failed turn prints an error and allows another attempt.
+## Code
 
-Live mode has its own `.local/whatsapp-agent/live.json`, separate from the demo.
-Both files are development data. Keep their chef details, opportunities, and
-conversation text fictional: live mode sends that local conversation context and
-tool results to the configured model service. Do not put real chef information
-or credentials into a conversation. Neither mode sends WhatsApp messages or
-writes to Supabase.
+- `lib/whatsapp/agent/conversation.ts`: handle one turn and choose the final reply.
+- `lib/whatsapp/agent/tools.ts`: five tools and their access/confirmation checks.
+- `lib/whatsapp/agent/store.ts`: validated JSON, file locking, and atomic saves.
+- `lib/whatsapp/agent/model.ts`: select the live model/provider.
 
-## Tools and Identity
+State lives in `.local/whatsapp-agent/demo.json` or `live.json`. The file store
+is for development; a stopped process may leave a stale lock. Neither CLI mode
+sends WhatsApp messages or writes to Supabase. Production work is summarized in
+[the production plan](whatsapp-agent-production-plan.md).
 
-| Tool                 | Effect                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------ |
-| `list_opportunities` | Read open opportunities assigned to the bound chef.                                        |
-| `get_opportunity`    | Read an assigned, open opportunity by reference.                                           |
-| `propose_interest`   | Propose an interest response using a quote from the current message; request confirmation. |
-| `record_interest`    | Save the server-bound pending proposal after a later explicit confirmation.                |
-| `request_human_help` | Add a local review request; no external notification.                                      |
-
-The server resolves identity from the normalized sender phone number and rejects
-unknown senders. Tool input cannot select another chef. Opportunity tools check
-the chef's assignments, and `record_interest` accepts no model-supplied chef ID,
-reference, or interest value. No broadcast or booking tools exist.
-
-Pending confirmations expire after 15 minutes and are invalidated by an
-intervening turn. The server supplies the exact proposed reference and interest
-value in its confirmation prompt and the final persisted result in its reply.
-Recent conversation is model context, not permission to write.
-
-## State and Integration Plan
-
-`lib/whatsapp/agent/conversation.ts` coordinates each conversation turn;
-`lib/whatsapp/agent/tools.ts` defines the five operations and their permission checks;
-`lib/whatsapp/agent/store.ts` owns validated local state. The model sees the last
-12 conversation turns, while authoritative chef assignments, pending proposals,
-interest responses, handoffs, and replay receipts live separately in the store.
-
-The file store uses exclusive locks and an atomic replacement to commit a turn's
-effects together. A repeated provider message ID returns its saved result;
-reusing an ID with different content or sender fails. A model or commit failure
-does not persist a partial conversation or response. These locks and JSON files
-are for local development, not production persistence or a hosted worker queue.
-An interrupted process can leave a lock file; establish that no process still
-uses the store before removing a stale lock.
-
-The existing generated Supabase schema has `whatsapp_user` and
-`whatsapp_catering`; it does not provide this agent's full opportunity,
-assignment, proposal, handoff, history, and receipt model.
-`whatsapp_catering.is_accepted` also needs an explicit product mapping before
-treating it as an interest response. Production requires an adapter and schema
-design for transactional writes, authorization, provider-message idempotency,
-retention, and concurrency.
-
-The current branch also includes a separate Meta webhook, API client, and proposed
-database migration. The webhook verifies signatures and awaits database ingest,
-but it does not run this agent or send automatic replies yet. See the
-[code walkthrough](whatsapp-code-walkthrough.md) for those two separate paths.
-Keep the agent import separate from `lib/whatsapp/index.ts` so the dependency-free
-parser harness remains usable without installing the agent SDK.
+The follow-up integration adds a signed Meta webhook, API client, media parsing,
+and a proposed SQL migration. The webhook saves messages but does not run the
+agent or send automatic replies yet. Images normalize to metadata; model image
+input and production database setup still need integration.
