@@ -40,6 +40,8 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
   const messages: InboundMessage[] = [];
   const rejected: RejectedMessage[] = [];
 
+  // Meta nests batches at three levels. Walk every item so we do not lose a
+  // second chef's message just because it arrived in the same HTTP request.
   for (const entry of entries as unknown[]) {
     if (!isRecord(entry)) return fail("`entry` item is not an object.");
     const changes = entry.changes;
@@ -130,6 +132,8 @@ function messageContent(
   const type = message.type;
 
   if (type === "image" || type === "sticker") {
+    // Preserve a reference for later download. Parsing this object does not
+    // download the image or make its contents visible to the model.
     const media = message[type];
     if (
       !isRecord(media) ||

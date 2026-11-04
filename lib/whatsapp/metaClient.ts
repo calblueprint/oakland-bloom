@@ -4,8 +4,7 @@ import { createHash } from "node:crypto";
  * Minimal Meta WhatsApp Cloud API client: the sends, read/typing, reactions,
  * and media transfer the agent needs. Server-only — it holds the access token.
  *
- * Payload shapes follow Meta's docs; see docs/whatsapp-agent-production-plan.md
- * §III.8 and §IV.1 for links. Message IDs in and out carry the `meta:` prefix
+ * Payload shapes follow Meta's docs. Message IDs in and out carry the `meta:` prefix
  * used everywhere else, and are stripped only at the API boundary.
  */
 export interface MetaClientConfig {
@@ -64,6 +63,7 @@ const MEDIA_LIMITS: Record<string, number> = {
 export function createMetaClient(config: MetaClientConfig) {
   const doFetch = config.fetch ?? fetch;
   const base = `https://graph.facebook.com/${config.apiVersion}`;
+  // Keep the token in request headers; it is never part of a returned message ID.
   const auth = { Authorization: `Bearer ${config.accessToken}` };
 
   /** Sends an authenticated Graph request and returns its JSON object, or throws a MetaApiError. */
@@ -71,6 +71,8 @@ export function createMetaClient(config: MetaClientConfig) {
     path: string,
     init: { method: "GET" | "POST"; json?: unknown; form?: FormData },
   ): Promise<Record<string, unknown>> {
+    // JSON messages need a content type. For uploads, fetch supplies the
+    // multipart boundary itself, so we must not set that header manually.
     const response = await doFetch(`${base}/${path}`, {
       method: init.method,
       headers:
@@ -79,6 +81,8 @@ export function createMetaClient(config: MetaClientConfig) {
           : { ...auth, "Content-Type": "application/json" },
       body: init.json === undefined ? init.form : JSON.stringify(init.json),
     });
+    // Even failed requests may have an empty/non-JSON body. Preserve the HTTP
+    // status so callers can still tell a temporary failure from a refusal.
     const body: unknown = await response.json().catch(() => null);
     if (!response.ok) {
       const error =
@@ -112,6 +116,8 @@ export function createMetaClient(config: MetaClientConfig) {
         ...message,
       },
     });
+    // Acceptance is not delivery. Return the ID so a future delivery tracker
+    // can match status callbacks to the message that was sent.
     const sent = Array.isArray(body.messages) ? body.messages[0] : undefined;
     if (!isRecord(sent) || typeof sent.id !== "string") {
       throw new MetaApiError(
@@ -144,6 +150,7 @@ export function createMetaClient(config: MetaClientConfig) {
       template: TemplateMessage,
     ): Promise<SentMessage> {
       const components: Record<string, unknown>[] = [];
+      // Image headers and body variables are separate template components.
       if (template.headerImageId !== undefined) {
         components.push({
           type: "header",
@@ -152,6 +159,7 @@ export function createMetaClient(config: MetaClientConfig) {
           ],
         });
       }
+      // Arrays fill numbered placeholders in order; objects fill named ones.
       const parameters = Array.isArray(template.bodyParameters)
         ? template.bodyParameters.map(text => ({ type: "text", text }))
         : Object.entries(template.bodyParameters).map(([name, text]) => ({
@@ -252,6 +260,8 @@ export function createMetaClient(config: MetaClientConfig) {
       mediaId: string,
       expectedSha256?: string,
     ): Promise<DownloadedMedia> {
+      // A webhook carries a media ID, not the image bytes. Resolve that ID to
+      // fresh download metadata before fetching the file itself.
       const info = await graph(
         `${encodeURIComponent(mediaId)}?phone_number_id=${encodeURIComponent(config.phoneNumberId)}`,
         { method: "GET" },
@@ -259,6 +269,8 @@ export function createMetaClient(config: MetaClientConfig) {
       const mimeType =
         typeof info.mime_type === "string" ? info.mime_type.split(";")[0] : "";
       const limit = MEDIA_LIMITS[mimeType];
+      // Refuse unsupported types before downloading; the size cap depends on
+      // the type, so a sticker has a smaller allowance than a JPEG/PNG image.
       if (limit === undefined) {
         throw new MediaRejectedError(
           `Unsupported media type ${JSON.stringify(info.mime_type)}.`,
@@ -287,6 +299,7 @@ export function createMetaClient(config: MetaClientConfig) {
         );
       }
       const bytes = new Uint8Array(await response.arrayBuffer());
+      // Check the bytes too: metadata alone is not proof of the actual size.
       if (bytes.byteLength > limit) {
         throw new MediaRejectedError(
           `Media is ${bytes.byteLength} bytes; limit is ${limit}.`,

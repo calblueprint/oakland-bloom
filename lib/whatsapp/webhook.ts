@@ -6,7 +6,7 @@ import { parseMetaPayload } from "./parseMeta.ts";
 /**
  * Meta webhook handling, kept free of Next.js so it can be tested directly.
  *
- * The contract (docs/whatsapp-agent-production-plan.md §III.1): verify the
+ * The contract: verify the
  * signature on the raw body, persist the parsed batch, and only then return
  * 200. A persistence failure returns 503 so Meta retries (for up to 7 days);
  * acknowledging first would lose messages when the function is cut short.
@@ -30,6 +30,8 @@ export function verifyMetaSubscription(
   const mode = url.searchParams.get("hub.mode");
   const token = url.searchParams.get("hub.verify_token");
   const challenge = url.searchParams.get("hub.challenge");
+  // This GET checks that Meta reached our endpoint; it is not a chef message.
+  // Echo the challenge only when the caller supplies our chosen verify token.
   if (
     mode === "subscribe" &&
     token !== null &&
@@ -68,6 +70,8 @@ export async function handleMetaWebhook(
 
   let batch: InboundBatch;
   try {
+    // Only a signed body reaches the parser. The parser separates valid
+    // messages from rejected ones so one bad attachment need not block a batch.
     batch = parseMetaPayload(JSON.parse(raw));
   } catch (error) {
     // Signed by Meta but unreadable: retrying the same body cannot help.
@@ -78,6 +82,7 @@ export async function handleMetaWebhook(
     throw error;
   }
 
+  // Log rejected items, but still pass the whole batch to storage for review.
   for (const item of batch.rejected) {
     log(
       `[whatsapp webhook] rejected message ${item.providerMessageId ?? "(no id)"}: ${item.reason}`,
@@ -105,6 +110,8 @@ export function isValidSignature(
   header: string | null,
   appSecret: string,
 ): boolean {
+  // Recompute the signature using our private app secret. A matching value
+  // proves the body was signed with that secret; a sender's phone alone cannot.
   if (header === null || !header.startsWith("sha256=")) return false;
   const expected = createHmac("sha256", appSecret).update(raw).digest("hex");
   return safeEqual(header.slice("sha256=".length), expected);
@@ -114,5 +121,6 @@ export function isValidSignature(
 function safeEqual(a: string, b: string): boolean {
   const left = Buffer.from(a);
   const right = Buffer.from(b);
+  // timingSafeEqual requires equal-length buffers and throws otherwise.
   return left.length === right.length && timingSafeEqual(left, right);
 }

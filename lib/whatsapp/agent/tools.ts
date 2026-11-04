@@ -10,6 +10,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { referenceSchema } from "./store.ts";
 
+// A strict schema rejects extra fields instead of quietly accepting them.
 const noInput = z.strictObject({});
 const confirmationLifetime = 15 * 60_000;
 const localTime = new Intl.DateTimeFormat("en-US", {
@@ -68,13 +69,18 @@ export function createCateringTools({
   confirmation: PendingConfirmation | null;
   now: Date;
 }) {
+  // These values belong to one incoming message. They are reset on every turn.
+  // chefId comes from our sender lookup, never from the model's arguments.
   const toolCalls: AgentReply["toolCalls"] = [];
+  // conversation.ts uses these flags to explain blocked writes or human help.
   const activity = { handedOff: false, blockedWrite: false };
   let recorded: { reference: string; interested: boolean } | null = null;
   let proposed: { reference: string; interested: boolean } | null = null;
 
   /** Finds an open gig assigned to the bound chef, or returns undefined if unavailable. */
   function findOpenOpportunity(reference: string) {
+    // Knowing an OB code does not give access: the gig must also be open and
+    // assigned to this chef. Every detail lookup and interest write checks this.
     return state.opportunities.find(
       opportunity =>
         opportunity.reference === reference &&
@@ -88,10 +94,14 @@ export function createCateringTools({
   function runTool(name: string, input: unknown, action: () => unknown) {
     if (toolCalls.length >= 8) return { error: "tool_budget_exceeded" };
     const output = z.json().parse(action());
+    // Keep the requested inputs and actual result so the CLI/tests can explain
+    // what happened. Tool results also go back to the model through the SDK.
     toolCalls.push({ name, input: z.json().parse(input), output });
     return output;
   }
 
+  // description tells the model when to ask for a tool; inputSchema checks its
+  // arguments; execute is our code that decides whether the action is allowed.
   const tools = {
     /** Takes no arguments and returns this chef's assigned, open gigs. */
     list_opportunities: tool({
@@ -140,6 +150,8 @@ export function createCateringTools({
           const quoteIsFromThisMessage = message.text.includes(
             input.sourceQuote,
           );
+          // A quote must actually appear in this message. This check does not
+          // understand intent; interpreting the quote is still the model's job.
           if (!opportunity || !quoteIsFromThisMessage) {
             return { error: "clarification_required" };
           }
@@ -164,6 +176,8 @@ export function createCateringTools({
             reference: input.reference,
             interested: input.interested,
           };
+          // Save a proposal the server can name in its confirmation question.
+          // No interest response is written until a later confirmed turn.
           conversation.pending = {
             ...proposed,
             sourceMessageId: message.providerMessageId,
@@ -182,10 +196,12 @@ export function createCateringTools({
       inputSchema: noInput,
       execute: async input =>
         runTool("record_interest", input, () => {
+          // Recheck access because the gig may have closed since the proposal.
           if (!confirmation || !findOpenOpportunity(confirmation.reference)) {
             activity.blockedWrite = true;
             return { error: "confirmation_required" };
           }
+          // The model may request this tool repeatedly; write only once per turn.
           if (!recorded) {
             recorded = {
               reference: confirmation.reference,
@@ -211,6 +227,8 @@ export function createCateringTools({
       }),
       execute: async input =>
         runTool("request_human_help", input, () => {
+          // Store one request locally. Sending a staff notification is separate
+          // integration work, so this tool must not claim anyone was contacted.
           if (!activity.handedOff) {
             state.handoffs.push({
               chefId,

@@ -16,6 +16,7 @@ export async function GET(request: Request) {
 /** Wires private settings and database ingest into the shared POST handler, returning its response. */
 export async function POST(request: Request) {
   // Keep the route thin: load private configuration and hand off to testable code.
+  // The handler saves messages only. It does not call the model or send replies.
   return handleMetaWebhook(request, {
     appSecret: requireEnv("WHATSAPP_APP_SECRET"),
     verifyToken: requireEnv("WHATSAPP_VERIFY_TOKEN"),

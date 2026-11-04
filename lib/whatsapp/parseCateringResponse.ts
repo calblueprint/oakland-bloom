@@ -44,6 +44,7 @@ const ANSWERS: Record<string, boolean> = { yes: true, no: false };
 
 /** Converts strict "OB12 yes/no" text into interest, or returns why it was not recognized. */
 export function parseCateringResponse(text: string): CateringResponse {
+  // Split on any run of whitespace, so spaces, tabs, and line breaks work alike.
   const words = text.trim().split(/\s+/).filter(Boolean);
   // Check whether one word is an opportunity reference such as OB12.
   const isRef = (word: string): boolean => OPPORTUNITY_REF.test(word);
@@ -62,6 +63,7 @@ export function parseCateringResponse(text: string): CateringResponse {
   if (rest.length > 1 || rest.some(isRef)) return unrecognized("ambiguous");
 
   const answer = rest[0]?.toLowerCase();
+  // Check only the yes/no entries we defined, not inherited object properties.
   if (answer === undefined || !Object.hasOwn(ANSWERS, answer))
     return unrecognized("unsupported-answer");
 

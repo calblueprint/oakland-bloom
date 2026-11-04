@@ -63,6 +63,7 @@ export function parseTwilioPayload(payload: unknown): InboundMessage[] {
     fail("Unsupported location message; only text is handled.");
 
   const message: InboundMessage = {
+    // Downstream tools use this shared shape instead of Twilio-specific fields.
     providerMessageId: `twilio:${sid as string}`,
     from: phone,
     text: body as string,

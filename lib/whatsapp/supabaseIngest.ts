@@ -12,6 +12,8 @@ import { createClient } from "@supabase/supabase-js";
  * retrying instead of the message being dropped.
  */
 export function createSupabaseIngest(url: string, secretKey: string) {
+  // This client acts as the server, not a logged-in chef. Do not keep a browser
+  // session or refresh user tokens while handling provider callbacks.
   const client = createClient(url, secretKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
@@ -19,6 +21,8 @@ export function createSupabaseIngest(url: string, secretKey: string) {
     // RPC means "call a database function". Postgres saves this batch together;
     // the webhook awaits this promise before sending HTTP 200.
     const { error } = await client.rpc("ingest_inbound", { batch });
+    // Supabase returns database errors as data; throw so the webhook sends 503
+    // instead of acknowledging a batch that was never saved.
     if (error) throw new Error(`ingest_inbound failed: ${error.message}`);
   };
 }
