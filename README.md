@@ -124,7 +124,7 @@ Then, navigate to http://localhost:3000 to launch the web application.
 
 1. Copy `example.env` to `.env.local` and fill in the values from Supabase
    (Project Settings > API Keys). `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is the
-   publishable key. `SUPABASE_SERVICE_ROLE_KEY` is the secret key, is server
+   publishable key. `SUPABASE_SECRET_KEY` is the secret key, is server
    only, and must never be prefixed with `NEXT_PUBLIC_`.
 2. Install dependencies with `pnpm install`.
 3. Apply database migrations.
