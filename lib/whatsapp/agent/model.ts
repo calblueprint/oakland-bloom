@@ -1,7 +1,7 @@
 import type { LanguageModel } from "ai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 
-/** Resolve live credentials only when the CLI explicitly opts into live mode. */
+/** Validates provider/model environment settings and returns the live model plus a printable label. */
 export function resolveAgentModel(env: Record<string, string | undefined>): {
   model: LanguageModel;
   label: string;

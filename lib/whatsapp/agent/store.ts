@@ -3,6 +3,8 @@ import { mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { dirname } from "node:path";
 import { z } from "zod";
 
+// These schemas check the shape of saved JSON. The TypeScript types below are
+// derived from the same rules, so validation and type definitions stay in sync.
 export const referenceSchema = z.string().regex(/^OB[1-9]\d*$/);
 const id = z.string().min(1).max(500);
 const phone = z.string().regex(/^[1-9]\d{1,14}$/);
@@ -70,6 +72,7 @@ const messageSchema = z
 
 const stateSchema = seedSchema.extend({
   version: z.literal(1),
+  // Short conversation history helps the model understand follow-up questions.
   conversations: z.array(
     z.strictObject({
       chefId: id,
@@ -85,6 +88,7 @@ const stateSchema = seedSchema.extend({
         .max(12),
     }),
   ),
+  // Confirmed decisions are separate from chat history and never overwritten.
   responses: z.array(
     z.strictObject({
       chefId: id,
@@ -102,6 +106,7 @@ const stateSchema = seedSchema.extend({
       createdAt: z.iso.datetime(),
     }),
   ),
+  // A receipt saves the original reply so a delivery retry does not repeat work.
   receipts: z.array(
     z.strictObject({
       message: messageSchema,
@@ -114,6 +119,9 @@ export { messageSchema };
 export type AgentSeed = z.infer<typeof seedSchema>;
 export type AgentState = z.infer<typeof stateSchema>;
 export type AgentReply = z.infer<typeof replySchema>;
+export type Conversation = AgentState["conversations"][number];
+export type Opportunity = z.infer<typeof opportunitySchema>;
+export type PendingConfirmation = z.infer<typeof pendingSchema>;
 export type AgentStore = {
   transaction<T>(run: (draft: AgentState) => Promise<T>): Promise<T>;
 };
@@ -122,9 +130,11 @@ export type AgentStore = {
 export class FileAgentStore implements AgentStore {
   private readonly seed: AgentSeed;
 
+  /** Sets the file path and validates initial data; files are created on the first turn. */
   constructor(privateFile: string, seed: AgentSeed) {
     this.path = privateFile;
     this.seed = seedSchema.parse(seed);
+    // Duplicate identities would make phone lookups and opportunity lookups ambiguous.
     for (const values of [
       this.seed.chefs.map(item => item.id),
       this.seed.chefs.map(item => item.phone),
@@ -140,6 +150,32 @@ export class FileAgentStore implements AgentStore {
 
   private readonly path: string;
 
+  /** Loads and validates saved JSON, or creates initial state if no file exists yet. */
+  private async readState(): Promise<AgentState> {
+    let data: unknown;
+    try {
+      data = JSON.parse(await readFile(this.path, "utf8"));
+    } catch (error) {
+      // Only a missing file starts a new store. Corrupt data must fail visibly.
+      if (
+        !(error instanceof Error) ||
+        !("code" in error) ||
+        error.code !== "ENOENT"
+      )
+        throw error;
+      data = {
+        ...this.seed,
+        version: 1,
+        conversations: [],
+        responses: [],
+        handoffs: [],
+        receipts: [],
+      };
+    }
+    return stateSchema.parse(data);
+  }
+
+  /** Runs a callback on a locked draft, saves it on success, and returns the callback's result. */
   async transaction<T>(run: (draft: AgentState) => Promise<T>): Promise<T> {
     await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
     const lockPath = `${this.path}.lock`;
@@ -148,27 +184,10 @@ export class FileAgentStore implements AgentStore {
     const lock = await open(lockPath, "wx", 0o600);
     const temporary = `${this.path}.${randomUUID()}.tmp`;
     try {
-      let data: unknown;
-      try {
-        data = JSON.parse(await readFile(this.path, "utf8"));
-      } catch (error) {
-        if (
-          !(error instanceof Error) ||
-          !("code" in error) ||
-          error.code !== "ENOENT"
-        )
-          throw error;
-        data = {
-          ...this.seed,
-          version: 1,
-          conversations: [],
-          responses: [],
-          handoffs: [],
-          receipts: [],
-        };
-      }
-      const draft = stateSchema.parse(data);
+      const draft = await this.readState();
       const result = await run(draft);
+      // Write a private temporary file first. A failed turn or write leaves the
+      // existing file intact; rename replaces it only after the write completes.
       const file = await open(temporary, "wx", 0o600);
       try {
         await file.writeFile(JSON.stringify(stateSchema.parse(draft), null, 2));
@@ -179,6 +198,7 @@ export class FileAgentStore implements AgentStore {
       await rename(temporary, this.path);
       return result;
     } finally {
+      // This also runs when the model or storage throws, allowing a later retry.
       await rm(temporary, { force: true });
       await lock.close();
       await rm(lockPath, { force: true });
