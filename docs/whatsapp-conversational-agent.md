@@ -51,3 +51,8 @@ State lives in `.local/whatsapp-agent/demo.json` or `live.json`. The file store
 is for development; a stopped process may leave a stale lock. Neither CLI mode
 sends WhatsApp messages or writes to Supabase. Production work is summarized in
 [the production plan](whatsapp-agent-production-plan.md).
+
+The follow-up integration adds a signed Meta webhook, API client, media parsing,
+and a proposed SQL migration. The webhook saves messages but does not run the
+agent or send automatic replies yet. Images normalize to metadata; model image
+input and production database setup still need integration.

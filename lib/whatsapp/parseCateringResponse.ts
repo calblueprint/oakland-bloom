@@ -1,8 +1,9 @@
 /**
  * Catering reply parsing.
  *
- * Works on `InboundMessage.text` only, so it never sees provider payloads and
- * applies identically to Meta and Twilio messages. Supported replies:
+ * This is a strict text-only shortcut, separate from the conversational agent.
+ * It reads `InboundMessage.text` only; it does not inspect provider payloads,
+ * attachments, or conversation history. Supported replies:
  *
  *   OB12 yes   interested in opportunity OB12
  *   OB12 no    not interested in opportunity OB12

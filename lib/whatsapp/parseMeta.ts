@@ -52,12 +52,13 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
       const value = change.value;
       if (!isRecord(value)) return fail("Change is missing a `value` object.");
 
-      const raw = value.messages;
+      const rawMessages = value.messages;
       // Delivery/read status callbacks have no `messages` key. Not an error.
-      if (raw === undefined) continue;
-      if (!Array.isArray(raw)) fail("`value.messages` is not an array.");
+      if (rawMessages === undefined) continue;
+      if (!Array.isArray(rawMessages))
+        fail("`value.messages` is not an array.");
 
-      for (const message of raw as unknown[]) {
+      for (const message of rawMessages as unknown[]) {
         try {
           messages.push(parseMetaMessage(message, fail));
         } catch (error) {
@@ -65,6 +66,7 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
           if (!(error instanceof InboundParseError)) throw error;
           rejected.push({
             providerMessageId: messageId(message),
+            from: senderPhone(message),
             reason: error.message,
           });
         }
@@ -75,7 +77,7 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
   return { messages, rejected };
 }
 
-/** Validates one Meta message and returns the shared sender, text, and ID format. */
+/** Validates one Meta message and returns normalized content, sender, reply context, and time. */
 function parseMetaMessage(
   message: unknown,
   fail: (reason: string) => never,
@@ -92,26 +94,82 @@ function parseMetaMessage(
   if (!/^[1-9]\d{1,14}$/.test(phone))
     fail("Message has an invalid `from` number.");
 
-  return {
+  const parsed: InboundMessage = {
     providerMessageId: id,
     from: phone,
-    text: messageText(message, fail),
+    ...messageContent(message, fail),
     provider: "meta",
   };
+
+  // A swipe-reply carries the quoted message's ID. Forwarded messages also have
+  // `context` but no `id`, so only a string ID is kept.
+  const context = message.context;
+  if (isRecord(context) && typeof context.id === "string" && context.id !== "")
+    parsed.contextMessageId = `meta:${context.id}`;
+
+  const timestamp = message.timestamp;
+  if (timestamp !== undefined) {
+    if (typeof timestamp !== "string" || !/^\d{1,12}$/.test(timestamp))
+      fail("Message `timestamp` must be Unix seconds as a string.");
+    // Meta sends Unix seconds; callers receive the same ISO date format as storage.
+    parsed.sentAt = new Date(Number(timestamp) * 1000).toISOString();
+  }
+
+  return parsed;
 }
 
 /**
  * Quick-reply taps on template buttons arrive as `button`, and interactive
  * replies as `interactive`. Both carry the visible label the chef tapped, which
  * is what they would otherwise have typed, so it becomes the message text.
- * Media, location, and other types fail loudly rather than being dropped.
+ * Images and stickers keep a media reference, with any caption as the text.
+ * Audio, location, and other types fail loudly rather than being dropped.
  */
-function messageText(
+function messageContent(
   message: Record<string, unknown>,
   fail: (reason: string) => never,
-): string {
+): Pick<InboundMessage, "text" | "media"> {
   const type = message.type;
 
+  if (type === "image" || type === "sticker") {
+    // Preserve a reference for later download. Parsing this object does not
+    // download the image or make its contents visible to the model.
+    const media = message[type];
+    if (
+      !isRecord(media) ||
+      typeof media.id !== "string" ||
+      media.id === "" ||
+      typeof media.mime_type !== "string" ||
+      media.mime_type === ""
+    ) {
+      return fail(
+        `${type} message is missing \`${type}.id\` or \`mime_type\`.`,
+      );
+    }
+    if (media.caption !== undefined && typeof media.caption !== "string")
+      fail(`\`${type}.caption\` must be a string.`);
+    if (media.sha256 !== undefined && typeof media.sha256 !== "string")
+      fail(`\`${type}.sha256\` must be a string.`);
+    return {
+      text: (media.caption as string | undefined) ?? "",
+      media: {
+        kind: type,
+        mediaId: media.id,
+        mimeType: media.mime_type,
+        ...(media.sha256 === undefined ? {} : { sha256: media.sha256 }),
+      },
+    };
+  }
+
+  return { text: messageText(message, type, fail) };
+}
+
+/** Returns typed text or a tapped reply label; throws for unsupported or malformed content. */
+function messageText(
+  message: Record<string, unknown>,
+  type: unknown,
+  fail: (reason: string) => never,
+): string {
   if (type === "text") {
     const text = message.text;
     if (!isRecord(text) || typeof text.body !== "string")
@@ -140,18 +198,26 @@ function messageText(
   }
 
   return fail(
-    `Unsupported message type ${JSON.stringify(type)}; only text and reply buttons are handled.`,
+    `Unsupported message type ${JSON.stringify(type)}; only text, reply buttons, images, and stickers are handled.`,
   );
 }
 
-/** Keeps a usable ID even when the rest of the message is rejected. */
+/** Extracts a valid normalized sender for accepted/rejected records, or returns null. */
+function senderPhone(message: unknown): string | null {
+  if (!isRecord(message) || typeof message.from !== "string") return null;
+  const phone = normalizePhone(message.from);
+  return /^[1-9]\d{1,14}$/.test(phone) ? phone : null;
+}
+
+/** Returns an intact provider ID with a meta: prefix, or null when the ID is missing/blank. */
 function messageId(message: unknown): string | null {
   if (!isRecord(message)) return null;
   const id = message.id;
+  // Provider IDs are opaque: check for a blank value, but preserve its contents.
   return typeof id === "string" && id.trim() !== "" ? `meta:${id}` : null;
 }
 
-/** Narrows unknown JSON to an object before we read its fields. */
+/** Checks whether a value is a non-null object rather than an array or primitive. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

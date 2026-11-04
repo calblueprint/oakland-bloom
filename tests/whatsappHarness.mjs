@@ -22,6 +22,7 @@ const FIXTURES = join(
 );
 
 /**
+ * Takes a fixture name/contents and returns accepted/rejected message arrays.
  * Meta fixtures are JSON; Twilio fixtures are raw form-encoded text. Twilio
  * sends one message per request and throws on a bad one, so it never has
  * per-message rejections.
@@ -40,6 +41,7 @@ function outcomeOf({ messages, rejected }) {
   return rejected.length > 0 ? "rejection" : "empty";
 }
 
+/** Turns a parsed catering response into the readable outcome printed by the harness. */
 function describeResponse(response) {
   if (response.kind === "unrecognized")
     return `unrecognized (${response.reason})`;
