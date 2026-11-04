@@ -2,8 +2,10 @@ import { randomUUID } from "node:crypto";
 import { resolve } from "node:path";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
-import { createCateringAgent } from "../lib/whatsapp/agent/conversation.ts";
-import { resolveAgentModel } from "../lib/whatsapp/agent/model.ts";
+import {
+  createCateringAgent,
+  resolveAgentModel,
+} from "../lib/whatsapp/agent/conversation.ts";
 import { FileAgentStore } from "../lib/whatsapp/agent/store.ts";
 import {
   createDemoModel,
