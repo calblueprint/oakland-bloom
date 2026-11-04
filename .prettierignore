@@ -2,6 +2,7 @@
 .vscode/
 .next/
 setup-scripts/
+.claude/
 
 README.md
 package-lock.json

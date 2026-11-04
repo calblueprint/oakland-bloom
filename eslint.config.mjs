@@ -18,6 +18,8 @@ const eslintConfig = [
       ".vscode",
       "next-env.d.ts",
       "setup-scripts",
+      // Claude Code keeps per-session worktrees (full repo copies) here
+      ".claude",
     ],
   },
   {
