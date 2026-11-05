@@ -75,3 +75,6 @@ jobs:
 
       - name: Run WhatsApp fixture harness
         run: pnpm harness:whatsapp
+
+      - name: Run WhatsApp database regressions
+        run: pnpm db:test

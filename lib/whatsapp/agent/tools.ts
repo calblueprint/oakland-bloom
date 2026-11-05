@@ -44,12 +44,17 @@ function opportunityDetails(opportunity: Opportunity) {
     reference: opportunity.reference,
     title: opportunity.title,
     startsAt: opportunity.startsAt,
-    startsLocal: formatLocalTime(new Date(opportunity.startsAt)),
+    startsLocal: opportunity.startsAt
+      ? formatLocalTime(new Date(opportunity.startsAt))
+      : null,
     location: opportunity.location,
     headcount: opportunity.headcount,
     pay: opportunity.pay,
     details: opportunity.details,
     status: opportunity.status,
+    // An older acceptance and a new interest response are separate business facts.
+    accepted: opportunity.accepted ?? false,
+    responseStatus: opportunity.responseStatus ?? "unknown",
   };
 }
 
@@ -77,14 +82,13 @@ export function createCateringTools({
   let recorded: { reference: string; interested: boolean } | null = null;
   let proposed: { reference: string; interested: boolean } | null = null;
 
-  /** Finds an open gig assigned to the bound chef, or returns undefined if unavailable. */
-  function findOpenOpportunity(reference: string) {
-    // Knowing an OB code does not give access: the gig must also be open and
-    // assigned to this chef. Every detail lookup and interest write checks this.
+  /** Finds a catering request assigned to this chef, including their closed requests. */
+  function findAssignedRequest(reference: string) {
+    // Knowing an OB code does not give access. Reads require assignment;
+    // writes also check that the request is open and not already accepted.
     return state.opportunities.find(
       opportunity =>
         opportunity.reference === reference &&
-        opportunity.status === "open" &&
         opportunity.chefIds.includes(chefId),
     );
   }
@@ -103,36 +107,32 @@ export function createCateringTools({
   // description tells the model when to ask for a tool; inputSchema checks its
   // arguments; execute is our code that decides whether the action is allowed.
   const tools = {
-    /** Takes no arguments and returns this chef's assigned, open gigs. */
-    list_opportunities: tool({
+    /** Takes no arguments and returns only this chef's assigned catering requests. */
+    list_my_catering_requests: tool({
       description:
-        "List the current chef's open catering opportunities. Does not expose other chefs.",
+        "List this chef's catering requests and their status. Closed or accepted requests are read-only.",
       inputSchema: noInput,
       execute: async input =>
-        runTool("list_opportunities", input, () =>
+        runTool("list_my_catering_requests", input, () =>
           state.opportunities
-            .filter(
-              opportunity =>
-                opportunity.status === "open" &&
-                opportunity.chefIds.includes(chefId),
-            )
+            .filter(opportunity => opportunity.chefIds.includes(chefId))
             .map(opportunityDetails),
         ),
     }),
     /** Takes a reference and returns allowed gig details, or an unavailable error. */
-    get_opportunity: tool({
+    get_catering_request: tool({
       description:
-        "Read current details for an opportunity this chef is allowed to see.",
+        "Read one of this chef's catering requests. Missing dates, location or headcount are null, not guesses.",
       inputSchema: z.strictObject({ reference: referenceSchema }),
       execute: async input =>
-        runTool("get_opportunity", input, () => {
-          const opportunity = findOpenOpportunity(input.reference);
+        runTool("get_catering_request", input, () => {
+          const opportunity = findAssignedRequest(input.reference);
           if (!opportunity) return { error: "opportunity_unavailable" };
           return opportunityDetails(opportunity);
         }),
     }),
     /** Takes a gig, yes/no value, and source quote; stores a pending proposal, not interest. */
-    propose_interest: tool({
+    propose_catering_response: tool({
       description:
         "Propose this chef's interest for confirmation. Does not save a response. Quote the current user message exactly.",
       inputSchema: z.strictObject({
@@ -141,12 +141,12 @@ export function createCateringTools({
         sourceQuote: z.string().trim().min(1).max(500),
       }),
       execute: async input =>
-        runTool("propose_interest", input, () => {
+        runTool("propose_catering_response", input, () => {
           // A confirmation or cancellation cannot also start a new proposal.
           if (confirmation || isCancellation(message.text)) {
             return { error: "clarification_required" };
           }
-          const opportunity = findOpenOpportunity(input.reference);
+          const opportunity = findAssignedRequest(input.reference);
           const quoteIsFromThisMessage = message.text.includes(
             input.sourceQuote,
           );
@@ -154,6 +154,9 @@ export function createCateringTools({
           // understand intent; interpreting the quote is still the model's job.
           if (!opportunity || !quoteIsFromThisMessage) {
             return { error: "clarification_required" };
+          }
+          if (opportunity.status !== "open" || opportunity.accepted) {
+            return { error: "request_is_read_only", needsHumanHelp: true };
           }
           // If the chef named a different gig or several gigs, ask instead of guessing.
           const references = message.text.match(/\bOB\d+\b/gi) ?? [];
@@ -189,15 +192,23 @@ export function createCateringTools({
         }),
     }),
     /** Takes no arguments; records the previously confirmed proposal once, or returns an error. */
-    record_interest: tool({
+    confirm_catering_response: tool({
       description:
         "Save only the server-bound pending proposal after this chef confirms on a later message. No arguments.",
       // No chef ID or gig fields: the model cannot change what the chef confirmed.
       inputSchema: noInput,
       execute: async input =>
-        runTool("record_interest", input, () => {
+        runTool("confirm_catering_response", input, () => {
           // Recheck access because the gig may have closed since the proposal.
-          if (!confirmation || !findOpenOpportunity(confirmation.reference)) {
+          const opportunity = confirmation
+            ? findAssignedRequest(confirmation.reference)
+            : undefined;
+          if (
+            !confirmation ||
+            !opportunity ||
+            opportunity.status !== "open" ||
+            opportunity.accepted
+          ) {
             activity.blockedWrite = true;
             return { error: "confirmation_required" };
           }

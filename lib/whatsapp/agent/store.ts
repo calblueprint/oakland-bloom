@@ -13,17 +13,25 @@ const chefSchema = z.strictObject({
   id,
   name: z.string().min(1).max(200),
   phone,
+  // Optional links describe the existing app profile; the model never chooses these IDs.
+  userId: z.uuid().nullable().optional(),
+  businessName: z.string().max(500).nullable().optional(),
 });
 
 const opportunitySchema = z.strictObject({
   reference: referenceSchema,
   title: z.string().min(1).max(300),
-  startsAt: z.iso.datetime({ offset: true }),
-  location: z.string().min(1).max(500),
-  headcount: z.number().int().positive(),
+  // Older catering requests did not store event dates or locations. Never invent them.
+  startsAt: z.iso.datetime({ offset: true }).nullable(),
+  location: z.string().min(1).max(500).nullable(),
+  headcount: z.number().int().positive().nullable(),
   pay: z.string().max(200).nullable(),
   details: z.string().max(2000),
   status: z.enum(["open", "closed"]),
+  accepted: z.boolean().optional(),
+  responseStatus: z
+    .enum(["unknown", "unanswered", "interested", "declined"])
+    .optional(),
   // This assignment list controls who may see or respond to the gig.
   chefIds: z.array(id),
 });
@@ -82,7 +90,7 @@ const messageSchema = z
     message: "Message ID must belong to its provider.",
   });
 
-const stateSchema = seedSchema.extend({
+export const stateSchema = seedSchema.extend({
   version: z.literal(1),
   // Short conversation history helps the model understand follow-up questions.
   conversations: z.array(
