@@ -18,9 +18,10 @@ to quit. Demo state lives in ignored `.local/whatsapp-agent/` files.
 
 ## Chat on WhatsApp with Fake Data
 
-1. Copy `example.env` to `.env.local` and fill in Meta, Supabase server, and model
-   settings. Use `WHATSAPP_AGENT_PROVIDER=anthropic` with a native model ID and
-   `ANTHROPIC_API_KEY`, or `gateway` with a `provider/model` ID and `AI_GATEWAY_API_KEY`.
+1. Copy `example.env` to `.env.local` and fill in Meta and model settings; the
+   test database generates its own Supabase keys. Use
+   `WHATSAPP_AGENT_PROVIDER=anthropic` with a native model ID and `ANTHROPIC_API_KEY`,
+   or `gateway` with a `provider/model` ID and `AI_GATEWAY_API_KEY`.
 2. Set `WHATSAPP_TEST_RECIPIENT` to your verified test phone, country code and
    digits only. Use fictional conversation content: the model receives context.
 3. Start Docker, then run:
@@ -59,8 +60,9 @@ Signed Meta webhook → Supabase inbox → agent/tools → saved reply → Meta
 ```
 
 The model has five tools: list/get catering requests, propose/confirm a response,
-and request human help. Code binds the sender to an approved account using a
-unique international phone match and restricts access to that chef's requests.
+and request human help. Code uses a unique international phone match to bind an
+existing chef identity, checks linked web-account approval, and restricts access
+to that chef's requests.
 `whatsapp_catering` and `whatsapp_user` hold product records; `chefs` holds chat state.
 
 Proposals expire after 15 minutes or an intervening message. Only a later explicit
@@ -68,7 +70,7 @@ confirmation saves `response_status` and an audit entry; it never changes
 `is_accepted`. Closed/accepted requests are read-only. Missing event details remain
 unknown. Human help creates a review entry but sends no staff notification.
 
-Messages and tool changes commit together. Provider IDs prevent duplicate ingest;
+Replies and tool changes commit together. Provider IDs prevent duplicate ingest;
 uncertain sends stay `unknown` for manual review and are never blindly resent.
 STOP/unsubscribe and staff takeover pause automatic replies. Images and voice
 are not enabled; delivery-status callbacks are acknowledged but not stored.
