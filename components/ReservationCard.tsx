@@ -15,6 +15,7 @@ const StyledCard = styled.div`
   background-color: #ffffff;
 `;
 
+// Date() converts the reservation time's string into a JS Date Object
 export function ReservationCard({ reservation }: ReservationCardProps) {
   const formattedDate = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
