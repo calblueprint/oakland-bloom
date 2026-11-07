@@ -1,20 +1,28 @@
 import type { EventInput } from "@fullcalendar/react";
-import type { OccupiedPeriod, Reservation } from "../types/reservations";
+import type {
+  CalendarReservation,
+  OccupiedPeriod,
+  Reservation,
+} from "../types/reservations";
+import { amenityLabel } from "./bookingRequest";
 
+// Use the kitchen's timezone so daylight saving and remote viewers stay consistent.
 export const CALENDAR_TIME_ZONE = "America/Los_Angeles";
 
 const statusColors: Record<string, { color: string; contrastColor: string }> = {
-  approved: { color: "#f7b8b6", contrastColor: "#842a27" },
-  pending: { color: "#fde5e4", contrastColor: "#842a27" },
+  approved: { color: "#eef4f0", contrastColor: "#4f705f" },
+  pending: { color: "#faf8f1", contrastColor: "#82765b" },
   denied: { color: "#e5e7eb", contrastColor: "#374151" },
 };
 
+// Turn amenity identifiers into title-cased labels.
 function readable(value: string) {
   return value
     .replace(/[_-]/g, " ")
     .replace(/\b\w/g, letter => letter.toUpperCase());
 }
 
+// Explicitly map occupied fields so extra booking details cannot reach events.
 export function occupiedPeriodsToCalendarEvents(
   periods: readonly OccupiedPeriod[],
 ): EventInput[] {
@@ -23,14 +31,19 @@ export function occupiedPeriodsToCalendarEvents(
     start: period.start_time,
     end: period.end_time,
     allDay: false,
-    color: "#e5e7eb",
-    contrastColor: "#374151",
-    extendedProps: { amenity: period.amenity, approvalStatus: "occupied" },
+    color: period.amenity === "oven" ? "#f0eaf7" : "#e0f2e7",
+    contrastColor: period.amenity === "oven" ? "#8064a0" : "#367c65",
+    extendedProps: {
+      amenity: period.amenity,
+      amenityLabel: amenityLabel(period.amenity),
+      approvalStatus: "occupied",
+    },
   }));
 }
 
+// Convert the chef's reservations into labeled, status-colored events.
 export function reservationsToCalendarEvents(
-  reservations: readonly Reservation[],
+  reservations: readonly (Reservation | CalendarReservation)[],
 ): EventInput[] {
   return reservations.map(reservation => {
     const status = reservation.approval_status.toLowerCase();
@@ -38,10 +51,14 @@ export function reservationsToCalendarEvents(
 
     return {
       id: reservation.id,
-      title: readable(reservation.amenity),
+      title:
+        "title" in reservation
+          ? reservation.title
+          : readable(reservation.amenity),
       start: reservation.start_time,
       end: reservation.end_time,
       allDay: false,
+      editable: false,
       ...colors,
       extendedProps: {
         amenity: reservation.amenity,

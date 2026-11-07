@@ -19,22 +19,22 @@ end $$;
 
 create temporary table calendar_demo on commit drop as
 select id, amenity, "user", start_time, end_time, num_people,
-       has_conflicts, approval_status
+       has_conflicts, approval_status, title, amenities
 from public.booking_event with no data;
 
 insert into calendar_demo
   (id, amenity, "user", start_time, end_time, num_people,
-   has_conflicts, approval_status)
-select v.id::uuid, 'kitchen', current_setting(v.owner_setting)::uuid,
+   has_conflicts, approval_status, title, amenities)
+select v.id::uuid, case when cardinality(v.amenities) = 1 then v.amenities[1] else 'kitchen' end, current_setting(v.owner_setting)::uuid,
        (d.today + v.day_offset + v.starts) at time zone 'America/Los_Angeles',
        (d.today + v.day_offset + v.ends) at time zone 'America/Los_Angeles',
-       2, '{}', v.status
+       2, '{}', v.status, v.title, v.amenities
 from (values
-  ('0a150000-0000-4000-a000-000000000001', 'oak10.user1', 0, time '10:00', time '11:00', 'approved'),
-  ('0a150000-0000-4000-a000-000000000002', 'oak10.user1', 1, time '13:00', time '14:00', 'pending'),
-  ('0a150000-0000-4000-a000-000000000003', 'oak10.user2', 0, time '14:00', time '15:00', 'approved'),
-  ('0a150000-0000-4000-a000-000000000004', 'oak10.user2', 1, time '10:00', time '11:00', 'denied')
-) as v(id, owner_setting, day_offset, starts, ends, status)
+  ('0a150000-0000-4000-a000-000000000001', 'oak10.user1', 0, time '10:00', time '11:00', 'approved', 'Prep practice', array['bar_prep_table','salad_bar_table']),
+  ('0a150000-0000-4000-a000-000000000002', 'oak10.user1', 1, time '13:00', time '14:00', 'pending', 'Baking practice', array['oven']),
+  ('0a150000-0000-4000-a000-000000000003', 'oak10.user2', 0, time '14:00', time '15:00', 'approved', 'Bread baking', array['oven']),
+  ('0a150000-0000-4000-a000-000000000004', 'oak10.user2', 1, time '10:00', time '11:00', 'denied', 'Salad preparation', array['salad_bar_table'])
+) as v(id, owner_setting, day_offset, starts, ends, status, title, amenities)
 cross join (select (current_timestamp at time zone 'America/Los_Angeles')::date as today) d;
 
 -- Refuse to claim a demo ID already owned by someone else.
@@ -48,11 +48,13 @@ end $$;
 
 insert into public.booking_event
   (id, amenity, "user", start_time, end_time, num_people,
-   has_conflicts, approval_status)
+   has_conflicts, approval_status, title, amenities)
 select id, amenity, "user", start_time, end_time, num_people,
-       has_conflicts, approval_status from calendar_demo
+       has_conflicts, approval_status, title, amenities from calendar_demo
 on conflict (id) do update set
   amenity = excluded.amenity,
+  amenities = excluded.amenities,
+  title = excluded.title,
   start_time = excluded.start_time,
   end_time = excluded.end_time,
   num_people = excluded.num_people,
@@ -64,10 +66,10 @@ do $$
 begin
   if (select count(*) from public.booking_event b join calendar_demo d using (id)
       where row(b.amenity, b."user", b.start_time, b.end_time, b.num_people,
-                b.has_conflicts, b.approval_status)
+                b.has_conflicts, b.approval_status, b.title, b.amenities)
         is not distinct from
             row(d.amenity, d."user", d.start_time, d.end_time, d.num_people,
-                d.has_conflicts, d.approval_status)) <> 4 then
+                d.has_conflicts, d.approval_status, d.title, d.amenities)) <> 4 then
     raise exception 'Calendar demo verification failed. No records changed.';
   end if;
 end $$;
@@ -78,8 +80,12 @@ try {
   if (existsSync(envFile)) loadEnvFile(envFile);
   await runSeed({ source });
   console.log("Calendar demo seeded: 4 kitchen bookings, America/Los_Angeles.");
-  console.log("User 1: today 10–11 approved; tomorrow 13–14 pending.");
-  console.log("User 2: today 14–15 approved; tomorrow 10–11 denied.");
+  console.log(
+    "User 1: today 10–11 approved (both prep tables); tomorrow 13–14 pending (oven).",
+  );
+  console.log(
+    "User 2: today 14–15 approved (oven); tomorrow 10–11 denied (salad bar table).",
+  );
   console.log("Reruns refresh the same four IDs. Other records are preserved.");
 } catch (error) {
   // Never print driver errors, connection strings, or credentials.
