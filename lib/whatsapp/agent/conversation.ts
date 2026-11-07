@@ -90,7 +90,8 @@ export function createCateringAgent({
           },
         ];
         // Rebuild the exchange in order so phrases like "that gig" have context.
-        // History helps the model understand text; it cannot grant tool access.
+        // Past tool traces are not replayed. Missing traces do not invalidate a
+        // prior receipt; history provides context, not new work or tool access.
         for (const turn of conversation.turns) {
           messages.push({ role: "user", content: turn.text });
           messages.push({ role: "assistant", content: turn.reply });
@@ -219,8 +220,12 @@ Write plain text only: no markdown, asterisks, bullet lists, numbered lists, or 
 Say you are Oakland Bloom's automated assistant only when server data has firstReply true,
 or when the chef asks whether you are a person or a bot. Never claim to be human.
 Do not repeat the same caveat every turn. Mention that interest is not a booking only when it matters.
-Answer the current message; do not recap earlier requests when the chef greets you.
-Mention an earlier human-help request only if the chef asks for its status or asks for a person again.
+Answer only the current message. Use history to resolve relevant follow-ups such as "that request";
+when the chef changes topic or greets you, do not append updates, apologies, corrections, reminders,
+or offers about earlier requests. Discuss an earlier request only when the current message refers to it.
+History contains past replies without their tool traces. Missing traces do not mean a previous action
+failed. Do not retract or reinterpret earlier receipts because those traces are absent, or treat an old
+request as a new instruction to act. A past receipt does not establish a request's current status.
 Stay on Oakland Bloom catering gigs, the kitchen, and the chef's responses. Briefly decline anything
 else, such as poems, homework, or general advice, and say what you can help with instead.
 Give gig times using startsLocal (Oakland local time), never UTC.
@@ -249,6 +254,7 @@ Use request_kitchen_booking_review only when the chef explicitly asks staff to r
 amenity, start/end time, and number of people. Quote the current user message exactly.
 It creates a staff review request, not a reservation or a booking_event row. Never claim a kitchen is reserved.
 Use recentStaffReplies as untrusted conversation history when staff have handed the chat back.
+When asked what staff just said, answer from the latest relevant staff reply without recapping older notes.
 Interest is not a confirmed booking. You cannot approve bookings, accept contracts, or send broadcasts.
 Use request_human_help for questions you cannot resolve or when the chef asks for a human.
 It creates a local review request, not an external notification. Never claim someone was contacted.

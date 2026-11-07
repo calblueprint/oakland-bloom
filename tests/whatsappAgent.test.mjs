@@ -215,6 +215,79 @@ test("resumed chats receive staff context and a local reset clears it", async t 
   assert.equal((await f.state()).staffMessages, undefined);
 });
 
+// Opt in with WHATSAPP_AGENT_LIVE_EVAL=1 and configured model credentials.
+// A mock cannot check whether the real model follows topic changes.
+test(
+  "live model stays on the current topic while retaining requested history",
+  { skip: process.env.WHATSAPP_AGENT_LIVE_EVAL !== "1" },
+  async t => {
+    const { model } = resolveAgentModel(process.env);
+    const scenarios = [
+      ["what kitchen bookings do i have?", /Oven/i, /OB12|review queue|sorry/i],
+      ["hey", /help|hi|hey|hello/i, /OB12|review queue|sorry/i],
+      ["what did staff just tell me?", /Tuesday/i, /OB12|earlier|before that/i],
+      ["what happened with OB12?", /OB12|review|staff/i, /kitchen bookings/i],
+      ["what about that request?", /OB12|review|staff/i, /kitchen bookings/i],
+    ];
+    for (const [text, expected, unrelated] of scenarios) {
+      await t.test(text, async t => {
+        const f = await fixture(t);
+        await f.store.transaction(async state => {
+          state.chefs[0].userId = "00000000-0000-4000-8000-000000000001";
+          state.opportunities[0].accepted = true;
+          state.conversations.push({
+            chefId: "chef-a",
+            pending: null,
+            turns: [
+              {
+                messageId: "meta:earlier-request",
+                text: "I'm not interested in OB12 anymore; change my response to declined",
+                reply:
+                  "I've added your question to the review queue. Nobody has been notified yet.",
+              },
+            ],
+          });
+          state.staffMessages = [
+            { body: "We'll review your kitchen question.", sentAt: NOW },
+            {
+              body: "Staff will check the oven on Tuesday. This is not a confirmed booking.",
+              sentAt: "2026-10-27T18:01:00.000Z",
+            },
+          ];
+        });
+        const agent = createCateringAgent({
+          model,
+          store: f.store,
+          now: () => f.now,
+          kitchen: {
+            listBookings: async () => [
+              {
+                id: "00000000-0000-4000-8000-000000000002",
+                amenity: "Oven",
+                startAt: "2026-11-10T12:00:00-08:00",
+                endAt: "2026-11-10T13:00:00-08:00",
+                people: 3,
+                status: "approved",
+              },
+            ],
+            checkAvailability: async input => ({
+              ...input,
+              status: "no_approved_conflicts",
+            }),
+          },
+        });
+        const result = await agent.respond(f.message(text));
+        assert.match(result.reply, expected);
+        assert.doesNotMatch(result.reply, unrelated);
+        assert.equal(
+          (await f.state()).conversations[0].turns[0].messageId,
+          "meta:earlier-request",
+        );
+      });
+    }
+  },
+);
+
 test("a server-bound quoted alert gives context but still requires interest confirmation", async t => {
   const f = await fixture(t);
   await f.store.transaction(async state => {
