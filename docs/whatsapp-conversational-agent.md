@@ -60,7 +60,7 @@ comma-separated list of up to 25 approved pilot phones and apply the migrations 
 the intended hosted database. This mode rejects synthetic/local database settings.
 The server binds `0.0.0.0` on `PORT` (default 3001), exposes `/healthz`, and finishes
 its in-flight turn when stopped. Configure one replica with a 90-second shutdown
-grace period. Railway's build/start commands are `pnpm tsc` and
+grace period. Railway's build/start commands are `pnpm exec next typegen && pnpm tsc` and
 `pnpm whatsapp:production`; select Node.js 24. Keep real-number registration,
 durable credentials, privacy approval, and chef onboarding as separate launch gates.
 

@@ -2,6 +2,7 @@
   "name": "web-app-template",
   "version": "0.1.1",
   "private": true,
+  "packageManager": "pnpm@10.19.0",
   "scripts": {
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "dev": "next dev",
