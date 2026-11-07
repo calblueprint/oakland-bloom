@@ -30,6 +30,7 @@ const instrumentSans = Instrument_Sans({
 const errors: Record<string, string> = {
   invalid: "That request wasn't valid. Refresh and try again.",
   incomplete: "That account hasn't finished onboarding yet.",
+  unverified: "That chef hasn't confirmed their email yet.",
   failed: "Couldn't update that account. Refresh and try again.",
 };
 
@@ -39,7 +40,8 @@ function splitName(name: string | null) {
   return { firstName, lastName: lastName.join(" ") };
 }
 
-// chef accounts that finished onboarding and are waiting on an admin
+// chef accounts that confirmed their email, finished onboarding, and are
+// waiting on an admin
 async function getAccountsAwaitingApproval() {
   // RLS only lets users read their own rows, so admins list accounts with the
   // service role. this runs on the server, after the admin check below
@@ -65,9 +67,24 @@ async function getAccountsAwaitingApproval() {
     restaurantsResult.data.map(restaurant => [restaurant.userid, restaurant]),
   );
 
-  return usersResult.data
+  const pending = usersResult.data
     .map(user => ({ user, restaurant: restaurants.get(user.userid) ?? null }))
-    .filter(account => getAccountStatus(account) === "pending")
+    .filter(account => getAccountStatus(account) === "pending");
+
+  // approving an unconfirmed email leaves the chef unable to sign in, so only
+  // show accounts whose email is confirmed. that lives on the Auth user
+  const authUsers = await Promise.all(
+    pending.map(({ user }) => supabase.auth.admin.getUserById(user.userid)),
+  );
+  const authError = authUsers.find(result => result.error)?.error;
+  if (authError) {
+    throw new Error("Unable to load accounts awaiting approval.", {
+      cause: authError,
+    });
+  }
+
+  return pending
+    .filter((_, i) => authUsers[i].data.user?.email_confirmed_at)
     .sort((a, b) =>
       (a.restaurant?.created_at ?? "").localeCompare(
         b.restaurant?.created_at ?? "",

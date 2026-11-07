@@ -11,6 +11,7 @@ import { getAccount } from "@/lib/auth/account";
 import { homePathFor } from "@/lib/auth/accountStatus";
 import { parseEmailParam } from "@/lib/auth/validation";
 import { getCurrentUser } from "@/lib/supabase/getUser";
+import ResendVerification from "./ResendVerification";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1300
 
@@ -78,6 +79,7 @@ export default async function PendingApprovalPage({
           After that, our team will review your restaurant information before
           you can use Oakland Bloom.
         </p>
+        <ResendVerification email={email} />
       </Message>
     </AuthShell>
   );
