@@ -47,7 +47,7 @@ export async function denyAccount(userId: string) {
 }
 
 // redirects unless the caller is an admin and userId is a chef account that
-// finished onboarding and is still waiting on a decision
+// confirmed its email, finished onboarding, and is still waiting on a decision
 async function getWaitingAccount(userId: string) {
   const account = await getAccount();
   if (!account) redirect("/login");
@@ -59,7 +59,7 @@ async function getWaitingAccount(userId: string) {
 
   const supabase = getSupabaseAdminClient();
 
-  const [userResult, restaurantResult] = await Promise.all([
+  const [userResult, restaurantResult, authResult] = await Promise.all([
     supabase
       .from("users")
       .select("is_admin, is_approved")
@@ -70,11 +70,17 @@ async function getWaitingAccount(userId: string) {
       .select("name, address, cuisine")
       .eq("userid", userId)
       .maybeSingle(),
+    supabase.auth.admin.getUserById(userId),
   ]);
 
   const user = userResult.data;
   if (!user || user.is_admin || user.is_approved) {
     redirect("/admin/accounts?error=invalid");
+  }
+
+  // an approved chef with an unconfirmed email still can't sign in
+  if (!authResult.data.user?.email_confirmed_at) {
+    redirect("/admin/accounts?error=unverified");
   }
 
   // deciding before onboarding is done would let the rest skip review
