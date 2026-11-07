@@ -91,7 +91,7 @@ export async function handleMetaWebhook(
 
   try {
     // This is the important order: save first, then tell Meta we accepted it.
-    // The webhook stops here; a future worker will run the agent and send replies.
+    // The webhook stops here; the separate reply worker runs the agent and sends replies.
     await config.ingest(batch);
   } catch (error) {
     log(

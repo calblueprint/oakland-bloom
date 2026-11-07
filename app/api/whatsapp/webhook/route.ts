@@ -45,7 +45,7 @@ function createSupabaseIngest(url: string, secretKey: string) {
   });
   return async (batch: InboundBatch): Promise<void> => {
     // RPC means "call a database function". It saves the batch in one transaction
-    // and deduplicates provider IDs. The proposed migration must be applied first.
+    // and deduplicates provider IDs. Apply the WhatsApp migrations before running it.
     const { error } = await client.rpc("ingest_inbound", { batch });
     // Throw returned database errors so the handler sends 503 for a provider retry.
     if (error) throw new Error(`ingest_inbound failed: ${error.message}`);

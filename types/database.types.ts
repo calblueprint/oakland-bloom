@@ -179,6 +179,14 @@ export type Database = {
           is_accepted: boolean;
           meal_name: string;
           num_people: number;
+          ref_code: string;
+          event_at: string | null;
+          location: string | null;
+          details: string;
+          request_status: string;
+          response_status: string;
+          response_at: string | null;
+          response_message_id: string | null;
         };
         Insert: {
           catering_id: string;
@@ -187,6 +195,14 @@ export type Database = {
           is_accepted: boolean;
           meal_name: string;
           num_people: number;
+          ref_code?: string;
+          event_at?: string | null;
+          location?: string | null;
+          details?: string;
+          request_status?: string;
+          response_status?: string;
+          response_at?: string | null;
+          response_message_id?: string | null;
         };
         Update: {
           catering_id?: string;
@@ -195,6 +211,14 @@ export type Database = {
           is_accepted?: boolean;
           meal_name?: string;
           num_people?: number;
+          ref_code?: string;
+          event_at?: string | null;
+          location?: string | null;
+          details?: string;
+          request_status?: string;
+          response_status?: string;
+          response_at?: string | null;
+          response_message_id?: string | null;
         };
         Relationships: [
           {
@@ -211,18 +235,29 @@ export type Database = {
           chef_id: string;
           name: string;
           phone: string;
+          user_id: string | null;
         };
         Insert: {
           chef_id: string;
           name: string;
           phone: string;
+          user_id?: string | null;
         };
         Update: {
           chef_id?: string;
           name?: string;
           phone?: string;
+          user_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_user_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
       };
     };
     Views: {
