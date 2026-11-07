@@ -59,6 +59,108 @@ begin
 end;
 $$;
 
+-- Admin browser writes enqueue alerts; ordinary chefs use scoped bot reads.
+-- Other browser clients cannot read or forge canonical identities/assignments.
+select set_config('capability.browser_chef',pg_temp.capability_chef('15557600015')::text,true);
+select set_config('capability.browser_other',pg_temp.capability_chef('15557600016')::text,true);
+select set_config('capability.browser_request',gen_random_uuid()::text,true);
+select set_config('capability.browser_admin',gen_random_uuid()::text,true);
+insert into public.users(userid,name,email,phone,is_admin,is_approved)
+    values(current_setting('capability.browser_admin')::uuid,'Synthetic assignment admin','assignment-admin@example.test','15557600994',true,true),
+        (current_setting('capability.browser_chef')::uuid,'Synthetic reader A','assignment-a@example.test','15557600015',false,true),
+        (current_setting('capability.browser_other')::uuid,'Synthetic reader B','assignment-b@example.test','15557600016',false,true);
+update public.whatsapp_user set user_id=chef_id
+    where chef_id in (current_setting('capability.browser_chef')::uuid,current_setting('capability.browser_other')::uuid);
+set local role authenticated;
+select set_config('request.jwt.claim.sub',current_setting('capability.browser_admin'),true);
+insert into public.whatsapp_catering(catering_id,chef,meal_name,num_people,is_accepted,day_created)
+    values(current_setting('capability.browser_request')::uuid,current_setting('capability.browser_chef')::uuid,
+        'Synthetic browser assignment',25,false,now());
+update public.whatsapp_catering set chef=current_setting('capability.browser_other')::uuid
+    where catering_id=current_setting('capability.browser_request')::uuid;
+update public.whatsapp_catering set chef=chef,meal_name='Updated browser assignment'
+    where catering_id=current_setting('capability.browser_request')::uuid;
+do $$
+begin
+    assert not has_function_privilege(current_user,'public.queue_wa_catering_alert()','EXECUTE'),
+        'browser cannot call the privileged trigger directly';
+    begin
+        insert into public.wa_notifications(chef_id,kind,catering_id,body)
+            values(current_setting('capability.browser_chef')::uuid,'catering_alert',
+                current_setting('capability.browser_request')::uuid,'Must not insert directly');
+        raise exception 'browser wrote notification table';
+    exception when insufficient_privilege then null; end;
+end;
+$$;
+reset role;
+do $$
+declare request uuid:=current_setting('capability.browser_request')::uuid; notification jsonb;
+begin
+    assert (select count(*)=2 from public.wa_notifications n where n.catering_id=request),
+        'browser insert and reassignment queue once per recipient';
+    assert public.claim_wa_notification('15557600015',gen_random_uuid()) is null,
+        'old browser assignment cannot send after reassignment';
+    notification:=public.claim_wa_notification('15557600016',gen_random_uuid());
+    assert notification->>'phone'='15557600016','new browser assignee receives its own alert';
+    assert notification->>'body' like '%Updated browser assignment%','ordinary edits refresh send facts without duplication';
+end;
+$$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub',current_setting('capability.browser_chef'),true);
+do $$
+declare changed integer;
+begin
+    assert not exists(select 1 from public.whatsapp_user),'canonical identities remain server/admin-only';
+    assert not exists(select 1 from public.whatsapp_catering
+        where catering_id=current_setting('capability.browser_request')::uuid),'former assignee cannot read reassigned request';
+    begin
+        insert into public.whatsapp_catering(catering_id,chef,meal_name,num_people,is_accepted,day_created)
+            values(gen_random_uuid(),current_setting('capability.browser_chef')::uuid,'Forged assignment',25,false,now());
+        raise exception 'ordinary chef inserted an assignment';
+    exception when insufficient_privilege then null; end;
+    update public.whatsapp_catering set chef=current_setting('capability.browser_chef')::uuid
+        where catering_id=current_setting('capability.browser_request')::uuid;
+    get diagnostics changed=row_count;
+    assert changed=0,'ordinary chef cannot reassign another chef request';
+    update public.whatsapp_user set name='Forged identity'
+        where chef_id=current_setting('capability.browser_chef')::uuid;
+    get diagnostics changed=row_count;
+    assert changed=0,'ordinary chef cannot rewrite its canonical identity';
+end;
+$$;
+select set_config('request.jwt.claim.sub',current_setting('capability.browser_other'),true);
+do $$
+declare changed integer;
+begin
+    assert not exists(select 1 from public.whatsapp_user),'other chef cannot read canonical identities';
+    assert not exists(select 1 from public.whatsapp_catering),'canonical assignments remain server/admin-only';
+    update public.whatsapp_catering set meal_name='Forged edit'
+        where catering_id=current_setting('capability.browser_request')::uuid;
+    get diagnostics changed=row_count;
+    assert changed=0,'ordinary chef cannot edit even its assigned request';
+end;
+$$;
+reset role;
+set local role anon;
+do $$
+begin
+    begin
+        perform 1 from public.whatsapp_user;
+        raise exception 'anonymous client read canonical identities';
+    exception when insufficient_privilege then null; end;
+    begin
+        perform 1 from public.whatsapp_catering;
+        raise exception 'anonymous client read catering assignments';
+    exception when insufficient_privilege then null; end;
+    begin
+        insert into public.whatsapp_catering(catering_id,chef,meal_name,num_people,is_accepted,day_created)
+            values(gen_random_uuid(),current_setting('capability.browser_other')::uuid,'Anonymous forged assignment',25,false,now());
+        raise exception 'anonymous client inserted an assignment';
+    exception when insufficient_privilege then null; end;
+end;
+$$;
+reset role;
+
 -- Outside the service window only a configured approved-template shape may be claimed.
 do $$
 #variable_conflict use_variable

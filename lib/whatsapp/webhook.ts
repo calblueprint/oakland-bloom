@@ -16,6 +16,8 @@ export interface MetaWebhookConfig {
   appSecret: string;
   /** Token we chose when registering the webhook in the Meta dashboard. */
   verifyToken: string;
+  /** When configured, ignore messages addressed to another business number. */
+  phoneNumberId?: string;
   /** Durably store the batch. Must be idempotent on provider message IDs. */
   ingest: (batch: InboundBatch) => Promise<void>;
   /** Server log sink; defaults to console. */
@@ -72,7 +74,7 @@ export async function handleMetaWebhook(
   try {
     // Only a signed body reaches the parser. The parser separates valid
     // messages from rejected ones so one bad attachment need not block a batch.
-    batch = parseMetaPayload(JSON.parse(raw));
+    batch = parseMetaPayload(JSON.parse(raw), config.phoneNumberId);
   } catch (error) {
     // Signed by Meta but unreadable: retrying the same body cannot help.
     if (error instanceof SyntaxError || error instanceof InboundParseError) {

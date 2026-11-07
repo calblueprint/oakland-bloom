@@ -20,7 +20,10 @@ import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
  *
  * Shape verified against Meta's docs — see docs/whatsapp-bot-research.md §III.4.
  */
-export function parseMetaPayload(payload: unknown): InboundBatch {
+export function parseMetaPayload(
+  payload: unknown,
+  phoneNumberId?: string,
+): InboundBatch {
   // Throw a validation error labeled with the provider that supplied the payload.
   const fail = (reason: string): never => {
     throw new InboundParseError("meta", reason);
@@ -57,6 +60,14 @@ export function parseMetaPayload(payload: unknown): InboundBatch {
       if (rawMessages === undefined) continue;
       if (!Array.isArray(rawMessages))
         fail("`value.messages` is not an array.");
+      // An app secret can sign callbacks for several business numbers. Only
+      // ingest messages addressed to this deployment's configured number.
+      if (
+        phoneNumberId &&
+        (!isRecord(value.metadata) ||
+          value.metadata.phone_number_id !== phoneNumberId)
+      )
+        continue;
 
       for (const message of rawMessages as unknown[]) {
         try {

@@ -1,8 +1,9 @@
 # WhatsApp Catering Assistant
 
 Chefs can ask about assigned catering requests and confirm an interested/declined
-response. Interest is not a booking. The current worker replies only to one
-configured test phone and uses a cloud model; local inference is not implemented.
+response. Interest is not a booking. Local tests reply only to one configured
+phone; the hosted pilot supports an explicit recipient allowlist. Both use a cloud
+model; local inference is not implemented.
 
 ## Try the Offline Demo
 
@@ -53,6 +54,16 @@ tunnel running; update Meta when the URL changes. Run only one reply worker.
 apply the WhatsApp migrations in order to that intended project first.
 `--reset` belongs to the terminal demo and does not clear Supabase.
 
+For a hosted pilot, use `pnpm whatsapp:production` with hosting environment
+variables; it never loads local env files. Set `WHATSAPP_RECIPIENTS` to an explicit
+comma-separated list of up to 25 approved pilot phones and apply the migrations to
+the intended hosted database. This mode rejects synthetic/local database settings.
+The server binds `0.0.0.0` on `PORT` (default 3001), exposes `/healthz`, and finishes
+its in-flight turn when stopped. Configure one replica with a 90-second shutdown
+grace period. Railway's build/start commands are `pnpm tsc` and
+`pnpm whatsapp:production`; select Node.js 24. Keep real-number registration,
+durable credentials, privacy approval, and chef onboarding as separate launch gates.
+
 ## How It Works
 
 ```text
@@ -100,7 +111,7 @@ synthetic database. The test admin's login details are in `.env.whatsapp-test.lo
 Staff replies require takeover and an open 24-hour reply window. Assigned open
 catering requests automatically queue alerts only for already opted-in chefs.
 The worker sends alerts and staff replies without model calls, still limited to
-`WHATSAPP_TEST_RECIPIENT`. Outside the reply window, alerts require an approved
+`WHATSAPP_TEST_RECIPIENT` locally or the explicit hosted pilot list. Outside the reply window, alerts require an approved
 template configured with `WHATSAPP_ALERT_TEMPLATE_NAME` and
 `WHATSAPP_ALERT_TEMPLATE_LANGUAGE`; its body variables are reference and title.
 Missing templates and uncertain sends remain visible for review. No dashboard,

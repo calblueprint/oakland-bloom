@@ -16,6 +16,7 @@
     "harness:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/whatsappHarness.mjs",
     "agent:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/whatsappAgent.mjs",
     "whatsapp:replies": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/whatsappReplies.mjs",
+    "whatsapp:production": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/whatsappReplies.mjs --production",
     "whatsapp:test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local --env-file=.env.whatsapp-test.local scripts/whatsappReplies.mjs --test",
     "db:test": "node --env-file-if-exists=.env.local scripts/whatsappTestDatabase.mjs",
     "dev:whatsapp-test": "node --env-file-if-exists=.env.local scripts/whatsappTestDatabase.mjs --app",
