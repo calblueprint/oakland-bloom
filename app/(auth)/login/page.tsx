@@ -1,18 +1,26 @@
 "use client";
 
 import { ComponentProps, useState } from "react";
-import { unstable_rethrow } from "next/navigation";
+import { unstable_rethrow, useSearchParams } from "next/navigation";
 import { continueWithEmail } from "@/actions/auth";
-import styles from "../auth.module.css";
 import AuthShell from "../AuthShell";
 import { TextField } from "../fields";
+import { ErrorText, Form, SubmitButton } from "../styles";
 
 // Figma: https://www.figma.com/design/fIt7K04YhxAF4WOn8ll2t2/Oakland-Bloom?node-id=106-1460
 const INVALID_EMAIL_ERROR = "Enter a valid email address.";
 
 export default function StartPage() {
+  // /auth/callback sends them here when the email verification link fails
+  const verificationFailed =
+    useSearchParams().get("error") === "verification_failed";
+
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(
+    verificationFailed
+      ? "That verification link didn't work. Try signing in, or sign up again."
+      : null,
+  );
   const [isLoading, setIsLoading] = useState(false);
 
   // runs when the form is submitted
@@ -29,7 +37,9 @@ export default function StartPage() {
         setError(
           result.error.code === "invalid_email"
             ? INVALID_EMAIL_ERROR
-            : "Something went wrong. Please try again.",
+            : result.error.code === "rate_limited"
+              ? "Too many attempts. Try again in a few minutes."
+              : "Something went wrong. Please try again.",
         );
         setIsLoading(false);
       }
@@ -45,7 +55,7 @@ export default function StartPage() {
 
   return (
     <AuthShell heading="Sign In or Create Your Account">
-      <form onSubmit={handleContinue} className={styles.form}>
+      <Form onSubmit={handleContinue}>
         <TextField
           id="email"
           label="Email"
@@ -60,16 +70,12 @@ export default function StartPage() {
           required
         />
 
-        {error && (
-          <p className={styles.error} role="alert">
-            {error}
-          </p>
-        )}
+        {error && <ErrorText role="alert">{error}</ErrorText>}
 
-        <button type="submit" className={styles.button} disabled={isLoading}>
+        <SubmitButton type="submit" disabled={isLoading}>
           Continue
-        </button>
-      </form>
+        </SubmitButton>
+      </Form>
     </AuthShell>
   );
 }

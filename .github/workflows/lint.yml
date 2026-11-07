@@ -72,3 +72,6 @@ jobs:
 
       - name: Run unit tests
         run: pnpm test
+
+      - name: Run WhatsApp fixture harness
+        run: pnpm harness:whatsapp

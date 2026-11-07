@@ -7,6 +7,36 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17";
+  };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       booking_event: {
@@ -20,7 +50,6 @@ export type Database = {
           start_time: string;
           user: string;
         };
-        ComputedFields: never;
         Insert: {
           amenity: string;
           approval_status: string;
@@ -58,7 +87,6 @@ export type Database = {
           name: string;
           price: number;
         };
-        ComputedFields: never;
         Insert: {
           chef_id: string;
           meal_id: string;
@@ -126,7 +154,6 @@ export type Database = {
           phone: string;
           userid: string;
         };
-        ComputedFields: never;
         Insert: {
           email: string;
           is_admin?: boolean;
@@ -154,7 +181,6 @@ export type Database = {
           meal_name: string;
           num_people: number;
         };
-        ComputedFields: never;
         Insert: {
           catering_id: string;
           chef: string;
@@ -187,7 +213,6 @@ export type Database = {
           name: string;
           phone: string;
         };
-        ComputedFields: never;
         Insert: {
           chef_id: string;
           name: string;
@@ -206,7 +231,7 @@ export type Database = {
     };
     Functions: {
       email_exists: {
-        Args: { p_email: string };
+        Args: { p_client_key: string; p_email: string };
         Returns: boolean;
       };
       get_calendar_occupied_periods: {
@@ -345,6 +370,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

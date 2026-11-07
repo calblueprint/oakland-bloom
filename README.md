@@ -53,6 +53,12 @@ The Statement of Work in Notion is the authoritative scope — this is a summary
 
 - [`docs/whatsapp-bot-research.md`](docs/whatsapp-bot-research.md) — WhatsApp API
   research, provider comparison, proposed bot architecture and message flow (OAK-8).
+- [`docs/whatsapp-conversational-agent.md`](docs/whatsapp-conversational-agent.md) —
+  local conversational prototype with scoped tools, persistent context, and confirmed
+  interest recording. Run `pnpm agent:whatsapp` for the offline demo.
+- [`docs/whatsapp-agent-production-plan.md`](docs/whatsapp-agent-production-plan.md) —
+  production plan for 1:1 agent chats with proactive gig templates: platform rules,
+  architecture, schema, and build order.
 
 ## Getting Started
 
@@ -153,3 +159,28 @@ Run `pnpm test` for ordinary checks. With the local dev server running and priva
 test credentials configured, `pnpm test:calendar:live` verifies both accounts'
 availability and cross-owner privacy. `pnpm test:seed:live` checks seeding using
 temporary tables. Selection currently logs a range; it does not save a booking.
+## Auth setup
+
+1. Copy `example.env` to `.env.local` and fill in the values from Supabase
+   (Project Settings > API Keys). `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is the
+   publishable key. `SUPABASE_SECRET_KEY` is the secret key, is server
+   only, and must never be prefixed with `NEXT_PUBLIC_`.
+2. Install dependencies with `pnpm install`.
+3. Apply database migrations.
+   - Shared dev project: `pnpm supabase link --project-ref <ref>` then `pnpm supabase db push`
+   - Local Supabase: `pnpm supabase start` then `pnpm supabase db reset`
+4. Run `pnpm dev`.
+5. Making the first admin: sign up in the app, then run this in the Supabase
+   SQL Editor with your email:
+
+   ```sql
+   update public.users set is_admin = true, is_approved = true where email = 'you@example.com';
+   ```
+
+### Email lookup
+
+The Start screen calls the `continueWithEmail` server action, which calls the
+`email_exists` Postgres function using the secret key. The function can't be
+called with the publishable key. Lookups are limited to 10 per client per
+10 minutes. To reset the limit during development, run
+`delete from private.email_lookup_attempts;` in the SQL Editor.

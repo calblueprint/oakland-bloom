@@ -13,6 +13,8 @@
     "prettier": "pnpm exec prettier --check .",
     "prettier:fix": "pnpm exec prettier --write .",
     "prepare": "husky",
+    "harness:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/whatsappHarness.mjs",
+    "agent:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/whatsappAgent.mjs",
     "pre-commit": "concurrently \"pnpm run tsc\" \"pnpm run lint\" \"pnpm run prettier\"",
     "setup:styled-components": "node ./setup-scripts/setup styled-components",
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
@@ -26,12 +28,17 @@
   },
   "dependencies": {
     "@fullcalendar/react": "^7.1.3",
+    "@ai-sdk/anthropic": "^4.0.90",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
+    "ai": "^7.0.155",
     "next": "^16.3.5",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
-    "temporal-polyfill": "^1.0.6"
+    "temporal-polyfill": "^1.0.6",
+    "server-only": "^0.0.1",
+    "styled-components": "^6.6.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@ianvs/prettier-plugin-sort-imports": "^4.7.1",
@@ -48,6 +55,7 @@
     "husky": "^9.1.7",
     "postgres": "3.4.7",
     "prettier": "^3.9.8",
+    "supabase": "^2.121.0",
     "typescript": "^5.9.3"
   },
   "engines": {

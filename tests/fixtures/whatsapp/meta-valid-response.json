@@ -1,0 +1,35 @@
+{
+  "object": "whatsapp_business_account",
+  "entry": [
+    {
+      "id": "102290129340398",
+      "changes": [
+        {
+          "field": "messages",
+          "value": {
+            "messaging_product": "whatsapp",
+            "metadata": {
+              "display_phone_number": "15555550100",
+              "phone_number_id": "106540352242922"
+            },
+            "contacts": [
+              {
+                "profile": { "name": "Fictional Chef" },
+                "wa_id": "15555550123"
+              }
+            ],
+            "messages": [
+              {
+                "from": "15555550123",
+                "id": "wamid.HBgLMTU1NTU1NTAxMjMVAgASGBQzQTRCNUM2RDdFOEY5MDAwMDAwMAA=",
+                "timestamp": "1760000000",
+                "type": "text",
+                "text": { "body": "OB12 yes" }
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

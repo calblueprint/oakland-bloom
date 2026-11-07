@@ -38,3 +38,5 @@ next-env.d.ts
 
 # Local Supabase CLI cache
 /supabase/.temp/
+# Private local conversational-agent state (messages, replies, and interest).
+/.local/whatsapp-agent/

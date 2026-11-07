@@ -630,6 +630,12 @@ a way to skip it — only a way to not be _blocked_ by it.
 
 ## V. Agentic architecture
 
+An implementation of the local conversational prototype is documented in
+[`whatsapp-conversational-agent.md`](whatsapp-conversational-agent.md). It uses
+scoped tools and confirmation before recording interest. The options, model choices,
+and estimates below remain the original research; they are not a production deployment
+plan or a current rate card.
+
 > **Status: exploratory. Not SOW-committed.** Nothing in this section appears in the
 > SOW's MTP or MVP scope. The nearest MVP language (§II.D) is vaguer and more modest:
 > _"time-based routing"_, _"sending messages to customers or chefs using stored contact
