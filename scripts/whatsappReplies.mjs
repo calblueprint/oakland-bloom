@@ -3,6 +3,7 @@ import { setTimeout } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import { GET as privacyNotice } from "../app/api/whatsapp/privacy/route.ts";
 import { resolveAgentModel } from "../lib/whatsapp/agent/conversation.ts";
+import { createNotificationWorker } from "../lib/whatsapp/agent/notifications.ts";
 import { createReplyWorker } from "../lib/whatsapp/agent/replies.ts";
 import { createMetaClient, MetaApiError } from "../lib/whatsapp/metaClient.ts";
 import {
@@ -115,17 +116,30 @@ async function main() {
     { auth: { persistSession: false, autoRefreshToken: false } },
   );
   const { model } = resolveAgentModel(process.env);
+  const meta = createMetaClient({
+    phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"),
+    accessToken: required("WHATSAPP_ACCESS_TOKEN"),
+    apiVersion: required("WHATSAPP_GRAPH_API_VERSION"),
+    fetch: (url, options) =>
+      fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }),
+  });
   const worker = createReplyWorker({
     rpc: (name, args) => db.rpc(name, args),
     model,
     phone,
-    meta: createMetaClient({
-      phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"),
-      accessToken: required("WHATSAPP_ACCESS_TOKEN"),
-      apiVersion: required("WHATSAPP_GRAPH_API_VERSION"),
-      fetch: (url, options) =>
-        fetch(url, { ...options, signal: AbortSignal.timeout(20_000) }),
-    }),
+    meta,
+  });
+  const templateName = process.env.WHATSAPP_ALERT_TEMPLATE_NAME?.trim();
+  const notifications = createNotificationWorker({
+    rpc: (name, args) => db.rpc(name, args),
+    meta,
+    phone,
+    template: templateName
+      ? {
+          name: templateName,
+          language: required("WHATSAPP_ALERT_TEMPLATE_LANGUAGE"),
+        }
+      : undefined,
   });
   const server = await startWebhook(db);
   console.log(
@@ -140,6 +154,8 @@ async function main() {
   });
   while (running) {
     try {
+      if (await notifications.sendNext())
+        console.log("Meta accepted a notification.");
       const result = await worker.runOnce();
       if (result.processed) console.log("Saved an AI reply.");
       if (result.sent) console.log("Meta accepted a reply.");

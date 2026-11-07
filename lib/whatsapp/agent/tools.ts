@@ -1,4 +1,5 @@
 import type { InboundMessage } from "../inboundMessage.ts";
+import type { KitchenAccess } from "./kitchen.ts";
 import type {
   AgentReply,
   AgentState,
@@ -8,6 +9,7 @@ import type {
 } from "./store.ts";
 import { tool } from "ai";
 import { z } from "zod";
+import { createKitchenTools } from "./kitchen.ts";
 import { referenceSchema } from "./store.ts";
 
 // A strict schema rejects extra fields instead of quietly accepting them.
@@ -58,7 +60,7 @@ function opportunityDetails(opportunity: Opportunity) {
   };
 }
 
-/** Builds five guarded tools for one chef/turn, plus a trace and flags describing their effects. */
+/** Builds guarded catering and kitchen tools for one chef and one incoming message. */
 export function createCateringTools({
   state,
   chefId,
@@ -66,6 +68,7 @@ export function createCateringTools({
   message,
   confirmation,
   now,
+  kitchen,
 }: {
   state: AgentState;
   chefId: string;
@@ -73,12 +76,18 @@ export function createCateringTools({
   message: InboundMessage;
   confirmation: PendingConfirmation | null;
   now: Date;
+  kitchen?: KitchenAccess;
 }) {
   // These values belong to one incoming message. They are reset on every turn.
   // chefId comes from our sender lookup, never from the model's arguments.
   const toolCalls: AgentReply["toolCalls"] = [];
   // conversation.ts uses these flags to explain blocked writes or human help.
-  const activity = { handedOff: false, blockedWrite: false };
+  const activity = {
+    handedOff: false,
+    blockedWrite: false,
+    kitchenReview: false,
+  };
+  let actionsStarted = 0;
   let recorded: { reference: string; interested: boolean } | null = null;
   let proposed: { reference: string; interested: boolean } | null = null;
 
@@ -95,9 +104,15 @@ export function createCateringTools({
 
   /** Runs and logs a tool action, or returns a budget error after eight actions. */
   // Changes stay in the draft until store.transaction saves the whole turn.
-  function runTool(name: string, input: unknown, action: () => unknown) {
-    if (toolCalls.length >= 8) return { error: "tool_budget_exceeded" };
-    const output = z.json().parse(action());
+  async function runTool(
+    name: string,
+    input: unknown,
+    action: () => unknown | Promise<unknown>,
+  ) {
+    // Reserve a slot before awaiting so parallel reads cannot exceed the budget.
+    if (actionsStarted >= 8) return { error: "tool_budget_exceeded" };
+    actionsStarted++;
+    const output = z.json().parse(await action());
     // Keep the requested inputs and actual result so the CLI/tests can explain
     // what happened. Tool results also go back to the model through the SDK.
     toolCalls.push({ name, input: z.json().parse(input), output });
@@ -143,7 +158,11 @@ export function createCateringTools({
       execute: async input =>
         runTool("propose_catering_response", input, () => {
           // A confirmation or cancellation cannot also start a new proposal.
-          if (confirmation || isCancellation(message.text)) {
+          if (
+            confirmation ||
+            isCancellation(message.text) ||
+            /^confirm[.!]?$/i.test(message.text.trim())
+          ) {
             return { error: "clarification_required" };
           }
           const opportunity = findAssignedRequest(input.reference);
@@ -254,5 +273,20 @@ export function createCateringTools({
     }),
   };
 
-  return { tools, toolCalls, activity };
+  return {
+    tools: {
+      ...tools,
+      ...createKitchenTools({
+        kitchen,
+        state,
+        chefId,
+        message,
+        now,
+        runTool,
+        activity,
+      }),
+    },
+    toolCalls,
+    activity,
+  };
 }

@@ -264,6 +264,76 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      get_wa_staff_queue: {
+        Args: { actor_id: string };
+        Returns: Json;
+      };
+      get_wa_staff_conversation: {
+        Args: { actor_id: string; chef_id: string };
+        Returns: Json;
+      };
+      set_wa_staff_takeover: {
+        Args: { actor_id: string; chef_id: string; takeover: boolean };
+        Returns: Json;
+      };
+      resolve_wa_handoff: {
+        Args: { actor_id: string; handoff_id: string };
+        Returns: Json;
+      };
+      queue_wa_staff_reply: {
+        Args: {
+          actor_id: string;
+          chef_id: string;
+          body: string;
+          request_id: string;
+        };
+        Returns: Json;
+      };
+      set_wa_alert_consent: {
+        Args: {
+          actor_id: string;
+          chef_id: string;
+          opted_in: boolean;
+          evidence: string;
+        };
+        Returns: Json;
+      };
+      list_wa_kitchen_bookings: {
+        Args: { target_phone: string; worker_id: string; inbound_id: string };
+        Returns: Json;
+      };
+      check_wa_kitchen_availability: {
+        Args: {
+          target_phone: string;
+          worker_id: string;
+          inbound_id: string;
+          amenity: string;
+          start_at: string;
+          end_at: string;
+        };
+        Returns: Json;
+      };
+      claim_wa_notification: {
+        Args: {
+          target_phone: string;
+          worker_id: string;
+          template_name?: string | null;
+          template_language?: string | null;
+        };
+        Returns: Json;
+      };
+      finish_wa_notification: {
+        Args: {
+          notification_id: string;
+          worker_id: string;
+          provider_id: string;
+        };
+        Returns: undefined;
+      };
+      fail_wa_notification: {
+        Args: { notification_id: string; worker_id: string };
+        Returns: undefined;
+      };
       email_exists: {
         Args: { p_client_key: string; p_email: string };
         Returns: boolean;

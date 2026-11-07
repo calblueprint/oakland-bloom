@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
@@ -370,8 +370,48 @@ async function verifyDatabase(db, apiUrl, publicKey, accounts) {
   }
 }
 
+/** Starts Next.js with the isolated database settings, without rewriting the shared environment. */
+async function startTestApp(status) {
+  const settings = parseEnv(await readFile(envPath, "utf8"));
+  assertLocalTestSettings(settings.NEXT_PUBLIC_SUPABASE_URL, status.DB_URL);
+  const child = spawn(
+    process.execPath,
+    [
+      resolve(root, "node_modules/next/dist/bin/next"),
+      "dev",
+      "--hostname",
+      "127.0.0.1",
+    ],
+    {
+      cwd: root,
+      env: { ...process.env, ...settings },
+      stdio: "inherit",
+    },
+  );
+  const stop = () => child.kill("SIGINT");
+  process.on("SIGINT", stop);
+  process.on("SIGTERM", stop);
+  try {
+    await new Promise((resolve, reject) => {
+      child.once("error", () =>
+        reject(new Error("Unable to start the local test app.")),
+      );
+      child.once("exit", (code, signal) =>
+        code === 0 || signal
+          ? resolve()
+          : reject(new Error("Local test app exited with an error.")),
+      );
+    });
+  } finally {
+    process.off("SIGINT", stop);
+    process.off("SIGTERM", stop);
+  }
+}
+
 /** Starts and seeds only the isolated local project; repeated runs keep test conversation data. */
 export async function main() {
+  if (process.argv.slice(2).some(arg => arg !== "--app"))
+    throw new Error("Usage: pnpm db:test [--app]");
   const status = await startDatabase();
   const publicKey = status.PUBLISHABLE_KEY || status.ANON_KEY;
   const serverKey = status.SECRET_KEY || status.SERVICE_ROLE_KEY;
@@ -419,6 +459,8 @@ export async function main() {
     for (const file of [
       "whatsappReplies.sql",
       "whatsappCateringIntegration.sql",
+      "whatsappCapabilities.sql",
+      "whatsappKitchen.sql",
     ]) {
       await sql
         .unsafe(await readFile(resolve(root, "tests", file), "utf8"))
@@ -434,6 +476,7 @@ export async function main() {
   } finally {
     await sql.end({ timeout: 5 });
   }
+  if (process.argv.includes("--app")) await startTestApp(status);
 }
 
 if (
