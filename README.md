@@ -142,23 +142,29 @@ for this read-only prototype. The checked-in
 separate authenticated availability function, not the booking-table RLS policy.
 Install that function in each target database before using the calendar.
 
-To refresh three demo bookings for the current Los Angeles week, configure the
-two existing OAK-10 test accounts and development database as described in
-[`docs/reservation-query.md`](docs/reservation-query.md), confirm the database target,
-then run:
+Selection currently logs a range; it does not save a booking.
+
+For four current-date demo bookings, use the existing test accounts configured by
+`RESERVATION_TEST_USER_ID` and `RESERVATION_TEST_USER2_ID` in `.env.local`, along
+with the development `SEED_DATABASE_URL`. Both Auth accounts and their
+`public.users` profiles must already exist. After checking the database target:
 
 ```sh
 SEED_TARGET=development pnpm seed:calendar
 ```
 
-Chef 1 receives Tuesday 1–2:30 p.m. pending and Thursday 10 a.m.–noon approved;
-Chef 2 receives Wednesday 11 a.m.–1 p.m. approved. Reruns refresh only demo IDs
-009–011 without duplicates. Existing bookings are preserved. There is no sample-date mode.
+All four bookings use the kitchen and Los Angeles dates/times:
 
-Run `pnpm test` for ordinary checks. With the local dev server running and private
-test credentials configured, `pnpm test:calendar:live` verifies both accounts'
-availability and cross-owner privacy. `pnpm test:seed:live` checks seeding using
-temporary tables. Selection currently logs a range; it does not save a booking.
+| Account | Today | Tomorrow |
+| --- | --- | --- |
+| Test user 1 | 10–11 a.m., approved | 1–2 p.m., pending |
+| Test user 2 | 2–3 p.m., approved | 10–11 a.m., denied |
+
+Reruns refresh the same four demo IDs (prefix `0a150000`, endings `001`–`004`)
+to today/tomorrow without adding duplicates. Only those demo bookings are updated;
+accounts, policies, and unrelated bookings are preserved. Existing bookings are
+not cleared, so four demo rows do not necessarily mean four total table rows.
+
 ## Auth setup
 
 1. Copy `example.env` to `.env.local` and fill in the values from Supabase

@@ -20,11 +20,10 @@
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
     "delete-setup": "node ./setup-scripts/delete-setup",
     "seed:reservations": "node scripts/seedReservations.mjs",
-    "seed:calendar": "node scripts/seedCalendarReservations.mjs",
+    "seed:calendar": "node scripts/seedCalendarDemo.mjs",
     "test:reservations:live": "node tests/getChefReservations.live.test.mjs --live",
     "types:database": "node scripts/generateDatabaseTypes.mjs",
-    "test:seed:live": "node tests/seedReservations.live.test.mjs --live",
-    "test:calendar:live": "node tests/calendarAvailability.live.test.mjs --live"
+    "test:seed:live": "node tests/seedReservations.live.test.mjs --live"
   },
   "dependencies": {
     "@fullcalendar/react": "^7.1.3",

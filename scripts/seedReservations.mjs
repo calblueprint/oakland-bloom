@@ -19,7 +19,7 @@ export async function runSeed({
   user2 = process.env.RESERVATION_TEST_USER2_ID,
   caFile = process.env.SEED_DATABASE_CA_FILE,
   createClient = postgres,
-  includeCalendarSamples = false,
+  source = readFileSync(seedFile, "utf8"),
 } = {}) {
   if (environment === "production") {
     throw new Error("Run reservation seeding against a development database.");
@@ -69,15 +69,6 @@ export async function runSeed({
     );
   }
 
-  const source =
-    readFileSync(seedFile, "utf8") +
-    (includeCalendarSamples
-      ? "\n" +
-        readFileSync(
-          new URL("./seedCalendarReservations.sql", import.meta.url),
-          "utf8",
-        )
-      : "");
   const isSupabaseHost =
     url.hostname.endsWith(".pooler.supabase.com") ||
     /^db\.[a-z0-9]+\.supabase\.co$/.test(url.hostname);
@@ -107,15 +98,13 @@ export async function runSeed({
   }
 }
 
-export async function main({ includeCalendarSamples = false } = {}) {
+export async function main() {
   try {
     const envFile = new URL("../.env.local", import.meta.url);
     if (existsSync(envFile)) loadEnvFile(fileURLToPath(envFile));
-    await runSeed({ includeCalendarSamples });
+    await runSeed();
     console.log(
-      includeCalendarSamples
-        ? "Calendar seed complete: OAK-10 fixtures plus three bookings for the current Los Angeles week. Only current-week demo IDs were refreshed."
-        : "Reservation seed complete: test user 1 = 3 reservations; test user 2 = 1 reservation. Identical fixtures were skipped.",
+      "Reservation seed complete: test user 1 = 4 reservations; test user 2 = 1 reservation. Identical fixtures were skipped.",
     );
   } catch (error) {
     // Raw driver errors may include credentials or connection details. Print only
