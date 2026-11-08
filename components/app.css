@@ -2,8 +2,9 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  height: 100vh;
-  height: 100dvh;
+  /* fills the chef layout's content area, minus its 2rem top and bottom padding */
+  height: calc(100vh - 4rem);
+  height: calc(100dvh - 4rem);
   min-width: 0;
   padding: clamp(0.25rem, 1.5vw, 1.25rem);
   background: #f7f4ec;
@@ -216,4 +217,12 @@
 .is-today .calendar-day-number {
   background: #f65656;
   color: #fff;
+}
+
+/* below the sidebar breakpoint the layout pads 4.5rem on top and 2rem below */
+@media (max-width: 48rem) {
+  .calendar-page {
+    height: calc(100vh - 6.5rem);
+    height: calc(100dvh - 6.5rem);
+  }
 }

@@ -152,7 +152,7 @@ called with the publishable key. Lookups are limited to 10 per client per
 
 ### Calendar development
 
-Open `/calendar` after signing in. The page uses `getChefReservations()` to load
+Sign in as an approved chef; the calendar is the chef home page (`/chef`). The page uses `getChefReservations()` to load
 the signed-in chef's real Supabase bookings; no fixture data is embedded in the UI.
 Other chefs' approved occupied periods are fetched separately and shown in gray,
 without names, booking IDs, owner IDs, or people counts. All times use
