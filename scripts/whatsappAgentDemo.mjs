@@ -86,26 +86,26 @@ export function createDemoModel() {
     doGenerate: async ({ prompt }) => {
       switch (step++) {
         case 0:
-          return call("get_opportunity", { reference: "OB12" });
+          return call("get_catering_request", { reference: "OB12" });
         case 1: {
-          const opportunity = latestToolOutput(prompt, "get_opportunity");
+          const opportunity = latestToolOutput(prompt, "get_catering_request");
           return text(
             `I'm Oakland Bloom's automated assistant. ${opportunity.reference}: ${opportunity.title}, ${opportunity.startsAt}, at ${opportunity.location}, for ${opportunity.headcount} people. Pay: ${opportunity.pay ?? "not specified"}. ${opportunity.details}`,
           );
         }
         case 2:
-          return call("propose_interest", {
+          return call("propose_catering_response", {
             reference: "OB12",
             interested: true,
             sourceQuote: DEMO_TURNS[1],
           });
         case 3:
-          latestToolOutput(prompt, "propose_interest");
+          latestToolOutput(prompt, "propose_catering_response");
           return text("Please confirm your proposed interest response.");
         case 4:
-          return call("record_interest", {});
+          return call("confirm_catering_response", {});
         case 5:
-          latestToolOutput(prompt, "record_interest");
+          latestToolOutput(prompt, "confirm_catering_response");
           return text("Your interest response was recorded.");
         default:
           throw new Error(

@@ -1,0 +1,23 @@
+/** Serves the limited pilot's privacy notice without requiring an Oakland Bloom account. */
+export function GET() {
+  return new Response(
+    `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oakland Bloom WhatsApp Pilot — Privacy Notice</title>
+<style>body{font:18px/1.6 system-ui,sans-serif;max-width:740px;margin:48px auto;padding:0 24px;color:#202820}h1{line-height:1.2}h2{font-size:22px;margin-top:30px}a{color:#245e42}</style>
+</head><body><main>
+<h1>Oakland Bloom WhatsApp Pilot</h1>
+<p>Pilot privacy notice · Updated November 7, 2026</p>
+<p>This limited development pilot provides an automated WhatsApp assistant for catering questions, interest responses, kitchen information, and requests for staff review. It does not confirm catering or kitchen bookings. Help requests enter a review queue; they do not automatically notify staff outside the app.</p>
+<h2>What we collect and why</h2>
+<p>We store your WhatsApp phone number, messages, assistant and staff replies, delivery information, catering interest responses, alert consent, and requests for human or kitchen review. The assistant also reads your linked profile, assigned catering requests, and kitchen booking records. We use this information to answer questions, record confirmed interest responses, and operate the pilot. Automated replies are limited to explicitly configured pilot participants.</p>
+<h2>Services that process the data</h2>
+<p>Meta handles WhatsApp messages. Supabase stores the app's records. Anthropic processes message text, recent conversation context, your saved profile information, and relevant catering and kitchen details to generate replies. Railway runs the hosted application. During local testing, Cloudflare may carry incoming messages to the developer's computer instead. The developer and authorized app administrators can access stored pilot records and conversations. We do not sell this data or use it for advertising.</p>
+<h2>Your choices and deletion requests</h2>
+<p>Send STOP or unsubscribe to stop automatic replies and gig alerts. To request access to or deletion of your app records, email the pilot developer at <a href="mailto:stpnhh@gmail.com">stpnhh@gmail.com</a>. Deletion requests are handled by the developer, not automatically by the chatbot. Deleting app records does not delete copies held by WhatsApp or other service providers.</p>
+<h2>Storage and retention</h2>
+<p>Pilot records remain in the app's Supabase database until the developer removes them; there is no automatic deletion schedule. Please avoid sending sensitive personal information. The app is under development and is not an emergency or confidential support channel.</p>
+</main></body></html>`,
+    { headers: { "Content-Type": "text/html; charset=utf-8" } },
+  );
+}

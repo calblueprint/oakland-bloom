@@ -1,5 +1,4 @@
 import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
-import NavButton from "@/components/NavButton";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationList } from "@/components/ReservationList";
 
@@ -9,7 +8,7 @@ export default async function ReservationsPage() {
     <main>
       <h1>My Reservations</h1>
 
-      {reservations.length == 0 ? (
+      {reservations.length === 0 ? (
         <p>You haven&apos;t requested any reservations yet.</p>
       ) : (
         <ReservationList>
@@ -18,9 +17,6 @@ export default async function ReservationsPage() {
           ))}
         </ReservationList>
       )}
-
-      {/* return navigation; links back to chef page */}
-      <NavButton href="/chef">Back to Home</NavButton>
     </main>
   );
 }

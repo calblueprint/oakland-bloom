@@ -21,6 +21,7 @@ export async function POST(request: Request) {
   return handleMetaWebhook(request, {
     appSecret: requireEnv("WHATSAPP_APP_SECRET"),
     verifyToken: requireEnv("WHATSAPP_VERIFY_TOKEN"),
+    phoneNumberId: requireEnv("WHATSAPP_PHONE_NUMBER_ID"),
     ingest: createSupabaseIngest(
       requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
       requireEnv("SUPABASE_SECRET_KEY"),
@@ -45,7 +46,7 @@ function createSupabaseIngest(url: string, secretKey: string) {
   });
   return async (batch: InboundBatch): Promise<void> => {
     // RPC means "call a database function". It saves the batch in one transaction
-    // and deduplicates provider IDs. The proposed migration must be applied first.
+    // and deduplicates provider IDs. Apply the WhatsApp migrations before running it.
     const { error } = await client.rpc("ingest_inbound", { batch });
     // Throw returned database errors so the handler sends 503 for a provider retry.
     if (error) throw new Error(`ingest_inbound failed: ${error.message}`);
