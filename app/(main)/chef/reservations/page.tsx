@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import NavButton from "@/components/NavButton";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationList } from "@/components/ReservationList";
 import { mockReservations } from "@/data/mockReservations";
@@ -52,7 +51,7 @@ export default function ReservationsPage() {
         </TabButton>
       </TabContainer>
 
-      {filteredReservations.length == 0 ? (
+      {filteredReservations.length === 0 ? (
         <p>You haven&apos;t requested any reservations yet.</p>
       ) : (
         <ReservationList>
@@ -61,9 +60,6 @@ export default function ReservationsPage() {
           ))}
         </ReservationList>
       )}
-
-      {/* return navigation; links back to chef page */}
-      <NavButton href="/chef">Back to Home</NavButton>
     </PageContainer>
   );
 }

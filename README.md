@@ -53,6 +53,10 @@ The Statement of Work in Notion is the authoritative scope — this is a summary
 
 - [`docs/whatsapp-bot-research.md`](docs/whatsapp-bot-research.md) — WhatsApp API
   research, provider comparison, proposed bot architecture and message flow (OAK-8).
+- [`docs/whatsapp-conversational-agent.md`](docs/whatsapp-conversational-agent.md) —
+  setup for the WhatsApp reply worker, synthetic test database, and offline demo.
+- [`docs/whatsapp-agent-production-plan.md`](docs/whatsapp-agent-production-plan.md) —
+  remaining work before an NPO handoff, including local inference.
 
 ## Getting Started
 
