@@ -149,3 +149,37 @@ The Start screen calls the `continueWithEmail` server action, which calls the
 called with the publishable key. Lookups are limited to 10 per client per
 10 minutes. To reset the limit during development, run
 `delete from private.email_lookup_attempts;` in the SQL Editor.
+
+### Calendar development
+
+Sign in as an approved chef; the calendar is the chef home page (`/chef`). The page uses `getChefReservations()` to load
+the signed-in chef's real Supabase bookings; no fixture data is embedded in the UI.
+Other chefs' approved occupied periods are fetched separately and shown in gray,
+without names, booking IDs, owner IDs, or people counts. All times use
+`America/Los_Angeles`. Desktop shows a week; mobile shows three days.
+
+Booking-table RLS and policies are managed manually in Supabase by the backend
+team. Enable RLS on `public.booking_event` and allow authenticated SELECT only
+where `"user" = (select auth.uid())`. No booking write/admin policies are required
+for this read-only prototype. The checked-in
+`supabase/migrations/20261028000000_calendar_occupied_periods.sql` defines the
+separate authenticated availability function, not the booking-table RLS policy.
+Install that function in each target database before using the calendar.
+
+To refresh three demo bookings for the current Los Angeles week, configure the
+two existing OAK-10 test accounts and development database as described in
+[`docs/reservation-query.md`](docs/reservation-query.md), confirm the database target,
+then run:
+
+```sh
+SEED_TARGET=development pnpm seed:calendar
+```
+
+Chef 1 receives Tuesday 1–2:30 p.m. pending and Thursday 10 a.m.–noon approved;
+Chef 2 receives Wednesday 11 a.m.–1 p.m. approved. Reruns refresh only demo IDs
+009–011 without duplicates. Existing bookings are preserved. There is no sample-date mode.
+
+Run `pnpm test` for ordinary checks. With the local dev server running and private
+test credentials configured, `pnpm test:calendar:live` verifies both accounts'
+availability and cross-owner privacy. `pnpm test:seed:live` checks seeding using
+temporary tables. Selection currently logs a range; it does not save a booking.

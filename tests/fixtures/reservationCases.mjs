@@ -1,7 +1,7 @@
 // Public synthetic fixture identities/data only. Login secrets stay in .env.local.
 export const reservationTestUserId = "ee90d30c-984c-41c9-8248-bd299ca51f6d";
 
-// Chronological order, including the ID tie-breaker for pending/denied bookings.
+// Chronological order. Retired duplicate 003 is intentionally omitted.
 export const expectedReservations = [
   {
     id: "0a100000-0000-4000-a000-000000000004",
@@ -18,14 +18,6 @@ export const expectedReservations = [
     end_time: "2030-07-10T17:00:00.000Z",
     num_people: 2,
     approval_status: "pending",
-  },
-  {
-    id: "0a100000-0000-4000-a000-000000000003",
-    amenity: "kitchen",
-    start_time: "2030-07-10T16:00:00.000Z",
-    end_time: "2030-07-10T17:00:00.000Z",
-    num_people: 3,
-    approval_status: "denied",
   },
   {
     id: "0a100000-0000-4000-a000-000000000002",

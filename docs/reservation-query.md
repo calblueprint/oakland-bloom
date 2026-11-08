@@ -32,13 +32,13 @@ this PR does not invent a baseline for the existing shared database.
 Create two dedicated development Auth accounts and set their UUIDs in
 `RESERVATION_TEST_USER_ID` and `RESERVATION_TEST_USER2_ID`. The runner passes these
 as bound parameters into transaction-local PostgreSQL settings. No developer's
-Auth UUIDs are embedded in the SQL. Chef 1 gets four fixture bookings; Chef 2 gets one.
+Auth UUIDs are embedded in the SQL. Chef 1 gets three base fixture bookings; Chef 2 gets one.
 
 - `auth.users`: keep both existing login accounts; the seed does not create or modify them.
 - `public.users`: the seed creates a matching synthetic profile for each login ID,
   using its existing Auth email. Neither profile has admin privileges. Existing
   edited/mismatched profiles are not overwritten.
-- `public.booking_event`: the seed creates the four cases below for Chef 1 and
+- `public.booking_event`: the seed creates the three cases below for Chef 1 and
   one separate approved booking for Chef 2.
 
 No login passwords are stored in seed SQL or test source. Local credentials remain
@@ -48,15 +48,15 @@ in ignored `.env.local`. The current seed no longer creates standalone A/B/C use
 | ------------- | -------------------------------------- | ------------- | ------ |
 | Pending       | `0a100000-0000-4000-a000-000000000001` | July 10, 2030 | 2      |
 | Approved      | `0a100000-0000-4000-a000-000000000002` | July 11, 2030 | 4      |
-| Denied        | `0a100000-0000-4000-a000-000000000003` | July 10, 2030 | 3      |
 | Past approved | `0a100000-0000-4000-a000-000000000004` | July 10, 2020 | 2      |
 
 Chef 2's separate approved booking is `0a100000-0000-4000-a000-000000000006`,
 July 13, 2030, with two people. Both users' expected records live in
 `tests/fixtures/reservationCases.mjs`.
 
-Pending and denied share a start time to exercise ID tie-breaking. Expected output
-order is **past (004), pending (001), denied (003), approved (002)**. Timestamps have
+The overlapping denied fixture (003) and July 10 afternoon fixture (007) are retired
+and will not be recreated. Expected base output
+order is **past (004), pending (001), approved (002)**. Timestamps have
 explicit offsets/UTC; the fixture dates are fixed so they do not shift on reruns.
 The future dates will eventually become past. Expected rows are shared by unit and
 live tests in `tests/fixtures/reservationCases.mjs`.
@@ -91,12 +91,15 @@ closes the connection on success or failure and never prints raw credentials.
 
 The seed runs in a transaction with short-lived write locks. Fixed IDs and
 insert-if-missing behavior prevent duplicates; mismatched existing data aborts
-instead of being overwritten. Final assertions count only the two fixture profiles and five fixture booking IDs.
+instead of being overwritten. Final assertions count only the two fixture profiles and four base fixture booking IDs.
 Unrelated bookings for either user are preserved and do not prevent reruns. It does not remove unrelated/legacy rows,
 alter policies, or recreate Auth accounts. The empty conflict array `'{}'` inherits
 its real type from the database column, without guessing uuid[] versus text[].
 
-The revised command succeeded twice, preserving two profiles and counts 4/1.
+Before the duplicate fixture was retired, the command succeeded twice with counts 4/1.
+Current base counts are 3/1; the calendar seed adds three bookings for the current
+Los Angeles week. See the README's Calendar development section for the schedule
+and privacy setup.
 Use the runner: it owns the transaction and sets the required Auth UUID settings
 before executing the SQL. Both configured test Auth accounts must already exist.
 
@@ -111,7 +114,7 @@ pnpm run lint
 ```
 
 Unit tests simulate auth helpers and HTTP responses. They cover the configured
-fixture identity, exact projection/ordering, all four cases, empty results,
+fixture identity, exact projection/ordering, base cases, empty results,
 signed-out rejection, ignored caller IDs, and auth/database failures. Driver tests
 cover seed execution, connection cleanup, development confirmation, configurable
 UUID validation, verified TLS, and CA overrides/errors.
@@ -183,7 +186,7 @@ public.users row whose userid is `b1b51252-74a7-41bf-8adc-f19661fe1e1b`.
 If other bookings have since been added for that old user, review them first.
 
 Keep the replacement user `15fe2790-f751-4107-a789-38e3cf1485d6`, its
-booking `0a100000-0000-4000-a000-000000000006`, and Chef 1's four records.
+booking `0a100000-0000-4000-a000-000000000006`, and Chef 1's current records.
 Cleanup is optional for the tests; the current seed preserves the old records
 and will not recreate them after removal. Never delete profiles by email alone:
 the old and replacement application profiles share the same test email.

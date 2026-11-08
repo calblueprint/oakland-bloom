@@ -45,6 +45,10 @@ await test(
       .replaceAll("public.booking_event", "pg_temp.booking_event")
       .replaceAll("auth.users", "pg_temp.auth_users");
     const user1 = "11111111-1111-4111-a111-111111111111";
+    const calendarSource = readFileSync(
+      new URL("../scripts/seedCalendarReservations.sql", import.meta.url),
+      "utf8",
+    ).replaceAll("public.booking_event", "pg_temp.booking_event");
     const user2 = "22222222-2222-4222-a222-222222222222";
     try {
       await db.begin(async sql => {
@@ -59,7 +63,7 @@ await test(
         assert.deepEqual(
           [...owners],
           [
-            { user: user1, count: 4 },
+            { user: user1, count: 3 },
             { user: user2, count: 1 },
           ],
         );
@@ -70,9 +74,42 @@ await test(
           await sql`select count(*)::int as count from pg_temp.booking_event`;
         assert.equal(
           counts.count,
-          6,
+          5,
           "Rerun must preserve the unrelated booking without duplicating fixtures.",
         );
+        await sql.unsafe(calendarSource).simple();
+        await sql.unsafe(calendarSource).simple();
+        const [calendarCounts] =
+          await sql`select count(*)::int as count from pg_temp.booking_event`;
+        assert.equal(
+          calendarCounts.count,
+          8,
+          "Three current-week calendar samples are added only once.",
+        );
+        const calendarRows = await sql`
+          select "user", approval_status,
+            to_char(start_time at time zone 'America/Los_Angeles', 'HH24:MI') as start
+          from pg_temp.booking_event
+          where id in ('0a100000-0000-4000-a000-000000000009', '0a100000-0000-4000-a000-000000000010', '0a100000-0000-4000-a000-000000000011')
+          order by id`;
+        assert.deepEqual(
+          [...calendarRows],
+          [
+            { user: user1, approval_status: "pending", start: "13:00" },
+            { user: user1, approval_status: "approved", start: "10:00" },
+            { user: user2, approval_status: "approved", start: "11:00" },
+          ],
+        );
+        await sql.savepoint(async tx => {
+          await tx`update pg_temp.booking_event set num_people = 99 where id = '0a100000-0000-4000-a000-000000000009'`;
+          await assert.rejects(
+            tx.savepoint(async collision => {
+              await collision.unsafe(calendarSource).simple();
+            }),
+            /Calendar booking collision/,
+          );
+          await tx`update pg_temp.booking_event set num_people = 2 where id = '0a100000-0000-4000-a000-000000000009'`;
+        });
         await sql`drop table oak10_seed_users, oak10_seed_bookings`;
         await sql`update pg_temp.booking_event set num_people = num_people + 1 where id = '0a100000-0000-4000-a000-000000000001'`;
         await assert.rejects(

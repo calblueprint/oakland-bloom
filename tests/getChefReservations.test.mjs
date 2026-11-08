@@ -96,7 +96,14 @@ await test("reservation query using simulated verified sessions", async t => {
   );
   await t.test("returns all statuses and past reservations", async () => {
     authState.user = { id: reservationTestUserId };
-    responseRows = expectedReservations;
+    responseRows = [
+      ...expectedReservations,
+      {
+        ...expectedReservations[1],
+        id: "denied-query-example",
+        approval_status: "denied",
+      },
+    ];
     assert.deepEqual(await getChefReservations(), responseRows);
   });
   await t.test(

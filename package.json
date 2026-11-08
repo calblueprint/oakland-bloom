@@ -26,12 +26,15 @@
     "setup:tailwind": "node ./setup-scripts/setup tailwind",
     "delete-setup": "node ./setup-scripts/delete-setup",
     "seed:reservations": "node scripts/seedReservations.mjs",
+    "seed:calendar": "node scripts/seedCalendarReservations.mjs",
     "test:reservations:live": "node tests/getChefReservations.live.test.mjs --live",
     "types:database": "node scripts/generateDatabaseTypes.mjs",
-    "test:seed:live": "node tests/seedReservations.live.test.mjs --live"
+    "test:seed:live": "node tests/seedReservations.live.test.mjs --live",
+    "test:calendar:live": "node tests/calendarAvailability.live.test.mjs --live"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.90",
+    "@fullcalendar/react": "^7.1.3",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "ai": "^7.0.155",
@@ -40,6 +43,7 @@
     "react-dom": "^19.3.0",
     "server-only": "^0.0.1",
     "styled-components": "^6.6.0",
+    "temporal-polyfill": "^1.0.6",
     "zod": "^4.6.7"
   },
   "devDependencies": {
