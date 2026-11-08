@@ -7,6 +7,36 @@ export type Json =
   | Json[];
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.17";
+  };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       booking_event: {
@@ -20,7 +50,6 @@ export type Database = {
           start_time: string;
           user: string;
         };
-        ComputedFields: never;
         Insert: {
           amenity: string;
           approval_status: string;
@@ -58,7 +87,6 @@ export type Database = {
           name: string;
           price: number;
         };
-        ComputedFields: never;
         Insert: {
           chef_id: string;
           meal_id: string;
@@ -90,7 +118,6 @@ export type Database = {
           name: string | null;
           userid: string;
         };
-        ComputedFields: never;
         Insert: {
           address?: string | null;
           created_at?: string;
@@ -126,7 +153,6 @@ export type Database = {
           phone: string;
           userid: string;
         };
-        ComputedFields: never;
         Insert: {
           email: string;
           is_admin?: boolean;
@@ -153,8 +179,15 @@ export type Database = {
           is_accepted: boolean;
           meal_name: string;
           num_people: number;
+          ref_code: string;
+          event_at: string | null;
+          location: string | null;
+          details: string;
+          request_status: string;
+          response_status: string;
+          response_at: string | null;
+          response_message_id: string | null;
         };
-        ComputedFields: never;
         Insert: {
           catering_id: string;
           chef: string;
@@ -162,6 +195,14 @@ export type Database = {
           is_accepted: boolean;
           meal_name: string;
           num_people: number;
+          ref_code?: string;
+          event_at?: string | null;
+          location?: string | null;
+          details?: string;
+          request_status?: string;
+          response_status?: string;
+          response_at?: string | null;
+          response_message_id?: string | null;
         };
         Update: {
           catering_id?: string;
@@ -170,6 +211,14 @@ export type Database = {
           is_accepted?: boolean;
           meal_name?: string;
           num_people?: number;
+          ref_code?: string;
+          event_at?: string | null;
+          location?: string | null;
+          details?: string;
+          request_status?: string;
+          response_status?: string;
+          response_at?: string | null;
+          response_message_id?: string | null;
         };
         Relationships: [
           {
@@ -186,27 +235,107 @@ export type Database = {
           chef_id: string;
           name: string;
           phone: string;
+          user_id: string | null;
         };
-        ComputedFields: never;
         Insert: {
           chef_id: string;
           name: string;
           phone: string;
+          user_id?: string | null;
         };
         Update: {
           chef_id?: string;
           name?: string;
           phone?: string;
+          user_id?: string | null;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_user_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
       };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      get_wa_staff_queue: {
+        Args: { actor_id: string };
+        Returns: Json;
+      };
+      get_wa_staff_conversation: {
+        Args: { actor_id: string; chef_id: string };
+        Returns: Json;
+      };
+      set_wa_staff_takeover: {
+        Args: { actor_id: string; chef_id: string; takeover: boolean };
+        Returns: Json;
+      };
+      resolve_wa_handoff: {
+        Args: { actor_id: string; handoff_id: string };
+        Returns: Json;
+      };
+      queue_wa_staff_reply: {
+        Args: {
+          actor_id: string;
+          chef_id: string;
+          body: string;
+          request_id: string;
+        };
+        Returns: Json;
+      };
+      set_wa_alert_consent: {
+        Args: {
+          actor_id: string;
+          chef_id: string;
+          opted_in: boolean;
+          evidence: string;
+        };
+        Returns: Json;
+      };
+      list_wa_kitchen_bookings: {
+        Args: { target_phone: string; worker_id: string; inbound_id: string };
+        Returns: Json;
+      };
+      check_wa_kitchen_availability: {
+        Args: {
+          target_phone: string;
+          worker_id: string;
+          inbound_id: string;
+          amenity: string;
+          start_at: string;
+          end_at: string;
+        };
+        Returns: Json;
+      };
+      claim_wa_notification: {
+        Args: {
+          target_phone: string;
+          worker_id: string;
+          template_name?: string | null;
+          template_language?: string | null;
+        };
+        Returns: Json;
+      };
+      finish_wa_notification: {
+        Args: {
+          notification_id: string;
+          worker_id: string;
+          provider_id: string;
+        };
+        Returns: undefined;
+      };
+      fail_wa_notification: {
+        Args: { notification_id: string; worker_id: string };
+        Returns: undefined;
+      };
       email_exists: {
-        Args: { p_email: string };
+        Args: { p_client_key: string; p_email: string };
         Returns: boolean;
       };
       get_calendar_occupied_periods: {
@@ -345,6 +474,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

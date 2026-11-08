@@ -1,0 +1,117 @@
+import { randomUUID } from "node:crypto";
+import { MockLanguageModelV4 } from "ai/test";
+
+export const FICTIONAL_CHEF = {
+  id: "demo-chef",
+  name: "Fictional Chef",
+  phone: "15555550123",
+};
+
+export const FICTIONAL_SEED = {
+  chefs: [FICTIONAL_CHEF],
+  opportunities: [
+    {
+      reference: "OB12",
+      title: "Fictional community lunch",
+      startsAt: new Date(Date.now() + 7 * 24 * 60 * 60_000).toISOString(),
+      location: "Fictional Oakland community kitchen",
+      headcount: 30,
+      pay: "$240 total (fictional example)",
+      details:
+        "Prepare a vegetarian lunch. This is fictional demonstration data.",
+      status: "open",
+      chefIds: [FICTIONAL_CHEF.id],
+    },
+  ],
+};
+
+export const DEMO_TURNS = [
+  "tell me about OB12",
+  "that works, count me in",
+  "confirm",
+];
+
+/** Wraps scripted content/finish reason in the response shape expected by the AI SDK. */
+function result(content, reason) {
+  return {
+    content,
+    finishReason: { unified: reason, raw: reason },
+    usage: {
+      inputTokens: { total: 0, noCache: 0, cacheRead: 0, cacheWrite: 0 },
+      outputTokens: { total: 0, text: 0, reasoning: 0 },
+    },
+    warnings: [],
+  };
+}
+
+/** Builds a mock model response requesting a named tool with the supplied arguments. */
+function call(toolName, input) {
+  return result(
+    [
+      {
+        type: "tool-call",
+        toolCallId: randomUUID(),
+        toolName,
+        input: JSON.stringify(input),
+      },
+    ],
+    "tool-calls",
+  );
+}
+
+/** Builds a mock model response containing an ordinary assistant reply. */
+function text(value) {
+  return result([{ type: "text", text: value }], "stop");
+}
+
+/** Reads the latest successful result of a named tool; throws if the demo flow went wrong. */
+function latestToolOutput(prompt, name) {
+  const output = prompt
+    .filter(message => message.role === "tool")
+    .flatMap(message => message.content)
+    .findLast(
+      part => part.type === "tool-result" && part.toolName === name,
+    )?.output;
+  if (output?.type !== "json" || output.value?.error) {
+    throw new Error(`Scripted demo expected a successful ${name} tool result.`);
+  }
+  return output.value;
+}
+
+/** Scripted model decisions; the SDK still executes the real agent tools. */
+export function createDemoModel() {
+  let step = 0;
+  return new MockLanguageModelV4({
+    modelId: "scripted-offline-demo",
+    doGenerate: async ({ prompt }) => {
+      switch (step++) {
+        case 0:
+          return call("get_catering_request", { reference: "OB12" });
+        case 1: {
+          const opportunity = latestToolOutput(prompt, "get_catering_request");
+          return text(
+            `I'm Oakland Bloom's automated assistant. ${opportunity.reference}: ${opportunity.title}, ${opportunity.startsAt}, at ${opportunity.location}, for ${opportunity.headcount} people. Pay: ${opportunity.pay ?? "not specified"}. ${opportunity.details}`,
+          );
+        }
+        case 2:
+          return call("propose_catering_response", {
+            reference: "OB12",
+            interested: true,
+            sourceQuote: DEMO_TURNS[1],
+          });
+        case 3:
+          latestToolOutput(prompt, "propose_catering_response");
+          return text("Please confirm your proposed interest response.");
+        case 4:
+          return call("confirm_catering_response", {});
+        case 5:
+          latestToolOutput(prompt, "confirm_catering_response");
+          return text("Your interest response was recorded.");
+        default:
+          throw new Error(
+            "The scripted demo received an unexpected model step.",
+          );
+      }
+    },
+  });
+}

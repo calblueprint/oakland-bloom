@@ -15,6 +15,8 @@ const localDevHosts =
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: localDevHosts,
+  // readable class names in dev and consistent ones between server and client
+  compiler: { styledComponents: true },
 };
 
 export default nextConfig;

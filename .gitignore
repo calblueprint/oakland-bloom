@@ -36,5 +36,8 @@ yarn-error.log*
 next-env.d.ts
 .server_logs/
 
-# Local Supabase CLI cache
+# Private local conversational-agent state (messages, replies, and interest).
+/.local/whatsapp-agent/
+
+# Generated Supabase CLI version/cache files.
 /supabase/.temp/

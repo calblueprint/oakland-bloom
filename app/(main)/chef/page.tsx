@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { redirect } from "next/navigation";
+import { signOut } from "@/actions/auth";
 
 // export makes it available for other files to import
 // Chef's HOMEPAGE
@@ -7,21 +8,18 @@ export default function ChefHome() {
     <main>
       <h1>Chef Home</h1>
 
-      {/* TODO: update from generic styling after yash creates design */}
-      <Link
-        href="/chef/reservations"
-        style={{
-          display: "inline-block",
-          padding: "12 px 24 px",
-          backgroundColor: "#4f4f4f",
-          color: "white",
-          borderRadius: "8px",
-          textDecoration: "none",
-          marginTop: "16px",
+      {/* temporary until the sidebar design has a sign-out */}
+      <form
+        action={async () => {
+          "use server";
+          const result = await signOut();
+          if (result?.error) {
+            redirect("/error");
+          }
         }}
       >
-        View My Reservations
-      </Link>
+        <button type="submit">Sign out</button>
+      </form>
     </main>
   );
 }

@@ -3,23 +3,36 @@
 import { ComponentProps, useState } from "react";
 import Image from "next/image";
 import eyeIcon from "@/assets/images/eye.svg";
-import styles from "./auth.module.css";
+import { Field, FieldError, Input, SrOnlyLabel, Toggle } from "./styles";
 
-type FieldProps = Omit<ComponentProps<"input">, "className"> & {
+type FieldProps = Omit<ComponentProps<"input">, "className" | "ref"> & {
   id: string;
   // read by screen readers only, the design shows the placeholder instead
   label: string;
 };
 
-export function TextField({ id, label, ...inputProps }: FieldProps) {
+export function TextField({
+  id,
+  label,
+  error,
+  ...inputProps
+}: FieldProps & {
+  // shown under the box. tied to the input for screen readers
+  error?: string;
+}) {
+  const errorId = `${id}-error`;
   return (
     <>
-      <label htmlFor={id} className={styles.srOnly}>
-        {label}
-      </label>
-      <div className={styles.field}>
-        <input id={id} className={styles.input} {...inputProps} />
-      </div>
+      <SrOnlyLabel htmlFor={id}>{label}</SrOnlyLabel>
+      <Field>
+        <Input
+          id={id}
+          {...inputProps}
+          aria-invalid={error ? true : inputProps["aria-invalid"]}
+          aria-describedby={error ? errorId : inputProps["aria-describedby"]}
+        />
+      </Field>
+      {error && <FieldError id={errorId}>{error}</FieldError>}
     </>
   );
 }
@@ -34,20 +47,12 @@ export function PasswordField({
 
   return (
     <>
-      <label htmlFor={id} className={styles.srOnly}>
-        {label}
-      </label>
-      <div className={styles.field}>
-        <input
-          id={id}
-          type={visible ? "text" : "password"}
-          className={styles.input}
-          {...inputProps}
-        />
+      <SrOnlyLabel htmlFor={id}>{label}</SrOnlyLabel>
+      <Field>
+        <Input id={id} type={visible ? "text" : "password"} {...inputProps} />
         {/* toggle buttons keep a fixed label; aria-pressed carries the state */}
-        <button
+        <Toggle
           type="button"
-          className={styles.toggle}
           onClick={() => setVisible(v => !v)}
           aria-label="Show password"
           aria-pressed={visible}
@@ -55,8 +60,8 @@ export function PasswordField({
           disabled={inputProps.disabled}
         >
           <Image src={eyeIcon} alt="" />
-        </button>
-      </div>
+        </Toggle>
+      </Field>
     </>
   );
 }
