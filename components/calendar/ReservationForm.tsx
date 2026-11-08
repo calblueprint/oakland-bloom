@@ -8,7 +8,11 @@ import type {
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createBookingRequest } from "@/actions/reservations/createBookingRequest";
 import { Button } from "@/components/Button";
-import { fromLocalInput, toLocalInput } from "@/lib/calendarTime";
+import {
+  calendarDateRangeLabel,
+  fromLocalInput,
+  toLocalInput,
+} from "@/lib/calendarTime";
 import { AmenityChip } from "./AmenityChip";
 import { CalendarIcon } from "./CalendarIcon";
 
@@ -128,13 +132,7 @@ export function ReservationForm({
     hour: "numeric",
     minute: "2-digit",
   });
-  const dateLabel = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  }).format(new Date(displayStart));
+  const dateLabel = calendarDateRangeLabel(displayStart, displayEnd);
 
   return (
     <aside
@@ -177,16 +175,16 @@ export function ReservationForm({
           </p>
           <div className="reservation-time-inputs">
             <label>
-              Start time
+              Start date and time
               <input
-                type="time"
+                type="datetime-local"
                 required
-                value={start.slice(11, 16)}
+                value={start}
                 onBlur={commitTime}
                 onChange={e => {
                   setEditedRange({
                     key: selectionKey,
-                    start: `${start.slice(0, 10)}T${e.target.value}`,
+                    start: e.target.value,
                     end,
                   });
                   requestId.current = null;
@@ -198,17 +196,17 @@ export function ReservationForm({
               />
             </label>
             <label>
-              End time
+              End date and time
               <input
-                type="time"
+                type="datetime-local"
                 required
-                value={end.slice(11, 16)}
+                value={end}
                 onBlur={commitTime}
                 onChange={e => {
                   setEditedRange({
                     key: selectionKey,
                     start,
-                    end: `${end.slice(0, 10)}T${e.target.value}`,
+                    end: e.target.value,
                   });
                   requestId.current = null;
                 }}
@@ -220,8 +218,8 @@ export function ReservationForm({
             </label>
           </div>
           <p className="reservation-note">
-            Type a time or drag your draft up or down. Use its edges to change
-            the duration.
+            Enter a date and time or drag your draft up or down. Use its edges
+            to change the duration.
           </p>
           {fields.time && (
             <p id="reservation-time-error" className="reservation-field-error">

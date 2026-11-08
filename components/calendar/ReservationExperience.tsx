@@ -123,6 +123,8 @@ export function ReservationExperience({
                           setAmenities(AMENITIES.map(a => a.value));
                           setSelection(null);
                           setDetails(null);
+                          setDraft({ title: "", numPeople: 1 });
+                          setMessage("");
                         }}
                       >
                         Select all

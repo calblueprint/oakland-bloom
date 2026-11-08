@@ -30,7 +30,6 @@ export function amenityLabel(value: string) {
 
 export function validateBookingRequest(
   raw: unknown,
-  now = Date.now(),
 ):
   | { data: BookingRequest; errors?: never }
   | { data?: never; errors: BookingErrors } {
@@ -70,8 +69,9 @@ export function validateBookingRequest(
     Date.parse(end) - Date.parse(start) > 42 * 86400000
   ) {
     errors.time = "Choose a valid time range of up to 42 days.";
-  } else if (Date.parse(start) <= now)
-    errors.time = "Choose a start time in the future.";
+  }
+  // The database requires a future start for new requests, while allowing
+  // retries of saved requests whose start time has since passed.
   const emails = value.additionalContacts;
   if (
     !Array.isArray(emails) ||

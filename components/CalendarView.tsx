@@ -113,12 +113,14 @@ export function CalendarView({
     },
     [amenities, reservations],
   );
+  // FullCalendar uses source object identity. Editing a draft must not refetch availability.
+  const occupiedSource = useMemo(
+    () => ({ id: "occupied", events: fetchOccupied }),
+    [fetchOccupied],
+  );
   const eventSources = useMemo(
-    () => [
-      { id: "reservations", events: ownEvents },
-      { id: "occupied", events: fetchOccupied },
-    ],
-    [ownEvents, fetchOccupied],
+    () => [{ id: "reservations", events: ownEvents }, occupiedSource],
+    [ownEvents, occupiedSource],
   );
   const handleSelect = (range: DateSelectInfo) => {
     if (!disabled) onSelectTime({ start: range.startStr, end: range.endStr });

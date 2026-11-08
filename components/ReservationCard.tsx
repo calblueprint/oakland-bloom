@@ -3,6 +3,7 @@
 import type { CalendarReservation } from "@/types/reservations";
 import styled from "styled-components";
 import { amenityLabel } from "@/lib/bookingRequest";
+import { calendarDateRangeLabel } from "@/lib/calendarTime";
 
 type ReservationCardProps = {
   reservation: CalendarReservation;
@@ -17,12 +18,11 @@ const StyledCard = styled.div`
 `;
 
 export function ReservationCard({ reservation }: ReservationCardProps) {
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(reservation.start_time));
+  const formattedDate = calendarDateRangeLabel(
+    reservation.start_time,
+    reservation.end_time,
+    { year: "numeric", month: "long", day: "numeric" },
+  );
 
   const timeFormatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",

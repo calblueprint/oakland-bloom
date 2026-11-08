@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { validateBookingRequest } from "../lib/bookingRequest.ts";
-import { fromLocalInput, toLocalInput } from "../lib/calendarTime.ts";
+import {
+  calendarDateRangeLabel,
+  fromLocalInput,
+  toLocalInput,
+} from "../lib/calendarTime.ts";
 
-const now = Date.parse("2030-01-01T00:00:00Z");
 const valid = {
   requestId: "33333333-3333-4333-a333-333333333333",
   title: "  Bread practice  ",
@@ -15,7 +18,7 @@ const valid = {
 };
 
 test("normalizes a multiple-amenity request and deduplicates contacts", () => {
-  const result = validateBookingRequest(valid, now);
+  const result = validateBookingRequest(valid);
   assert.equal(result.data.title, "Bread practice");
   assert.deepEqual(result.data.amenities, ["bar_prep_table", "oven"]);
   assert.deepEqual(result.data.additionalContacts, ["other@example.com"]);
@@ -35,19 +38,18 @@ test("rejects missing, unknown, or invalid form values at the server boundary", 
     { additionalContacts: [null] },
     { requestId: "not-a-uuid" },
   ])
-    assert.ok(validateBookingRequest({ ...valid, ...change }, now).errors);
-  assert.ok(validateBookingRequest(null, now).errors);
+    assert.ok(validateBookingRequest({ ...valid, ...change }).errors);
+  assert.ok(validateBookingRequest(null).errors);
 });
 
-test("requires future ordered instants with offsets and a bounded range", () => {
+test("requires ordered instants with offsets and a bounded range", () => {
   for (const change of [
-    { start: "2020-07-10T10:00:00Z" },
     { end: valid.start },
     { start: "2030-07-10T10:00:00" },
     { end: "2030-10-10T10:00:00Z" },
     { start: "bad-dateZ" },
   ])
-    assert.ok(validateBookingRequest({ ...valid, ...change }, now).errors.time);
+    assert.ok(validateBookingRequest({ ...valid, ...change }).errors.time);
 });
 
 test("Los Angeles form times preserve winter and summer offsets", () => {
@@ -59,6 +61,27 @@ test("Los Angeles form times preserve winter and summer offsets", () => {
 test("rejects nonexistent and ambiguous Los Angeles daylight-saving times", () => {
   assert.throws(() => fromLocalInput("2026-03-08T02:30"));
   assert.throws(() => fromLocalInput("2026-11-01T01:30"));
+});
+
+test("date labels use the kitchen day even across UTC midnight", () => {
+  assert.equal(
+    calendarDateRangeLabel("2030-01-10T23:30:00Z", "2030-01-11T00:30:00Z"),
+    "Thu, Jan 10, 2030",
+  );
+});
+
+test("overnight and multi-day labels include both Los Angeles dates", () => {
+  assert.equal(
+    calendarDateRangeLabel("2030-01-11T07:30:00Z", "2030-01-11T08:30:00Z"),
+    "Thu, Jan 10, 2030 – Fri, Jan 11, 2030",
+  );
+  assert.equal(
+    calendarDateRangeLabel(
+      "2030-07-10T23:30:00-07:00",
+      "2030-07-12T00:30:00-07:00",
+    ),
+    "Wed, Jul 10, 2030 – Fri, Jul 12, 2030",
+  );
 });
 
 test("availability shading counts free amenities without exposing booking details", async () => {

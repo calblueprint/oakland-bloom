@@ -2,11 +2,8 @@
 
 import type { BookingResult } from "@/lib/bookingRequest";
 import { revalidatePath } from "next/cache";
-import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
-import getOccupiedPeriods from "@/actions/supabase/queries/getOccupiedPeriods";
 import { getAccount } from "@/lib/auth/account";
 import { validateBookingRequest } from "@/lib/bookingRequest";
-import { calendarConflicts } from "@/lib/calendarConflicts";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function createBookingRequest(
@@ -27,35 +24,8 @@ export async function createBookingRequest(
         fields: parsed.errors,
       };
     const request = parsed.data;
-    const [own, occupied] = await Promise.all([
-      getCalendarReservations(),
-      getOccupiedPeriods(request.start, request.end),
-    ]);
-    const bookings = [
-      ...own.flatMap(b => b.amenities.map(amenity => ({ ...b, amenity }))),
-      ...occupied.map((p, i) => ({
-        ...p,
-        id: `occupied-${i}`,
-        approval_status: "approved",
-      })),
-    ];
-    if (
-      request.amenities.some(
-        a =>
-          calendarConflicts(
-            a,
-            new Date(request.start),
-            new Date(request.end),
-            bookings,
-          ).length,
-      )
-    ) {
-      return {
-        error:
-          "One or more selected amenities are occupied. Choose another time or change the amenities.",
-        fields: { time: "This time conflicts with an approved booking." },
-      };
-    }
+    // The RPC checks availability atomically and recognizes saved request IDs
+    // before checking the clock or overlaps, so a lost response is safe to retry.
     const supabase = await getSupabaseServerClient();
     const { data, error } = await supabase.rpc("create_booking_request", {
       p_id: request.requestId,
@@ -79,7 +49,7 @@ export async function createBookingRequest(
       if (error?.code === "22023")
         return {
           error:
-            "The reservation details are no longer valid. Check the time and try again.",
+            "Check the reservation details and choose a start time in the future.",
         };
       return { error: "Your request could not be saved. Please try again." };
     }

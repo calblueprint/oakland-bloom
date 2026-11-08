@@ -132,7 +132,8 @@ Then, navigate to http://localhost:3000 to launch the web application.
 Open `/calendar` with an approved account. Choose one or more amenities (Bar Prep
 Table, Salad Bar Table, Oven) under **Book amenities**, then click a time cell or
 drag a range. Move or resize the draft on the calendar, or edit its time in the
-form. **Enter a time instead** provides an alternative to pointer selection.
+form. **Enter a time instead** provides keyboard date and time inputs as an
+alternative to pointer selection.
 Past selections open the form, but submission requires a future start time.
 Complete the title, chef count, and optional additional contact emails. The owner
 name/email come from the signed-in account. Times are interpreted in
@@ -191,8 +192,12 @@ For a manual check, sign in as each test user and verify amenity filtering, a
 cancelled form, an invalid end-before-start request, and a valid future request.
 Confirm the saved event says pending and appears in Your reservations. Check that
 other chefs' private titles/contacts never appear in the availability response.
-Repeat at mobile width. `pnpm test` covers request validation and Los Angeles time
-conversion offline; no new live tests are required.
+Repeat at mobile width. `pnpm test` covers request validation, action retries,
+unique migration versions, and Los Angeles time conversion offline. To test the
+database rules too, set `BOOKING_TEST_DATABASE_URL` to a local Supabase PostgreSQL
+server with database-creation access and run `pnpm test`. The database tests create
+and remove an isolated test database; they reject remote hosts and never modify
+the server's existing databases.
 
 ## Auth setup
 

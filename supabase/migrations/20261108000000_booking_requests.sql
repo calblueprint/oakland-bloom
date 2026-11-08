@@ -38,7 +38,9 @@ begin
   -- insert must share a transaction; checking only in the browser races.
   perform pg_advisory_xact_lock(180001);
   -- Older seed/integration clients still supply the singular amenity column.
-  if new.amenities is null then
+  if new.amenities is null or (tg_op = 'UPDATE'
+      and new.amenity is distinct from old.amenity
+      and new.amenities is not distinct from old.amenities) then
     new.amenities := case when new.amenity = 'kitchen'
       then array['bar_prep_table', 'salad_bar_table', 'oven']
       else array[new.amenity::text] end;
