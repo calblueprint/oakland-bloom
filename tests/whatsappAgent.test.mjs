@@ -142,6 +142,192 @@ async function respond(f, text, steps = [], overrides = {}) {
   const message = typeof text === "string" ? f.message(text, overrides) : text;
   return { result: await agent.respond(message), model, message };
 }
+
+test("the SDK kitchen tool queues review with a code-written receipt, without booking", async t => {
+  const f = await fixture(t);
+  await f.store.transaction(async state => {
+    state.chefs[0].userId = "00000000-0000-4000-8000-000000000001";
+  });
+  const text =
+    "Please ask staff about the Oven November 10 from noon to 1pm for 3 people";
+  const slot = {
+    amenity: "Oven",
+    startAt: "2026-11-10T12:00:00-08:00",
+    endAt: "2026-11-10T13:00:00-08:00",
+  };
+  const agent = createCateringAgent({
+    store: f.store,
+    now: () => f.now,
+    model: scriptedModel(
+      toolStep(
+        call("request_kitchen_booking_review", {
+          ...slot,
+          people: 3,
+          sourceQuote: text,
+        }),
+      ),
+      finalText("The kitchen is booked!"),
+    ),
+    kitchen: {
+      listBookings: async () => [],
+      checkAvailability: async input => ({
+        ...input,
+        status: "no_approved_conflicts",
+      }),
+    },
+  });
+  const result = await agent.respond(f.message(text));
+  assert.equal(result.outcome, "handoff");
+  assert.match(result.reply, /does not reserve/);
+  const state = await f.state();
+  assert.equal(state.handoffs.length, 1);
+  assert.equal(state.responses.length, 0);
+  assert.match(state.handoffs[0].reason, /Oven/);
+  assert.match(state.handoffs[0].reason, /3 people/);
+});
+
+test("resumed chats receive staff context and a local reset clears it", async t => {
+  const f = await fixture(t);
+  await f.store.transaction(async state => {
+    state.staffMessages = [
+      {
+        body: "Staff will check the oven on Tuesday.",
+        sentAt: "2026-11-01T12:00:00.000Z",
+      },
+    ];
+  });
+  let checked = false;
+  const agent = createCateringAgent({
+    store: f.store,
+    now: () => f.now,
+    model: scriptedModel(options => {
+      assert.match(
+        JSON.stringify(options.prompt),
+        /Staff will check the oven on Tuesday/,
+      );
+      checked = true;
+      return finalText("Staff will check it.");
+    }),
+  });
+  await agent.respond(f.message("What did staff say?"));
+  assert.equal(checked, true);
+  await f.store.reset();
+  assert.equal((await f.state()).staffMessages, undefined);
+});
+
+// Opt in with WHATSAPP_AGENT_LIVE_EVAL=1 and configured model credentials.
+// A mock cannot check whether the real model follows topic changes.
+test(
+  "live model stays on the current topic while retaining requested history",
+  { skip: process.env.WHATSAPP_AGENT_LIVE_EVAL !== "1" },
+  async t => {
+    const { model } = resolveAgentModel(process.env);
+    const scenarios = [
+      ["what kitchen bookings do i have?", /Oven/i, /OB12|review queue|sorry/i],
+      ["hey", /help|hi|hey|hello/i, /OB12|review queue|sorry/i],
+      ["what did staff just tell me?", /Tuesday/i, /OB12|earlier|before that/i],
+      ["what happened with OB12?", /OB12|review|staff/i, /kitchen bookings/i],
+      ["what about that request?", /OB12|review|staff/i, /kitchen bookings/i],
+    ];
+    for (const [text, expected, unrelated] of scenarios) {
+      await t.test(text, async t => {
+        const f = await fixture(t);
+        await f.store.transaction(async state => {
+          state.chefs[0].userId = "00000000-0000-4000-8000-000000000001";
+          state.opportunities[0].accepted = true;
+          state.conversations.push({
+            chefId: "chef-a",
+            pending: null,
+            turns: [
+              {
+                messageId: "meta:earlier-request",
+                text: "I'm not interested in OB12 anymore; change my response to declined",
+                reply:
+                  "I've added your question to the review queue. Nobody has been notified yet.",
+              },
+            ],
+          });
+          state.staffMessages = [
+            { body: "We'll review your kitchen question.", sentAt: NOW },
+            {
+              body: "Staff will check the oven on Tuesday. This is not a confirmed booking.",
+              sentAt: "2026-10-27T18:01:00.000Z",
+            },
+          ];
+        });
+        const agent = createCateringAgent({
+          model,
+          store: f.store,
+          now: () => f.now,
+          kitchen: {
+            listBookings: async () => [
+              {
+                id: "00000000-0000-4000-8000-000000000002",
+                amenity: "Oven",
+                startAt: "2026-11-10T12:00:00-08:00",
+                endAt: "2026-11-10T13:00:00-08:00",
+                people: 3,
+                status: "approved",
+              },
+            ],
+            checkAvailability: async input => ({
+              ...input,
+              status: "no_approved_conflicts",
+            }),
+          },
+        });
+        const result = await agent.respond(f.message(text));
+        assert.match(result.reply, expected);
+        assert.doesNotMatch(result.reply, unrelated);
+        assert.equal(
+          (await f.state()).conversations[0].turns[0].messageId,
+          "meta:earlier-request",
+        );
+      });
+    }
+  },
+);
+
+test("a server-bound quoted alert gives context but still requires interest confirmation", async t => {
+  const f = await fixture(t);
+  await f.store.transaction(async state => {
+    state.quotedCateringRequest = { reference: "OB12" };
+  });
+  const agent = createCateringAgent({
+    store: f.store,
+    now: () => f.now,
+    model: scriptedModel(options => {
+      assert.match(JSON.stringify(options.prompt), /quotedCateringRequest/);
+      return toolStep(
+        call("propose_catering_response", {
+          reference: "OB12",
+          interested: true,
+          sourceQuote: "yes",
+        }),
+      );
+    }, finalText()),
+  });
+  const result = await agent.respond(f.message("yes"));
+  assert.equal(result.outcome, "confirmation-required");
+  assert.match(result.reply, /OB12/);
+  assert.deepEqual((await f.state()).responses, []);
+});
+
+test("a bare confirm cannot start a different proposal when no confirmation is pending", async t => {
+  const f = await fixture(t);
+  const { result } = await respond(f, "confirm", [
+    toolStep(
+      call("propose_catering_response", {
+        reference: "OB12",
+        interested: true,
+        sourceQuote: "confirm",
+      }),
+    ),
+  ]);
+  assert.equal(result.toolCalls[0].output.error, "clarification_required");
+  assert.equal((await f.state()).conversations[0].pending, null);
+  assert.deepEqual((await f.state()).responses, []);
+});
 const propose = (
   reference = "OB12",
   interested = true,

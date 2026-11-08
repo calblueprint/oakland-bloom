@@ -21,6 +21,7 @@ export async function POST(request: Request) {
   return handleMetaWebhook(request, {
     appSecret: requireEnv("WHATSAPP_APP_SECRET"),
     verifyToken: requireEnv("WHATSAPP_VERIFY_TOKEN"),
+    phoneNumberId: requireEnv("WHATSAPP_PHONE_NUMBER_ID"),
     ingest: createSupabaseIngest(
       requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
       requireEnv("SUPABASE_SECRET_KEY"),

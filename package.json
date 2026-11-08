@@ -2,6 +2,7 @@
   "name": "web-app-template",
   "version": "0.1.1",
   "private": true,
+  "packageManager": "pnpm@10.19.0",
   "scripts": {
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "dev": "next dev",
@@ -16,8 +17,10 @@
     "harness:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON tests/whatsappHarness.mjs",
     "agent:whatsapp": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/whatsappAgent.mjs",
     "whatsapp:replies": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local scripts/whatsappReplies.mjs",
+    "whatsapp:production": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/whatsappReplies.mjs --production",
     "whatsapp:test": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --env-file-if-exists=.env.local --env-file=.env.whatsapp-test.local scripts/whatsappReplies.mjs --test",
     "db:test": "node --env-file-if-exists=.env.local scripts/whatsappTestDatabase.mjs",
+    "dev:whatsapp-test": "node --env-file-if-exists=.env.local scripts/whatsappTestDatabase.mjs --app",
     "pre-commit": "concurrently \"pnpm run tsc\" \"pnpm run lint\" \"pnpm run prettier\"",
     "setup:styled-components": "node ./setup-scripts/setup styled-components",
     "setup:tailwind": "node ./setup-scripts/setup tailwind",

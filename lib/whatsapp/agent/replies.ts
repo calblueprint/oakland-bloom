@@ -4,9 +4,10 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { MetaApiError } from "../metaClient.ts";
 import { createCateringAgent } from "./conversation.ts";
+import { kitchenAvailabilitySchema, kitchenBookingsSchema } from "./kitchen.ts";
 import { messageSchema, stateSchema } from "./store.ts";
 
-type Rpc = (
+export type Rpc = (
   name: string,
   args: Record<string, unknown>,
 ) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
@@ -77,6 +78,27 @@ export function createReplyWorker({
       }
       const agent = createCateringAgent({
         model,
+        kitchen: {
+          listBookings: async () =>
+            kitchenBookingsSchema.parse(
+              await database("list_wa_kitchen_bookings", {
+                target_phone: phone,
+                worker_id: workerId,
+                inbound_id: turn.inboundId,
+              }),
+            ),
+          checkAvailability: async input =>
+            kitchenAvailabilitySchema.parse(
+              await database("check_wa_kitchen_availability", {
+                target_phone: phone,
+                worker_id: workerId,
+                inbound_id: turn.inboundId,
+                amenity: input.amenity,
+                start_at: input.startAt,
+                end_at: input.endAt,
+              }),
+            ),
+        },
         store: {
           // The database lease protects this draft while the model is running.
           // commit checks ownership again and saves the outbox in the same transaction.

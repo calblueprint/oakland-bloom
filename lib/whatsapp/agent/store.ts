@@ -92,6 +92,16 @@ const messageSchema = z
 
 export const stateSchema = seedSchema.extend({
   version: z.literal(1),
+  // Sent staff replies help the bot continue accurately after human takeover.
+  staffMessages: z
+    .array(
+      z.strictObject({ body: z.string().max(4000), sentAt: z.iso.datetime() }),
+    )
+    .max(12)
+    .optional(),
+  quotedCateringRequest: z
+    .strictObject({ reference: referenceSchema })
+    .optional(),
   // Short conversation history helps the model understand follow-up questions.
   conversations: z.array(
     z.strictObject({
@@ -204,6 +214,8 @@ export class FileAgentStore implements AgentStore {
       state.responses = [];
       state.handoffs = [];
       state.receipts = [];
+      delete state.staffMessages;
+      delete state.quotedCateringRequest;
     });
   }
 

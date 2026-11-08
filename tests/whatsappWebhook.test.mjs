@@ -54,6 +54,30 @@ test("a signed message is persisted before Meta gets its 200", async () => {
   assert.equal(ingested[0].messages[0].text, "OB12 yes");
 });
 
+test("a shared app secret cannot mix messages for different business numbers", async () => {
+  const payload = JSON.parse(fixture("meta-valid-response.json"));
+  const matching = payload.entry[0].changes[0];
+  const foreign = structuredClone(matching);
+  foreign.value.metadata.phone_number_id = "another-number";
+  foreign.value.messages[0].text.body = "foreign request";
+  payload.entry[0].changes.unshift(foreign);
+  const { config, ingested } = setup();
+  config.phoneNumberId = "106540352242922";
+  assert.equal(
+    (await handleMetaWebhook(post(JSON.stringify(payload)), config)).status,
+    200,
+  );
+  assert.deepEqual(
+    ingested[0].messages.map(message => message.text),
+    ["OB12 yes"],
+  );
+  delete matching.value.metadata;
+  const missing = setup();
+  missing.config.phoneNumberId = config.phoneNumberId;
+  await handleMetaWebhook(post(JSON.stringify(payload)), missing.config);
+  assert.deepEqual(missing.ingested[0].messages, []);
+});
+
 test("unsigned or forged requests never reach storage", async () => {
   // Anyone can POST to a public URL; only Meta knows the app secret.
   const body = fixture("meta-valid-response.json");
