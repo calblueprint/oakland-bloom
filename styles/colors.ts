@@ -16,6 +16,11 @@ const COLORS = {
   // sidebar, from its Figma frame
   ink: "#20201E",
   divider: "#E4E4E4",
+
+  // account approval page, from its Figma frames
+  approveFill: "#ECF5F0",
+  approveBorder: "#8FB59E",
+  approveText: "#45745D",
 };
 
 export default COLORS;
