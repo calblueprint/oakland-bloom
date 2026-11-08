@@ -1,27 +1,46 @@
 "use client";
 
 import type { Reservation } from "@/types/reservations";
-import styled from "styled-components";
+import {
+  AmenityTag,
+  DateSection,
+  DayNumber,
+  GuestCount,
+  MonthYear,
+  ReservationTime,
+  StatusBadge,
+  StatusSection,
+  StyledCard,
+  Weekday,
+} from "./ReservationCard.styles";
 
 type ReservationCardProps = {
   reservation: Reservation;
 };
 
-// styles each individual reservation
-const StyledCard = styled.div`
-  padding: 2rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 1rem;
-  background-color: #ffffff;
-`;
+// Date() converts the reservation time's string into a JS Date Object
 
 export function ReservationCard({ reservation }: ReservationCardProps) {
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
+  const date = new Date(reservation.start_time);
+
+  // short to shorten "Monday" -> "Mon"
+  const weekday = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "long",
+    weekday: "short",
+  }).format(date);
+
+  // numeric to format date as #
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
     day: "numeric",
-  }).format(new Date(reservation.start_time));
+  }).format(date);
+
+  // shortens month title + formats year as #
+  const monthYear = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 
   const timeFormatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
@@ -37,13 +56,30 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
   return (
     <StyledCard>
-      <h2>{reservation.amenity}</h2>
-      <p>Date: {formattedDate}</p>
-      <p>
-        Time: {formattedStartTime} - {formattedEndTime}
-      </p>
-      <p>People: {reservation.num_people}</p>
-      <p>Status: {reservation.approval_status}</p>
+      <DateSection>
+        <Weekday>{weekday.toUpperCase()}</Weekday>
+        <DayNumber>{day}</DayNumber>
+        <MonthYear>{monthYear}</MonthYear>
+      </DateSection>
+
+      <div>
+        <ReservationTime>
+          {formattedStartTime} – {formattedEndTime}
+        </ReservationTime>
+
+        <GuestCount>
+          {reservation.num_people}{" "}
+          {reservation.num_people === 1 ? "guest" : "guests"}
+        </GuestCount>
+
+        <AmenityTag>{reservation.amenity}</AmenityTag>
+      </div>
+
+      <StatusSection>
+        <StatusBadge $status={reservation.approval_status}>
+          {reservation.approval_status}
+        </StatusBadge>
+      </StatusSection>
     </StyledCard>
   );
 }
