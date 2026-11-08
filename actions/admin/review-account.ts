@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { accountsHref, parseAccountId } from "@/lib/admin/accountsView";
 import { getAccount } from "@/lib/auth/account";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import Logger from "../logging";
@@ -24,11 +25,12 @@ export async function approveAccount(userId: string) {
     if (error) {
       Logger.error(`Error approving account: ${error.message} (${error.code})`);
     }
-    redirect("/admin/accounts?error=failed");
+    redirect(accountsHref({ account: userId, error: "failed" }));
   }
 
+  // back to the pending list with the panel closed; the chef has left it
   revalidatePath("/admin/accounts");
-  redirect("/admin/accounts?done=approve");
+  redirect(accountsHref({ done: "approve" }));
 }
 
 // denying deletes the login. public.users and public.restaurants cascade from
@@ -39,11 +41,11 @@ export async function denyAccount(userId: string) {
   const { error } = await supabase.auth.admin.deleteUser(userId);
   if (error) {
     Logger.error(`Error denying account: ${error.message} (${error.code})`);
-    redirect("/admin/accounts?error=failed");
+    redirect(accountsHref({ account: userId, error: "failed" }));
   }
 
   revalidatePath("/admin/accounts");
-  redirect("/admin/accounts?done=deny");
+  redirect(accountsHref({ done: "deny" }));
 }
 
 // redirects unless the caller is an admin and userId is a chef account that
@@ -53,9 +55,13 @@ async function getWaitingAccount(userId: string) {
   if (!account) redirect("/login");
   if (!account.isAdmin) redirect(account.homePath);
 
-  if (typeof userId !== "string" || userId === account.userId) {
-    redirect("/admin/accounts?error=invalid");
+  if (!parseAccountId(userId) || userId === account.userId) {
+    redirect(accountsHref({ error: "invalid" }));
   }
+
+  // errors below keep this chef's panel open so the admin sees what happened
+  const fail = (error: string): never =>
+    redirect(accountsHref({ account: userId, error }));
 
   const supabase = getSupabaseAdminClient();
 
@@ -73,20 +79,30 @@ async function getWaitingAccount(userId: string) {
     supabase.auth.admin.getUserById(userId),
   ]);
 
+  const lookupError = userResult.error ?? restaurantResult.error;
+  if (lookupError) {
+    Logger.error(`Error loading account to review: ${lookupError.message}`);
+    fail("failed");
+  }
+
   const user = userResult.data;
-  if (!user || user.is_admin || user.is_approved) {
-    redirect("/admin/accounts?error=invalid");
+  if (!user || user.is_admin || user.is_approved) fail("invalid");
+
+  // a failed Auth lookup isn't the chef's fault, so don't call it unverified
+  if (authResult.error) {
+    Logger.error(
+      `Error checking email confirmation: ${authResult.error.message}`,
+    );
+    fail("failed");
   }
 
   // an approved chef with an unconfirmed email still can't sign in
-  if (!authResult.data.user?.email_confirmed_at) {
-    redirect("/admin/accounts?error=unverified");
-  }
+  if (!authResult.data.user?.email_confirmed_at) fail("unverified");
 
   // deciding before onboarding is done would let the rest skip review
   const restaurant = restaurantResult.data;
   if (!restaurant?.name || !restaurant.address || !restaurant.cuisine) {
-    redirect("/admin/accounts?error=incomplete");
+    fail("incomplete");
   }
 
   return supabase;
