@@ -1,17 +1,18 @@
+import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationList } from "@/components/ReservationList";
-import { mockReservations } from "@/data/mockReservations";
 
-export default function ReservationsPage() {
+export default async function ReservationsPage() {
+  const reservations = await getCalendarReservations();
   return (
     <main>
       <h1>My Reservations</h1>
 
-      {mockReservations.length === 0 ? (
+      {reservations.length === 0 ? (
         <p>You haven&apos;t requested any reservations yet.</p>
       ) : (
         <ReservationList>
-          {mockReservations.map(reservation => (
+          {reservations.map(reservation => (
             <ReservationCard key={reservation.id} reservation={reservation} />
           ))}
         </ReservationList>

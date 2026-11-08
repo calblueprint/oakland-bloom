@@ -1,10 +1,12 @@
 "use client";
 
-import type { Reservation } from "@/types/reservations";
+import type { CalendarReservation } from "@/types/reservations";
 import styled from "styled-components";
+import { amenityLabel } from "@/lib/bookingRequest";
+import { calendarDateRangeLabel } from "@/lib/calendarTime";
 
 type ReservationCardProps = {
-  reservation: Reservation;
+  reservation: CalendarReservation;
 };
 
 // styles each individual reservation
@@ -16,12 +18,11 @@ const StyledCard = styled.div`
 `;
 
 export function ReservationCard({ reservation }: ReservationCardProps) {
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(reservation.start_time));
+  const formattedDate = calendarDateRangeLabel(
+    reservation.start_time,
+    reservation.end_time,
+    { year: "numeric", month: "long", day: "numeric" },
+  );
 
   const timeFormatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
@@ -37,12 +38,13 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
   return (
     <StyledCard>
-      <h2>{reservation.amenity}</h2>
+      <h2>{reservation.title}</h2>
+      <p>{reservation.amenities.map(amenityLabel).join(", ")}</p>
       <p>Date: {formattedDate}</p>
       <p>
         Time: {formattedStartTime} - {formattedEndTime}
       </p>
-      <p>People: {reservation.num_people}</p>
+      <p>Chefs: {reservation.num_people}</p>
       <p>Status: {reservation.approval_status}</p>
     </StyledCard>
   );

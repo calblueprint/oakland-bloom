@@ -30,11 +30,11 @@ group-chat-and-scrollback workflow.
 
 ### Users
 
-| Role | How they use it |
-|---|---|
-| **Chef** | Web dashboard (reservations, profile) + WhatsApp (catering opportunities) |
-| **Admin** | Web dashboard (approve reservations, stats, post catering opportunities) |
-| **Customer** | Requests catering — flow not yet specified, MVP scope |
+| Role         | How they use it                                                           |
+| ------------ | ------------------------------------------------------------------------- |
+| **Chef**     | Web dashboard (reservations, profile) + WhatsApp (catering opportunities) |
+| **Admin**    | Web dashboard (approve reservations, stats, post catering opportunities)  |
+| **Customer** | Requests catering — flow not yet specified, MVP scope                     |
 
 ### Scope and timeline
 
@@ -74,6 +74,7 @@ We strongly recommend using a Node version manager like [nvm](https://github.com
 After installing Node, you most likely have npm installed as well (check by running `npm -v`). If you have npm installed, simply run `npm install -g pnpm` to install pnpm. If your command line does not recognize npm as a command, refer to [this article](https://www.geeksforgeeks.org/how-to-resolve-npm-command-not-found-error-in-node-js/) to troubleshoot.
 
 Additional resources:
+
 - [Downloading and installing Node.js and npm](https://docs.npmjs.com/downloading-and-installing-node-js-and-npm)
 - [Installing pnpm without npm](https://pnpm.io/installation)
 
@@ -123,6 +124,78 @@ pnpm dev
 ```
 
 Then, navigate to http://localhost:3000 to launch the web application.
+
+### Calendar reservations
+
+Open `/calendar` with an approved account. Choose one or more amenities (Bar Prep
+Table, Salad Bar Table, Oven) under **Book amenities**, then click a time cell or
+drag a range. Move or resize the draft on the calendar, or edit its time in the
+form. **Enter a time instead** provides keyboard date and time inputs as an
+alternative to pointer selection.
+Past selections open the form, but submission requires a future start time.
+Complete the title, chef count, and optional additional contact emails. The owner
+name/email come from the signed-in account. Times are interpreted in
+`America/Los_Angeles`; ambiguous or nonexistent daylight-saving times are rejected.
+Cancel discards the form. A successful submission appears as **pending**, never as
+an approved booking. `/chef/reservations` now reads the same saved database records.
+Availability shading reflects how many selected amenities are free, using actual
+approved bookings. Click your saved bookings to view their details; saved bookings
+are read-only in this flow.
+
+The database change is in
+`supabase/migrations/20261108000000_booking_requests.sql`. Apply it through the
+team's migration workflow before running this version against another database,
+then run `pnpm types:database` and format `types/database.types.ts`. It adds a
+required title, a constrained amenities array, and up to ten additional contact
+emails. Existing `kitchen` records are conservatively mapped to all three amenities;
+other unrecognized values cause migration validation to fail for explicit review.
+The singular `amenity` column remains for compatibility and is synchronized by a
+trigger. The migration builds on the project's existing booking and account tables.
+
+Chef writes use the session-authenticated `create_booking_request` RPC. It checks
+account approval, validates the request, fixes ownership and pending status, and
+uses a request UUID to make retries idempotent. Direct chef writes stay revoked.
+A database trigger serializes booking writes and rejects overlap with approved
+bookings sharing any amenity, including when a pending request is later approved.
+Adjacent bookings and overlapping pending requests are allowed. No emails are sent.
+
+Ownership RLS limits direct booking reads to the signed-in chef. Other chefs'
+approved availability is read separately through `get_calendar_occupied_periods`;
+it returns only merged amenity/time intervals, excluding titles, contacts, owners,
+booking IDs, and people counts. Availability is refetched on date/filter changes
+and submission; it is not a realtime subscription. If loading fails, the calendar
+warns that empty times are not confirmed available. Shading does not imply capacity.
+
+For four current-date demo bookings, configure `RESERVATION_TEST_USER_ID`,
+`RESERVATION_TEST_USER2_ID`, and the development `SEED_DATABASE_URL` in `.env.local`.
+Both Auth accounts and their application profiles must already exist. Confirm the
+database target, then run:
+
+```sh
+SEED_TARGET=development pnpm seed:calendar
+```
+
+| Account     | Today                                  | Tomorrow                            |
+| ----------- | -------------------------------------- | ----------------------------------- |
+| Test user 1 | 10–11 a.m., approved, both prep tables | 1–2 p.m., pending, oven             |
+| Test user 2 | 2–3 p.m., approved, oven               | 10–11 a.m., denied, salad bar table |
+
+Reruns refresh the same four demo IDs (prefix `0a150000`, endings `001`–`004`)
+with titles and current Los Angeles dates, without duplicates. Accounts, policies,
+and unrelated bookings are preserved. Four demo rows do not necessarily mean four
+total rows. The older `seed:reservations` command still serves its fixed OAK-10
+fixtures; use `seed:calendar` for this flow.
+
+For a manual check, sign in as each test user and verify amenity filtering, a
+cancelled form, an invalid end-before-start request, and a valid future request.
+Confirm the saved event says pending and appears in Your reservations. Check that
+other chefs' private titles/contacts never appear in the availability response.
+Repeat at mobile width. `pnpm test` covers request validation, action retries,
+unique migration versions, and Los Angeles time conversion offline. To test the
+database rules too, set `BOOKING_TEST_DATABASE_URL` to a local Supabase PostgreSQL
+server with database-creation access and run `pnpm test`. The database tests create
+and remove an isolated test database; they reject remote hosts and never modify
+the server's existing databases.
 
 ## Auth setup
 

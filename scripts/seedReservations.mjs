@@ -19,6 +19,7 @@ export async function runSeed({
   user2 = process.env.RESERVATION_TEST_USER2_ID,
   caFile = process.env.SEED_DATABASE_CA_FILE,
   createClient = postgres,
+  source = readFileSync(seedFile, "utf8"),
 } = {}) {
   if (environment === "production") {
     throw new Error("Run reservation seeding against a development database.");
@@ -68,7 +69,6 @@ export async function runSeed({
     );
   }
 
-  const source = readFileSync(seedFile, "utf8");
   const isSupabaseHost =
     url.hostname.endsWith(".pooler.supabase.com") ||
     /^db\.[a-z0-9]+\.supabase\.co$/.test(url.hostname);
