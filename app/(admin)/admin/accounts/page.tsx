@@ -1,199 +1,133 @@
+import { Suspense } from "react";
 import { Instrument_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
-import { approveAccount, denyAccount } from "@/actions/admin/review-account";
-import { signOut } from "@/actions/auth";
-import { getAccount } from "@/lib/auth/account";
-import { getAccountStatus } from "@/lib/auth/accountStatus";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import {
-  Actions,
-  ApproveButton,
-  Card,
-  DenyButton,
-  Details,
+  accountsHref,
+  parseAccountId,
+  parseTab,
+} from "@/lib/admin/accountsView";
+import { getChefAccount } from "@/lib/admin/chefAccounts";
+import { getAccount } from "@/lib/auth/account";
+import AccountDetailsPanel, { UnavailablePanel } from "./AccountDetailsPanel";
+import AccountList from "./AccountList";
+import AccountTabs from "./AccountTabs";
+import {
   ErrorText,
-  Fields,
   Header,
-  Heading,
-  LinkButton,
-  List,
+  ListColumn,
+  ListSection,
+  Messages,
   Notice,
   Page,
-  RestaurantName,
+  Panel,
+  PanelSlot,
+  Subtitle,
+  Title,
 } from "./styles";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
-  weight: ["400", "500"],
+  weight: ["400", "500", "600"],
 });
 
+const successes: Record<string, string> = {
+  approve: "Account approved. The chef can now sign in and use Oakland Bloom.",
+  deny: "Account declined and deleted. The chef would need to sign up again.",
+};
+
 const errors: Record<string, string> = {
-  invalid: "That request wasn't valid. Refresh and try again.",
+  invalid:
+    "That account can't be reviewed. It may already have been approved or declined.",
   incomplete: "That account hasn't finished onboarding yet.",
   unverified: "That chef hasn't confirmed their email yet.",
   failed: "Couldn't update that account. Refresh and try again.",
 };
 
-// users only stores the full name, so split it back into first and last
-function splitName(name: string | null) {
-  const [firstName = "", ...lastName] = (name ?? "").trim().split(/\s+/);
-  return { firstName, lastName: lastName.join(" ") };
+// the chef in ?account=, loaded and checked on the server
+async function SelectedAccount({
+  userId,
+  closeHref,
+}: {
+  userId: string;
+  closeHref: string;
+}) {
+  const account = await getChefAccount(userId);
+  if (!account) return <UnavailablePanel closeHref={closeHref} />;
+  return (
+    <AccountDetailsPanel
+      key={account.userId}
+      account={account}
+      closeHref={closeHref}
+    />
+  );
 }
 
-// chef accounts that confirmed their email, finished onboarding, and are
-// waiting on an admin
-async function getAccountsAwaitingApproval() {
-  // RLS only lets users read their own rows, so admins list accounts with the
-  // service role. this runs on the server, after the admin check below
-  const supabase = getSupabaseAdminClient();
-  const [usersResult, restaurantsResult] = await Promise.all([
-    supabase
-      .from("users")
-      .select("userid, email, name, phone, is_approved")
-      .eq("is_approved", false)
-      .eq("is_admin", false),
-    supabase
-      .from("restaurants")
-      .select("userid, name, address, cuisine, created_at"),
-  ]);
-
-  if (usersResult.error || restaurantsResult.error) {
-    throw new Error("Unable to load accounts awaiting approval.", {
-      cause: usersResult.error ?? restaurantsResult.error,
-    });
-  }
-
-  const restaurants = new Map(
-    restaurantsResult.data.map(restaurant => [restaurant.userid, restaurant]),
-  );
-
-  const pending = usersResult.data
-    .map(user => ({ user, restaurant: restaurants.get(user.userid) ?? null }))
-    .filter(account => getAccountStatus(account) === "pending");
-
-  // approving an unconfirmed email leaves the chef unable to sign in, so only
-  // show accounts whose email is confirmed. that lives on the Auth user
-  const authUsers = await Promise.all(
-    pending.map(({ user }) => supabase.auth.admin.getUserById(user.userid)),
-  );
-  const authError = authUsers.find(result => result.error)?.error;
-  if (authError) {
-    throw new Error("Unable to load accounts awaiting approval.", {
-      cause: authError,
-    });
-  }
-
-  return pending
-    .filter((_, i) => authUsers[i].data.user?.email_confirmed_at)
-    .sort((a, b) =>
-      (a.restaurant?.created_at ?? "").localeCompare(
-        b.restaurant?.created_at ?? "",
-      ),
-    );
-}
-
+// Figma: list 1043-9925, details panel open 1056-10458.
+// state lives in the URL: ?tab=pending|approved|denied&account=<userid>
 export default async function AdminAccountsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ done?: string; error?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   // the (admin) layout checks this too, but pages render alongside layouts,
   // so check here before reading every account
   const admin = await getAccount();
   if (!admin?.isAdmin) redirect(admin ? admin.homePath : "/login");
 
-  const { done, error } = await searchParams;
-  const accounts = await getAccountsAwaitingApproval();
-  const errorMessage = error && errors[error];
+  const params = await searchParams;
+  const tab = parseTab(params.tab);
+  const selectedId = parseAccountId(params.account);
+  const closeHref = accountsHref({ tab });
+  const success = typeof params.done === "string" && successes[params.done];
+  const error = typeof params.error === "string" && errors[params.error];
 
   return (
     <Page className={instrumentSans.className}>
-      <Header>
-        <Heading>Accounts Awaiting Approval</Heading>
-        <form
-          action={async () => {
-            "use server";
-            const result = await signOut();
-            if (result?.error) redirect("/error");
-          }}
-        >
-          <LinkButton type="submit">Sign out</LinkButton>
-        </form>
-      </Header>
+      <ListColumn>
+        <Header>
+          <Title>Chef Accounts</Title>
+          <Subtitle>
+            Review new chefs and their restaurant information.
+          </Subtitle>
+        </Header>
 
-      {done === "approve" && (
-        <Notice role="status">
-          Account approved. The chef can now sign in and use the app.
-        </Notice>
-      )}
-      {done === "deny" && (
-        <Notice role="status">
-          Account denied and deleted. The chef would need to sign up again.
-        </Notice>
-      )}
-      {errorMessage && <ErrorText role="alert">{errorMessage}</ErrorText>}
+        <ListSection aria-label="Chef accounts">
+          <AccountTabs current={tab} />
 
-      {accounts.length === 0 ? (
-        <Notice>No accounts are waiting for approval.</Notice>
-      ) : (
-        <List>
-          {accounts.map(({ user, restaurant }) => {
-            const { firstName, lastName } = splitName(user.name);
-            return (
-              <Card key={user.userid}>
-                <Details>
-                  <RestaurantName>{restaurant?.name}</RestaurantName>
-                  <Fields>
-                    <dt>First name</dt>
-                    <dd>{firstName}</dd>
-                    <dt>Last name</dt>
-                    <dd>{lastName}</dd>
-                    <dt>Email</dt>
-                    <dd>{user.email}</dd>
-                    <dt>Phone</dt>
-                    <dd>{user.phone}</dd>
-                    <dt>Restaurant</dt>
-                    <dd>{restaurant?.name}</dd>
-                    <dt>Address</dt>
-                    <dd>{restaurant?.address}</dd>
-                    <dt>Cuisine</dt>
-                    <dd>{restaurant?.cuisine}</dd>
-                    <dt>Signed up</dt>
-                    <dd>
-                      {restaurant &&
-                        new Date(restaurant.created_at).toLocaleDateString(
-                          "en-US",
-                          {
-                            dateStyle: "medium",
-                            timeZone: "America/Los_Angeles",
-                          },
-                        )}
-                    </dd>
-                  </Fields>
-                </Details>
+          {/* always mounted so screen readers hear what changed */}
+          <Messages>
+            <div aria-live="polite">
+              {success && <Notice>{success}</Notice>}
+            </div>
+            <div aria-live="assertive">
+              {error && <ErrorText>{error}</ErrorText>}
+            </div>
+          </Messages>
 
-                <Actions>
-                  <form action={approveAccount.bind(null, user.userid)}>
-                    <ApproveButton
-                      type="submit"
-                      aria-label={`Approve ${restaurant?.name}`}
-                    >
-                      Approve
-                    </ApproveButton>
-                  </form>
-                  <form action={denyAccount.bind(null, user.userid)}>
-                    <DenyButton
-                      type="submit"
-                      aria-label={`Deny ${restaurant?.name}`}
-                    >
-                      Deny
-                    </DenyButton>
-                  </form>
-                </Actions>
-              </Card>
-            );
-          })}
-        </List>
+          {/* keyed by tab: a new tab shows the loading line, while opening a
+              panel keeps the current list on screen */}
+          <Suspense
+            key={tab}
+            fallback={<Notice role="status">Loading chef accounts…</Notice>}
+          >
+            <AccountList tab={tab} selectedId={selectedId} />
+          </Suspense>
+        </ListSection>
+      </ListColumn>
+
+      {selectedId && (
+        <PanelSlot>
+          <Suspense
+            key={selectedId}
+            fallback={
+              <Panel aria-busy="true">
+                <Notice role="status">Loading account…</Notice>
+              </Panel>
+            }
+          >
+            <SelectedAccount userId={selectedId} closeHref={closeHref} />
+          </Suspense>
+        </PanelSlot>
       )}
     </Page>
   );
