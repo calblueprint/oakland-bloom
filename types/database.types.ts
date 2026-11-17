@@ -7,40 +7,12 @@ export type Json =
   | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.17";
-  };
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
   public: {
     Tables: {
       booking_event: {
         Row: {
+          additional_contacts: string[];
+          amenities: string[];
           amenity: string;
           approval_status: string;
           end_time: string;
@@ -48,9 +20,13 @@ export type Database = {
           id: string;
           num_people: number;
           start_time: string;
+          title: string;
           user: string;
         };
+        ComputedFields: never;
         Insert: {
+          additional_contacts?: string[];
+          amenities: string[];
           amenity: string;
           approval_status: string;
           end_time: string;
@@ -58,9 +34,12 @@ export type Database = {
           id: string;
           num_people: number;
           start_time: string;
+          title: string;
           user: string;
         };
         Update: {
+          additional_contacts?: string[];
+          amenities?: string[];
           amenity?: string;
           approval_status?: string;
           end_time?: string;
@@ -68,12 +47,266 @@ export type Database = {
           id?: string;
           num_people?: number;
           start_time?: string;
+          title?: string;
           user?: string;
         };
         Relationships: [
           {
             foreignKeyName: "booking_event_user_fkey";
             columns: ["user"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+        ];
+      };
+      chef_facts: {
+        Row: {
+          chef_id: string;
+          id: string;
+          kind: string;
+          source_message_id: string | null;
+          updated_at: string;
+          updated_by: string;
+          value: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chef_id: string;
+          id?: string;
+          kind: string;
+          source_message_id?: string | null;
+          updated_at?: string;
+          updated_by: string;
+          value: string;
+        };
+        Update: {
+          chef_id?: string;
+          id?: string;
+          kind?: string;
+          source_message_id?: string | null;
+          updated_at?: string;
+          updated_by?: string;
+          value?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chef_facts_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      chefs: {
+        Row: {
+          active: boolean;
+          created_at: string;
+          cuisines: string[];
+          id: string;
+          name: string;
+          opt_in_method: string | null;
+          opted_in_at: string | null;
+          opted_out_at: string | null;
+          preferred_language: string;
+          user_id: string | null;
+          wa_phone: string;
+          whatsapp_user_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          created_at?: string;
+          cuisines?: string[];
+          id?: string;
+          name: string;
+          opt_in_method?: string | null;
+          opted_in_at?: string | null;
+          opted_out_at?: string | null;
+          preferred_language?: string;
+          user_id?: string | null;
+          wa_phone: string;
+          whatsapp_user_id?: string | null;
+        };
+        Update: {
+          active?: boolean;
+          created_at?: string;
+          cuisines?: string[];
+          id?: string;
+          name?: string;
+          opt_in_method?: string | null;
+          opted_in_at?: string | null;
+          opted_out_at?: string | null;
+          preferred_language?: string;
+          user_id?: string | null;
+          wa_phone?: string;
+          whatsapp_user_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "chefs_user_id_fkey";
+            columns: ["user_id"];
+            isOneToOne: true;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+          {
+            foreignKeyName: "chefs_whatsapp_user_id_fkey";
+            columns: ["whatsapp_user_id"];
+            isOneToOne: true;
+            referencedRelation: "whatsapp_user";
+            referencedColumns: ["chef_id"];
+          },
+        ];
+      };
+      handoffs: {
+        Row: {
+          assigned_admin: string | null;
+          chef_id: string;
+          created_at: string;
+          id: string;
+          message_id: string;
+          reason: string;
+          resolved_at: string | null;
+          status: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          assigned_admin?: string | null;
+          chef_id: string;
+          created_at?: string;
+          id?: string;
+          message_id: string;
+          reason: string;
+          resolved_at?: string | null;
+          status?: string;
+        };
+        Update: {
+          assigned_admin?: string | null;
+          chef_id?: string;
+          created_at?: string;
+          id?: string;
+          message_id?: string;
+          reason?: string;
+          resolved_at?: string | null;
+          status?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "handoffs_assigned_admin_fkey";
+            columns: ["assigned_admin"];
+            isOneToOne: false;
+            referencedRelation: "users";
+            referencedColumns: ["userid"];
+          },
+          {
+            foreignKeyName: "handoffs_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      interest_responses: {
+        Row: {
+          catering_id: string | null;
+          chef_id: string;
+          id: string;
+          interested: boolean;
+          message_id: string;
+          opportunity_id: string | null;
+          recorded_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          catering_id?: string | null;
+          chef_id: string;
+          id?: string;
+          interested: boolean;
+          message_id: string;
+          opportunity_id?: string | null;
+          recorded_at?: string;
+        };
+        Update: {
+          catering_id?: string | null;
+          chef_id?: string;
+          id?: string;
+          interested?: boolean;
+          message_id?: string;
+          opportunity_id?: string | null;
+          recorded_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "interest_responses_catering_id_fkey";
+            columns: ["catering_id"];
+            isOneToOne: false;
+            referencedRelation: "whatsapp_catering";
+            referencedColumns: ["catering_id"];
+          },
+          {
+            foreignKeyName: "interest_responses_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "interest_responses_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      opportunities: {
+        Row: {
+          created_at: string;
+          created_by: string | null;
+          details: string;
+          headcount: number;
+          id: string;
+          location: string;
+          pay_text: string | null;
+          ref_code: string;
+          starts_at: string;
+          status: string;
+          title: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          created_by?: string | null;
+          details?: string;
+          headcount: number;
+          id?: string;
+          location: string;
+          pay_text?: string | null;
+          ref_code: string;
+          starts_at: string;
+          status?: string;
+          title: string;
+        };
+        Update: {
+          created_at?: string;
+          created_by?: string | null;
+          details?: string;
+          headcount?: number;
+          id?: string;
+          location?: string;
+          pay_text?: string | null;
+          ref_code?: string;
+          starts_at?: string;
+          status?: string;
+          title?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_created_by_fkey";
+            columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "users";
             referencedColumns: ["userid"];
@@ -87,6 +320,7 @@ export type Database = {
           name: string;
           price: number;
         };
+        ComputedFields: never;
         Insert: {
           chef_id: string;
           meal_id: string;
@@ -109,6 +343,56 @@ export type Database = {
           },
         ];
       };
+      pending_confirmations: {
+        Row: {
+          catering_id: string | null;
+          chef_id: string;
+          expires_at: string;
+          interested: boolean;
+          opportunity_id: string | null;
+          source_message_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          catering_id?: string | null;
+          chef_id: string;
+          expires_at: string;
+          interested: boolean;
+          opportunity_id?: string | null;
+          source_message_id: string;
+        };
+        Update: {
+          catering_id?: string | null;
+          chef_id?: string;
+          expires_at?: string;
+          interested?: boolean;
+          opportunity_id?: string | null;
+          source_message_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pending_confirmations_catering_id_fkey";
+            columns: ["catering_id"];
+            isOneToOne: false;
+            referencedRelation: "whatsapp_catering";
+            referencedColumns: ["catering_id"];
+          },
+          {
+            foreignKeyName: "pending_confirmations_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: true;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "pending_confirmations_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       restaurants: {
         Row: {
           address: string | null;
@@ -118,6 +402,7 @@ export type Database = {
           name: string | null;
           userid: string;
         };
+        ComputedFields: never;
         Insert: {
           address?: string | null;
           created_at?: string;
@@ -153,6 +438,7 @@ export type Database = {
           phone: string;
           userid: string;
         };
+        ComputedFields: never;
         Insert: {
           email: string;
           is_admin?: boolean;
@@ -171,54 +457,323 @@ export type Database = {
         };
         Relationships: [];
       };
+      wa_conversations: {
+        Row: {
+          chef_id: string;
+          human_takeover: boolean;
+          last_inbound_at: string | null;
+          lease_message_id: string | null;
+          lease_owner: string | null;
+          lease_until: string | null;
+          summary: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          chef_id: string;
+          human_takeover?: boolean;
+          last_inbound_at?: string | null;
+          lease_message_id?: string | null;
+          lease_owner?: string | null;
+          lease_until?: string | null;
+          summary?: string;
+        };
+        Update: {
+          chef_id?: string;
+          human_takeover?: boolean;
+          last_inbound_at?: string | null;
+          lease_message_id?: string | null;
+          lease_owner?: string | null;
+          lease_until?: string | null;
+          summary?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wa_conversations_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: true;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wa_conversations_lease_message_id_fkey";
+            columns: ["lease_message_id"];
+            isOneToOne: false;
+            referencedRelation: "wa_messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      wa_deliveries: {
+        Row: {
+          attempts: number;
+          chef_id: string;
+          created_at: string;
+          delivered_at: string | null;
+          id: string;
+          last_error: string | null;
+          opportunity_id: string;
+          provider_message_id: string | null;
+          read_at: string | null;
+          sent_at: string | null;
+          status: string;
+          template_language: string | null;
+          template_name: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          attempts?: number;
+          chef_id: string;
+          created_at?: string;
+          delivered_at?: string | null;
+          id?: string;
+          last_error?: string | null;
+          opportunity_id: string;
+          provider_message_id?: string | null;
+          read_at?: string | null;
+          sent_at?: string | null;
+          status?: string;
+          template_language?: string | null;
+          template_name?: string | null;
+        };
+        Update: {
+          attempts?: number;
+          chef_id?: string;
+          created_at?: string;
+          delivered_at?: string | null;
+          id?: string;
+          last_error?: string | null;
+          opportunity_id?: string;
+          provider_message_id?: string | null;
+          read_at?: string | null;
+          sent_at?: string | null;
+          status?: string;
+          template_language?: string | null;
+          template_name?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wa_deliveries_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wa_deliveries_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      wa_inbound_rejected: {
+        Row: {
+          handled_at: string | null;
+          id: string;
+          phone: string | null;
+          provider: string;
+          provider_message_id: string | null;
+          reason: string;
+          received_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          handled_at?: string | null;
+          id?: string;
+          phone?: string | null;
+          provider: string;
+          provider_message_id?: string | null;
+          reason: string;
+          received_at?: string;
+        };
+        Update: {
+          handled_at?: string | null;
+          id?: string;
+          phone?: string | null;
+          provider?: string;
+          provider_message_id?: string | null;
+          reason?: string;
+          received_at?: string;
+        };
+        Relationships: [];
+      };
+      wa_media: {
+        Row: {
+          bytes: number | null;
+          created_at: string;
+          direction: string;
+          id: string;
+          kind: string;
+          message_id: string;
+          mime_type: string;
+          provider_media_id: string;
+          sha256: string | null;
+          status: string;
+          storage_path: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          bytes?: number | null;
+          created_at?: string;
+          direction: string;
+          id?: string;
+          kind: string;
+          message_id: string;
+          mime_type: string;
+          provider_media_id: string;
+          sha256?: string | null;
+          status?: string;
+          storage_path?: string | null;
+        };
+        Update: {
+          bytes?: number | null;
+          created_at?: string;
+          direction?: string;
+          id?: string;
+          kind?: string;
+          message_id?: string;
+          mime_type?: string;
+          provider_media_id?: string;
+          sha256?: string | null;
+          status?: string;
+          storage_path?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wa_media_message_id_fkey";
+            columns: ["message_id"];
+            isOneToOne: true;
+            referencedRelation: "wa_messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      wa_messages: {
+        Row: {
+          body: string;
+          chef_id: string | null;
+          context_message_id: string | null;
+          direction: string;
+          id: string;
+          phone: string;
+          processed_at: string | null;
+          provider: string;
+          provider_message_id: string | null;
+          received_at: string;
+          reply_to_message_id: string | null;
+          send_owner: string | null;
+          send_started_at: string | null;
+          send_status: string | null;
+          sent_at: string | null;
+          sequence_no: number;
+          tool_trace: Json | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          body?: string;
+          chef_id?: string | null;
+          context_message_id?: string | null;
+          direction: string;
+          id?: string;
+          phone: string;
+          processed_at?: string | null;
+          provider: string;
+          provider_message_id?: string | null;
+          received_at?: string;
+          reply_to_message_id?: string | null;
+          send_owner?: string | null;
+          send_started_at?: string | null;
+          send_status?: string | null;
+          sent_at?: string | null;
+          sequence_no?: never;
+          tool_trace?: Json | null;
+        };
+        Update: {
+          body?: string;
+          chef_id?: string | null;
+          context_message_id?: string | null;
+          direction?: string;
+          id?: string;
+          phone?: string;
+          processed_at?: string | null;
+          provider?: string;
+          provider_message_id?: string | null;
+          received_at?: string;
+          reply_to_message_id?: string | null;
+          send_owner?: string | null;
+          send_started_at?: string | null;
+          send_status?: string | null;
+          sent_at?: string | null;
+          sequence_no?: never;
+          tool_trace?: Json | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "wa_messages_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "wa_messages_reply_to_message_id_fkey";
+            columns: ["reply_to_message_id"];
+            isOneToOne: true;
+            referencedRelation: "wa_messages";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       whatsapp_catering: {
         Row: {
           catering_id: string;
           chef: string;
           day_created: string;
+          details: string;
+          event_at: string | null;
           is_accepted: boolean;
+          location: string | null;
           meal_name: string;
           num_people: number;
           ref_code: string;
-          event_at: string | null;
-          location: string | null;
-          details: string;
           request_status: string;
-          response_status: string;
           response_at: string | null;
           response_message_id: string | null;
+          response_status: string;
         };
+        ComputedFields: never;
         Insert: {
           catering_id: string;
           chef: string;
           day_created: string;
+          details?: string;
+          event_at?: string | null;
           is_accepted: boolean;
+          location?: string | null;
           meal_name: string;
           num_people: number;
           ref_code?: string;
-          event_at?: string | null;
-          location?: string | null;
-          details?: string;
           request_status?: string;
-          response_status?: string;
           response_at?: string | null;
           response_message_id?: string | null;
+          response_status?: string;
         };
         Update: {
           catering_id?: string;
           chef?: string;
           day_created?: string;
+          details?: string;
+          event_at?: string | null;
           is_accepted?: boolean;
+          location?: string | null;
           meal_name?: string;
           num_people?: number;
           ref_code?: string;
-          event_at?: string | null;
-          location?: string | null;
-          details?: string;
           request_status?: string;
-          response_status?: string;
           response_at?: string | null;
           response_message_id?: string | null;
+          response_status?: string;
         };
         Relationships: [
           {
@@ -237,6 +792,7 @@ export type Database = {
           phone: string;
           user_id: string | null;
         };
+        ComputedFields: never;
         Insert: {
           chef_id: string;
           name: string;
@@ -261,9 +817,58 @@ export type Database = {
       };
     };
     Views: {
-      [_ in never]: never;
+      latest_interest: {
+        Row: {
+          chef_id: string | null;
+          interested: boolean | null;
+          message_id: string | null;
+          opportunity_id: string | null;
+          recorded_at: string | null;
+        };
+        ComputedFields: never;
+        Relationships: [
+          {
+            foreignKeyName: "interest_responses_chef_id_fkey";
+            columns: ["chef_id"];
+            isOneToOne: false;
+            referencedRelation: "chefs";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "interest_responses_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Functions: {
+      claim_wa_reply: {
+        Args: { target_phone: string; worker_id: string };
+        Returns: Json;
+      };
+      claim_wa_turn: {
+        Args: { target_phone: string; worker_id: string };
+        Returns: Json;
+      };
+      commit_wa_turn: {
+        Args: { inbound_id: string; turn_state: Json; worker_id: string };
+        Returns: string;
+      };
+      create_booking_request: {
+        Args: {
+          p_additional_contacts: string[];
+          p_amenities: string[];
+          p_end: string;
+          p_id: string;
+          p_num_people: number;
+          p_start: string;
+          p_title: string;
+        };
+        Returns: string;
+      };
       get_wa_staff_queue: {
         Args: { actor_id: string };
         Returns: Json;
@@ -338,6 +943,14 @@ export type Database = {
         Args: { p_client_key: string; p_email: string };
         Returns: boolean;
       };
+      fail_wa_reply: {
+        Args: { outbound_id: string; worker_id: string };
+        Returns: undefined;
+      };
+      finish_wa_reply: {
+        Args: { outbound_id: string; provider_id: string; worker_id: string };
+        Returns: undefined;
+      };
       get_calendar_occupied_periods: {
         Args: { p_end: string; p_start: string };
         Returns: {
@@ -346,6 +959,13 @@ export type Database = {
           start_time: string;
         }[];
       };
+      ingest_inbound: { Args: { batch: Json }; Returns: undefined };
+      release_wa_turn: {
+        Args: { chef_id: string; worker_id: string };
+        Returns: undefined;
+      };
+      resolve_wa_chef: { Args: { sender_phone: string }; Returns: string };
+      wa_normalize_phone: { Args: { value: string }; Returns: string };
     };
     Enums: {
       [_ in never]: never;
@@ -474,9 +1094,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {},
   },
