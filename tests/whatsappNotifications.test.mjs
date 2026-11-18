@@ -183,7 +183,7 @@ test("the agent chooses a style and the worker saves exactly what it sends", asy
   assert.equal(saved.args.target_phone, phone);
   assert.equal(
     send.body,
-    "*New catering request · OB300*\n\nA new request came in for Test lunch.\n\nWant the details? Just reply here.",
+    "Hey, a new catering request came in for Test lunch (OB300).\n\nWant to take a look? Reply here and I can share the details.",
   );
   assert.doesNotMatch(
     JSON.stringify(model.doGenerateCalls),
@@ -216,7 +216,7 @@ test("invalid model choices and extra prose cannot change a declined booking", a
     const body = app.events.find(event => event.name === "send").body;
     assert.equal(
       body,
-      "*Kitchen booking declined*\n\nTest booking\n\nRef. test",
+      "Quick update: your kitchen booking for Test booking wasn't approved.\n\nRef. test",
     );
   }
 });
@@ -290,7 +290,10 @@ test("a booking spanning midnight shows both Oakland dates and preserves its app
   });
   assert.equal(await app.worker.sendNext(), true);
   const body = app.events.find(event => event.name === "send").body;
-  assert.match(body, /^\*Kitchen booking approved\*/);
+  assert.match(
+    body,
+    /^Good news, your kitchen booking for Test kitchen booking is approved\./,
+  );
   assert.match(
     body,
     /Tue, Nov 24, 2026 at 11:00 PM–Wed, Nov 25, 2026 at 1:00 AM \(Oakland time\)/,

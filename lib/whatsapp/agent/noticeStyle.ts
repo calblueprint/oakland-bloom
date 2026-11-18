@@ -120,18 +120,47 @@ const defaultStyle: StyleChoice = {
   inviteDetails: true,
 };
 
-/** Writes the notice using approved phrasing for its actual outcome. */
+/** Uses a conversational first line whose wording is tied to the actual event and outcome. */
+function warmIntro(facts: z.infer<typeof noticeFacts>) {
+  const { notificationKind, status, reference } = facts;
+  const title = facts.title?.replace(/\s+/g, " ").trim();
+  const forTitle = title ? ` for ${title}` : "";
+  if (notificationKind === "booking_update") {
+    switch (status) {
+      case "approved":
+        return `Good news, your kitchen booking${forTitle} is approved.`;
+      case "pending":
+        return `Your kitchen booking request${forTitle} came through. It's still pending.`;
+      case "denied":
+        return `Quick update: your kitchen booking${forTitle} wasn't approved.`;
+      case "removed":
+        return `Your kitchen booking${forTitle} was removed.`;
+      default:
+        return `There's an update to your kitchen booking${forTitle}.`;
+    }
+  }
+
+  const event = title ? `${title} (${reference})` : reference;
+  if (notificationKind === "catering_alert")
+    return `Hey, a new catering request came in for ${event}.`;
+  if (status === "closed")
+    return `Quick update: the catering request for ${event} has closed.`;
+  if (status === "accepted")
+    return `Quick update: the catering request for ${event} was accepted.`;
+  if (status === "open")
+    return `Quick update on ${event}. It's still open for responses.`;
+  return `There's an update to the catering request for ${event}.`;
+}
+
+/** Renders the full notice from canonical facts and the agent's style choice. */
 function renderNotice(facts: z.infer<typeof noticeFacts>, choice: StyleChoice) {
   const parts = makeParts(facts);
-  const { notificationKind, status } = facts;
-  let lead = parts.TITLE;
-  if (lead && choice.tone === "warm") {
-    if (notificationKind === "catering_alert")
-      lead = `A new request came in for ${lead}.`;
-    else if (notificationKind === "catering_update")
-      lead = `Quick update on ${lead}.`;
-    else if (status === "approved") lead = `You're all set for ${lead}.`;
-  }
+  const intro =
+    choice.tone === "warm"
+      ? warmIntro(facts)
+      : [parts.HEADLINE, [parts.TITLE, parts.STATUS].filter(Boolean).join(" ")]
+          .filter(Boolean)
+          .join("\n\n");
 
   const joined = (...items: (string | undefined)[]) =>
     items.filter(Boolean).join(" · ");
@@ -140,16 +169,15 @@ function renderNotice(facts: z.infer<typeof noticeFacts>, choice: StyleChoice) {
       ? [joined(parts.WHEN, parts.WHERE), joined(parts.EQUIPMENT, parts.PEOPLE)]
       : [parts.WHEN, parts.WHERE, parts.EQUIPMENT, parts.PEOPLE];
   const canShareDetails =
-    notificationKind === "catering_alert" ||
-    (notificationKind === "catering_update" && status === "open");
+    facts.notificationKind === "catering_alert" ||
+    (facts.notificationKind === "catering_update" && facts.status === "open");
   return [
-    parts.HEADLINE,
-    [lead, parts.STATUS].filter(Boolean).join(" "),
+    intro,
     details.filter(Boolean).join("\n"),
     parts.DETAILS,
     parts.REFERENCE,
     choice.inviteDetails && canShareDetails
-      ? "Want the details? Just reply here."
+      ? "Want to take a look? Reply here and I can share the details."
       : undefined,
   ]
     .filter(Boolean)
@@ -170,9 +198,9 @@ export async function styleAgentNotice(
     const draft = await generateText({
       model,
       system: `Choose how Oakland Bloom should format this WhatsApp notice.
-"warm" adds a short conversational lead where appropriate. "direct" uses the title on its own.
+Prefer "warm" for a notice that reads like a brief text from a coordinator. Use "direct" for a compact status card.
 "compact" combines related details on a line. "spaced" gives each detail its own line.
-Request an invitation only when it would help with an open catering request.
+Include an invitation when offering to share details would help the chef. The app permits it for open catering requests only.
 The app writes the actual words and enforces the status and any action the chef can take.`,
       prompt: JSON.stringify({
         event: facts.notificationKind,

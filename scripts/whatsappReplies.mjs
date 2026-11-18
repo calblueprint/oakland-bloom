@@ -270,6 +270,12 @@ async function main() {
       }
     : undefined;
   const workers = settings.phones.map(phone => ({
+    async recoverSends() {
+      const { error } = await db.rpc("resume_wa_after_uncertain_send", {
+        target_phone: phone,
+      });
+      if (error) throw new Error("Uncertain send recovery failed.");
+    },
     replies: createReplyWorker({
       rpc: (name, args) => db.rpc(name, args),
       model,
@@ -320,17 +326,11 @@ async function main() {
     for (const worker of workers) {
       if (!running) break;
       try {
-        if (await worker.notifications.sendNext()) {
-          console.log("Meta accepted a notification.");
-          signal.wake();
-        }
-      } catch (error) {
-        console.error(
-          error instanceof MetaApiError
-            ? `Meta rejected a notice (HTTP ${error.status}, code ${error.code ?? "unknown"}).`
-            : "Notice attempt failed; check the database outbox.",
-        );
+        await worker.recoverSends();
+      } catch {
+        console.error("Uncertain send recovery failed.");
       }
+      // Answer the chef before sending an unrelated proactive update.
       try {
         const result = await worker.replies.runOnce();
         if (result.processed) console.log("Saved an AI reply.");
@@ -343,6 +343,18 @@ async function main() {
           error instanceof MetaApiError
             ? `Meta rejected a reply (HTTP ${error.status}, code ${error.code ?? "unknown"}).`
             : "Reply attempt failed; check the database outbox and token validity.",
+        );
+      }
+      try {
+        if (await worker.notifications.sendNext()) {
+          console.log("Meta accepted a notification.");
+          signal.wake();
+        }
+      } catch (error) {
+        console.error(
+          error instanceof MetaApiError
+            ? `Meta rejected a notice (HTTP ${error.status}, code ${error.code ?? "unknown"}).`
+            : "Notice attempt failed; check the database outbox.",
         );
       }
     }

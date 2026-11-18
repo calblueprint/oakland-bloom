@@ -370,7 +370,7 @@ test("reset clears session memory and test responses while preserving chefs and 
     handoffs: [],
     receipts: [],
   });
-  const fresh = await respond(f, "yo");
+  const fresh = await respond(f, "What can you help with?");
   assert.match(
     JSON.stringify(fresh.model.doGenerateCalls[0].prompt),
     /\\"firstReply\\":true/,
@@ -544,7 +544,7 @@ test("an acceptance added after proposing prevents confirmation from changing it
 test("the automated-assistant disclosure is requested only on the first reply", async t => {
   // Disclosing once is honest; repeating it every message makes the chat robotic.
   const f = await fixture(t);
-  const first = await respond(f, "hi");
+  const first = await respond(f, "what can you help with?");
   const second = await respond(f, "what gigs are open?");
   assert.match(
     JSON.stringify(first.model.doGenerateCalls[0].prompt),
@@ -554,6 +554,36 @@ test("the automated-assistant disclosure is requested only on the first reply", 
     JSON.stringify(second.model.doGenerateCalls[0].prompt),
     /\\"firstReply\\":false/,
   );
+});
+
+test("stand-alone greetings and thanks are brief, language matched, and replayable without a model", async t => {
+  const f = await fixture(t);
+  const model = scriptedModel();
+  const agent = createCateringAgent({ model, store: f.store });
+  const greeting = f.message("¡Hola!");
+  const intro = await agent.respond(greeting);
+  assert.match(intro.reply, /automatizado de Oakland Bloom/);
+  assert.deepEqual(await agent.respond(greeting), intro);
+  assert.deepEqual(await agent.respond(f.message("Muchas gracias!")), {
+    reply: "¡De nada!",
+    outcome: "conversation",
+    toolCalls: [],
+  });
+  assert.equal(
+    (await agent.respond(f.message("Hey!"))).reply,
+    "Hey! What can I help with?",
+  );
+  assert.equal(model.doGenerateCalls.length, 0);
+  assert.equal((await f.state()).receipts.length, 3);
+});
+
+test("a thank-you during a pending confirmation never records interest", async t => {
+  const f = await fixture(t);
+  await respond(f, "interested", [propose()]);
+  await respond(f, "thanks!");
+  const state = await f.state();
+  assert.equal(state.conversations[0].pending, null);
+  assert.deepEqual(state.responses, []);
 });
 
 test("later confirmation records only the exact server-proposed tuple", async t => {
