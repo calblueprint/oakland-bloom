@@ -1,6 +1,7 @@
 import type {
   InboundBatch,
   InboundMessage,
+  MetaDeliveryReceipt,
   RejectedMessage,
 } from "./inboundMessage.ts";
 import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
@@ -10,8 +11,7 @@ import { InboundParseError, normalizePhone } from "./inboundMessage.ts";
  *
  * A single POST may batch several entries, changes, and messages, and batching
  * is explicitly not guaranteed, so every level is an array and all of them are
- * walked. Non-message changes (delivery statuses) carry no `messages` array and
- * are skipped rather than treated as errors.
+ * walked. Delivery receipts may arrive with or without incoming messages.
  *
  * A broken envelope (wrong `object`, missing `entry`/`changes`/`value`) throws,
  * since nothing in it can be trusted. A single bad message is collected in
@@ -42,6 +42,7 @@ export function parseMetaPayload(
 
   const messages: InboundMessage[] = [];
   const rejected: RejectedMessage[] = [];
+  const deliveryReceipts: MetaDeliveryReceipt[] = [];
 
   // Meta nests batches at three levels. Walk every item so we do not lose a
   // second chef's message just because it arrived in the same HTTP request.
@@ -55,13 +56,8 @@ export function parseMetaPayload(
       const value = change.value;
       if (!isRecord(value)) return fail("Change is missing a `value` object.");
 
-      const rawMessages = value.messages;
-      // Delivery/read status callbacks have no `messages` key. Not an error.
-      if (rawMessages === undefined) continue;
-      if (!Array.isArray(rawMessages))
-        fail("`value.messages` is not an array.");
-      // An app secret can sign callbacks for several business numbers. Only
-      // ingest messages addressed to this deployment's configured number.
+      // One app can sign callbacks for several business numbers. Scope both
+      // inbound messages and outgoing receipts to this deployment's number.
       if (
         phoneNumberId &&
         (!isRecord(value.metadata) ||
@@ -69,6 +65,31 @@ export function parseMetaPayload(
       )
         continue;
 
+      if (Array.isArray(value.statuses)) {
+        for (const item of value.statuses as unknown[]) {
+          if (
+            !isRecord(item) ||
+            typeof item.id !== "string" ||
+            !/^wamid\.\S{1,489}$/.test(item.id)
+          )
+            continue;
+          const { status } = item;
+          if (
+            status === "delivered" ||
+            status === "read" ||
+            status === "failed"
+          ) {
+            deliveryReceipts.push({
+              providerMessageId: `meta:${item.id}`,
+              status,
+            });
+          }
+        }
+      }
+      const rawMessages = value.messages;
+      if (rawMessages === undefined) continue;
+      if (!Array.isArray(rawMessages))
+        fail("`value.messages` is not an array.");
       for (const message of rawMessages as unknown[]) {
         try {
           messages.push(parseMetaMessage(message, fail));
@@ -85,7 +106,11 @@ export function parseMetaPayload(
     }
   }
 
-  return { messages, rejected };
+  return {
+    messages,
+    rejected,
+    ...(deliveryReceipts.length ? { deliveryReceipts } : {}),
+  };
 }
 
 /** Validates one Meta message and returns normalized content, sender, reply context, and time. */

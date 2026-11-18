@@ -2,7 +2,7 @@ import type { LanguageModel } from "ai";
 import type { MetaClient } from "../metaClient.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { MetaApiError } from "../metaClient.ts";
+import { isDefiniteMetaRefusal } from "../metaClient.ts";
 import { createCateringAgent } from "./conversation.ts";
 import { kitchenAvailabilitySchema, kitchenBookingsSchema } from "./kitchen.ts";
 import { messageSchema, stateSchema } from "./store.ts";
@@ -76,6 +76,8 @@ export function createReplyWorker({
       ) {
         throw new Error("Claimed turn does not belong to the test recipient.");
       }
+      // Kitchen lookups recheck this sender and the current inbox lease. The
+      // model supplies a requested time, never an owner ID or another chef's phone.
       const agent = createCateringAgent({
         model,
         kitchen: {
@@ -85,6 +87,7 @@ export function createReplyWorker({
                 target_phone: phone,
                 worker_id: workerId,
                 inbound_id: turn.inboundId,
+                include_resources: true,
               }),
             ),
           checkAvailability: async input =>
@@ -146,15 +149,7 @@ export function createReplyWorker({
         replyTo: outgoing.replyTo,
       });
     } catch (error) {
-      // A definite API refusal means no message was accepted. A timeout, rate
-      // limit or server failure stays unknown for review rather than risking a duplicate.
-      if (
-        error instanceof MetaApiError &&
-        error.status >= 400 &&
-        error.status < 500 &&
-        error.status !== 408 &&
-        error.status !== 429
-      ) {
+      if (isDefiniteMetaRefusal(error)) {
         await database("fail_wa_reply", {
           outbound_id: outgoing.id,
           worker_id: workerId,
@@ -162,6 +157,8 @@ export function createReplyWorker({
       }
       throw error;
     }
+    // Record Meta's acceptance separately. If this call fails, the outbox
+    // still records an uncertain send and will hold it for review.
     await database("finish_wa_reply", {
       outbound_id: outgoing.id,
       worker_id: workerId,

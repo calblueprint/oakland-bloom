@@ -38,6 +38,9 @@ const availabilityNotice =
 export const kitchenBookingSchema = z.strictObject({
   id: z.uuid(),
   amenity,
+  amenities: z.array(amenity).nonempty().optional(),
+  title: z.string().min(1).max(240).optional(),
+  quoted: z.literal(true).optional(),
   startAt: timestamp,
   endAt: timestamp,
   people: z.number().int().positive(),
@@ -67,7 +70,9 @@ export interface KitchenAccess {
 }
 
 /** Adds Oakland time labels without exposing another chef's schedule or identity. */
-function withLocalTimes<T extends KitchenAvailabilityInput>(value: T) {
+function withLocalTimes<
+  T extends Pick<KitchenAvailabilityInput, "startAt" | "endAt">,
+>(value: T) {
   return {
     ...value,
     startsLocal: localTime.format(new Date(value.startAt)),
@@ -142,7 +147,7 @@ export function createKitchenTools({
   return {
     list_my_kitchen_bookings: tool({
       description:
-        "List this chef's kitchen bookings, including pending and denied requests. Requires a linked approved web account.",
+        "List this chef's kitchen bookings and their actual equipment, including pending and denied requests. If the chef replies to a booking notice, use the row marked quoted for that follow-up. Requires a linked approved web account.",
       inputSchema: noInput,
       execute: async input =>
         runTool("list_my_kitchen_bookings", input, async () => {
@@ -158,7 +163,15 @@ export function createKitchenTools({
             ) {
               return { error: "kitchen_unavailable" };
             }
-            return bookings.map(withLocalTimes);
+            return bookings.map(
+              ({ amenity: legacyAmenity, amenities, ...row }) =>
+                // Canonical resources replace the legacy 'kitchen' summary.
+                withLocalTimes(
+                  amenities
+                    ? { ...row, amenities }
+                    : { ...row, amenity: legacyAmenity },
+                ),
+            );
           } catch {
             return { error: "kitchen_unavailable" };
           }
@@ -166,7 +179,7 @@ export function createKitchenTools({
     }),
     check_kitchen_availability: tool({
       description:
-        "Check approved booking conflicts for a known amenity and explicit start/end timestamps with timezone offsets. This does not confirm opening hours, capacity, or a booking. Each query can span at most 31 days.",
+        "Check approved booking conflicts for an amenity and explicit start/end timestamps with timezone offsets. Use oven, bar_prep_table, salad_bar_table, or kitchen for all three. This does not confirm opening hours, capacity, or a booking. Each query can span at most 31 days.",
       inputSchema: kitchenAvailabilityInputSchema,
       execute: async input =>
         runTool("check_kitchen_availability", input, async () => {

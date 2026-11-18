@@ -44,6 +44,22 @@ shared project settings stay in `.env.local`. Setup refuses hosted databases.
 Repeating `pnpm db:test` preserves responses and chat history. This is a minimal
 WhatsApp fixture schema, not the web app's complete onboarding setup.
 
+Run `pnpm db:fixture-ui` and open [the fixture lab](http://127.0.0.1:55325).
+Choose a test chef, set their test consent, then create or update catering
+requests and bookings. The page shows the latest outbox status. **Generate with
+Claude** fills a fictional catering draft for you to check before saving.
+Generation needs `ANTHROPIC_API_KEY` and a native Claude `WHATSAPP_AGENT_MODEL`
+in `.env.local`. The lab always uses the local fake database and sends no
+messages itself.
+
+For live fixture delivery, run `pnpm whatsapp:fixture-delivery` with the hosted
+pilot's environment variables. The single `WHATSAPP_RECIPIENTS` number must
+match local Test Chef A. While the process runs, new catering requests for
+that chef wake the normal notification worker on commit. The worker checks the
+pilot's consent and recent WhatsApp activity before sending. **Refresh queue
+status** shows delivery once the worker has matched Meta's receipt. The worker
+logs the time from the local queue entry to the receipt.
+
 OB101/OB102 are open examples, OB103 lacks event details, OB104 is closed,
 OB105 is accepted, and OB201 belongs to another chef. Try “list my requests”,
 “tell me about OB102”, “I'm interested in OB102”, then “confirm”.
@@ -110,20 +126,51 @@ synthetic database. The test admin's login details are in `.env.whatsapp-test.lo
 
 Staff replies require takeover and an open 24-hour reply window. Assigned open
 catering requests automatically queue alerts only for already opted-in chefs.
-The worker sends alerts and staff replies without model calls, still limited to
+Booking creation, edits, approvals, denials, and removal also queue owner-only updates.
+Already announced catering requests queue updates when their details or status change.
+Rapid edits coalesce before delivery; past events and internal metadata changes are skipped.
+The agent chooses a tone and layout from supported options. Code renders the
+actual status and event facts in a short message, and the worker checks eligibility
+again before sending. Interrupted drafts expire and can be retried. After a two-minute
+grace period, uncertain sends move to review and later chat can continue. The worker
+never resends those messages automatically. STOP is recorded when the message is
+saved, even when the WhatsApp reply window has expired.
+Staff replies and approved Meta templates keep their original wording. Delivery is limited to
 `WHATSAPP_TEST_RECIPIENT` locally or the explicit hosted pilot list. Outside the reply window, alerts require an approved
 template configured with `WHATSAPP_ALERT_TEMPLATE_NAME` and
 `WHATSAPP_ALERT_TEMPLATE_LANGUAGE`; its body variables are reference and title.
-Missing templates and uncertain sends remain visible for review. No dashboard,
-email, or staff-number notifications are added; an admin client consumes this API.
+Missing templates and uncertain sends remain visible for review.
+Booking and catering-update notices wait for a fresh reply window; the catering-assignment
+template cannot be reused for them. The bot treats accepted notices as past
+context and omits notices with a confirmed delivery failure. Kitchen follow-ups
+use all reserved equipment and can identify a booking from a quoted notice.
+
+Database wake callbacks use `pg_net` and Supabase Vault. After applying the WhatsApp migrations through
+`20261118040000_whatsapp_resume_after_uncertain_send.sql`, set a random 32+ character URL-safe
+`WHATSAPP_DATABASE_WEBHOOK_TOKEN` on the worker. With server-only access, call
+`configure_wa_database_webhook(callback_url, callback_token)` using the same token and
+`https://<worker-host>/api/whatsapp/database-events`. Both values are stored in Vault;
+passing both as null disables callbacks. The callback carries only `queue_changed`,
+with a short-lived HMAC signature, never chef records or a permanent credential.
+Changes wake the worker after commit; a 30-second recovery poll covers missed callbacks.
+Verify responses in `net._http_response`; uncertain WhatsApp sends still need staff review.
+No dashboard, email, or staff-number notifications are added; an admin client consumes this API.
 
 ## Code and Checks
+
+Start with `scripts/whatsappReplies.mjs` for the full flow. It checks inbound
+signatures, saves messages, and wakes the worker. A turn reads one chef's
+messages and tools, saves the reply, then sends it from the outbox. Proactive
+changes follow the same outbox pattern. A draft can be retried, but a send
+that may have reached Meta goes to review so it cannot be sent twice.
 
 - `lib/whatsapp/agent/conversation.ts`: conversation context and model selection.
 - `lib/whatsapp/agent/tools.ts`: catering tools and access/confirmation checks.
 - `lib/whatsapp/agent/kitchen.ts`: scoped kitchen reads and staff-review requests.
 - `lib/whatsapp/agent/replies.ts`: inbox processing, commit, and outgoing delivery.
-- `lib/whatsapp/agent/notifications.ts`: gig alerts and staff replies without inference.
+- `lib/whatsapp/agent/notifications.ts`: claim, prepare, send, and record a notice.
+- `lib/whatsapp/agent/noticeStyle.ts`: model-selected layout and fixed event facts.
+- `scripts/whatsappFixtureUi.mjs`: local test inserts and edits behind the HTML lab.
 - `lib/whatsapp/staffApi.ts`: authenticated staff API validation and dispatch.
 - `lib/whatsapp/agent/store.ts`: shared state validation and demo file storage.
 - `supabase/migrations/*whatsapp*.sql`: server-only storage and guarded functions.

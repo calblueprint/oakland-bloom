@@ -99,6 +99,13 @@ export const stateSchema = seedSchema.extend({
     )
     .max(12)
     .optional(),
+  // Recent delivered updates let the bot understand follow-ups about its own notices.
+  notificationMessages: z
+    .array(
+      z.strictObject({ body: z.string().max(4000), sentAt: z.iso.datetime() }),
+    )
+    .max(12)
+    .optional(),
   quotedCateringRequest: z
     .strictObject({ reference: referenceSchema })
     .optional(),
@@ -215,6 +222,7 @@ export class FileAgentStore implements AgentStore {
       state.handoffs = [];
       state.receipts = [];
       delete state.staffMessages;
+      delete state.notificationMessages;
       delete state.quotedCateringRequest;
     });
   }
