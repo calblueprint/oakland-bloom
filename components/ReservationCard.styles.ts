@@ -6,17 +6,35 @@ import COLORS from "@/styles/colors";
 export const StyledCard = styled.div`
   display: flex;
   align-items: center;
+  justify-content: space-between;
+
   gap: 1.5rem;
 
-  padding: 1.2rem;
-  border: 1px solid ${COLORS.border};
-  border-radius: 0.75rem;
-  background-color: ${COLORS.white};
+  width: 100%;
+  min-height: 94px;
+  padding: 12px 32px;
+  box-sizing: border-box;
+
+  border: 1px solid #e4e4e4;
+  border-radius: 10px;
+  background-color: #ffffff;
 
   /* reduce spacing and padding on mobile screens */
   @media (max-width: 480px) {
     gap: 0.75rem;
-    padding: 0.75rem;
+    padding: 12px;
+  }
+`;
+
+// groups the date and reservation details together with a 32px gap
+export const ReservationInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  min-width: 0;
+
+  @media (max-width: 480px) {
+    gap: 12px;
   }
 `;
 
@@ -25,54 +43,81 @@ export const DateSection = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  min-width: 6rem;
-  padding-right: 1rem;
-  border-right: 1px solid ${COLORS.border};
+  justify-content: center;
+
+  flex-shrink: 0;
+  width: 80px;
+  padding-right: 30px;
+
+  border-right: 1px solid #e4e4e4;
 `;
 
 export const Weekday = styled.span`
-  font-size: 0.75rem;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 16px;
+  letter-spacing: 0.8px;
   color: #8a8a8a;
 `;
 
 export const DayNumber = styled.span`
-  font-size: 1.5rem;
-  font-weight: 600;
+  color: var(--Ink, #20201e);
+  font-size: 20px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 24px; /* 120% */
+  letter-spacing: -0.2px;
 `;
 
 export const MonthYear = styled.span`
-  font-size: 0.75rem;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 24px;
   color: #8a8a8a;
+  white-space: nowrap;
 `;
 
 export const ReservationTime = styled.p`
-  font-size: 0.875rem;
+  color: var(--Ink, #20201e);
+  font-size: 14px;
+  font-style: normal;
   font-weight: 600;
-  color: #242424;
+  line-height: 20px;
+
   margin: 0 0 0.25rem 0;
 `;
 
 export const GuestCount = styled.p`
-  font-size: 0.75rem;
-  color: #8a8a8a;
+  color: var(--Text-Secondary, #707070);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: 20px;
+
   margin: 0 0 0.25rem 0;
 `;
 
 // reuseable color tag for each amenity
 // when we figure out which amenity tags -> add specific color filtering?
 export const AmenityTag = styled.span`
-  display: inline-block;
-  padding: 0.2rem 0.5rem;
   border-radius: 0.375rem;
-  background-color: #e5f3ed;
-  color: #28785b;
-  font-size: 0.75rem;
+  background-color: #e5f2ed;
+  display: inline-flex;
+  padding: 0 8px;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  color: #367c65;
+  font-size: 11px;
+  font-style: normal;
   font-weight: 500;
+  line-height: 20px; /* 181.818% */
+  letter-spacing: -0.22px;
   margin-top: 0.25rem;
 
   /* prevent long amenity names from overextending on mobile */
   max-width: 100%;
-  hite-space: normal;
+  white-space: normal;
   overflow-wrap: anywhere;
 `;
 
@@ -83,23 +128,40 @@ export const StatusSection = styled.div`
 
 // $status indicates which colors to use for the styled component
 export const StatusBadge = styled.span<{ $status: string }>`
-  display: inline-block;
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+
+  padding: 4px 12px;
+  border-radius: 15px;
+
+  font-size: 11px;
   font-weight: 500;
+  line-height: 20px;
+  letter-spacing: -0.22px;
+
+  text-transform: capitalize;
 
   background-color: ${({ $status }) =>
     $status === "approved"
-      ? "#e8f0ff"
+      ? "#e8f1ff"
       : $status === "denied"
-        ? "#ffe8ec"
-        : "#f1e8ff"};
+        ? "#fde8ec"
+        : "#f1ebff"};
+
+  border: 1px solid
+    ${({ $status }) =>
+      $status === "approved"
+        ? "#C9DDFB"
+        : $status === "denied"
+          ? "#F8CDD5"
+          : "#DED0FA"};
 
   color: ${({ $status }) =>
     $status === "approved"
-      ? "#245bb2"
+      ? "#245ba8"
       : $status === "denied"
-        ? "#d11a36"
-        : "#7b45c5"};
+        ? "#BD2942"
+        : "#7042B5"};
 `;

@@ -3,11 +3,11 @@ import styled from "styled-components";
 // wrap page content in a styled container, so cards don't stretch across entire browser page
 export const PageContainer = styled.main`
   width: 100%;
-  max-width: 900px;
+  max-width: 933px;
   margin: 0 auto;
 
   /* top & bottom padding; left and right padding; bottom padding */
-  padding: 3rem 2rem;
+  padding: 3rem 2rem 2rem;
 
   @media (max-width: 600px) {
     padding: 1rem;

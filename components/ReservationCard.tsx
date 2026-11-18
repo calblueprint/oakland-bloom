@@ -1,12 +1,14 @@
 "use client";
 
 import type { Reservation } from "@/types/reservations";
+import { IconSvgs } from "@/lib/icons";
 import {
   AmenityTag,
   DateSection,
   DayNumber,
   GuestCount,
   MonthYear,
+  ReservationInfo,
   ReservationTime,
   StatusBadge,
   StatusSection,
@@ -49,6 +51,12 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     hour12: true,
   });
 
+  const statusIcons = {
+    approved: "statusApproved",
+    denied: "statusDenied",
+    pending: "statusPending",
+  };
+
   const formattedStartTime = timeFormatter.format(
     new Date(reservation.start_time),
   );
@@ -56,27 +64,37 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
   return (
     <StyledCard>
-      <DateSection>
-        <Weekday>{weekday.toUpperCase()}</Weekday>
-        <DayNumber>{day}</DayNumber>
-        <MonthYear>{monthYear}</MonthYear>
-      </DateSection>
+      <ReservationInfo>
+        <DateSection>
+          <Weekday>{weekday.toUpperCase()}</Weekday>
+          <DayNumber>{day}</DayNumber>
+          <MonthYear>{monthYear}</MonthYear>
+        </DateSection>
 
-      <div>
-        <ReservationTime>
-          {formattedStartTime} – {formattedEndTime}
-        </ReservationTime>
+        <div>
+          <ReservationTime>
+            {formattedStartTime} – {formattedEndTime}
+          </ReservationTime>
 
-        <GuestCount>
-          {reservation.num_people}{" "}
-          {reservation.num_people === 1 ? "guest" : "guests"}
-        </GuestCount>
+          <GuestCount>
+            {reservation.num_people}{" "}
+            {reservation.num_people === 1 ? "guest" : "guests"}
+          </GuestCount>
 
-        <AmenityTag>{reservation.amenity}</AmenityTag>
-      </div>
+          <AmenityTag>
+            {IconSvgs.amenityTable}
+            {reservation.amenity}
+          </AmenityTag>
+        </div>
+      </ReservationInfo>
 
       <StatusSection>
         <StatusBadge $status={reservation.approval_status}>
+          {reservation.approval_status === "approved"
+            ? IconSvgs.statusApproved
+            : reservation.approval_status === "denied"
+              ? IconSvgs.statusDenied
+              : IconSvgs.statusPending}
           {reservation.approval_status}
         </StatusBadge>
       </StatusSection>

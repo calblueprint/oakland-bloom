@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { Instrument_Sans } from "next/font/google";
+import NavButton from "@/components/NavButton";
 import { ReservationCard } from "@/components/ReservationCard";
 import { ReservationList } from "@/components/ReservationList";
 import { mockReservations } from "@/data/mockReservations";
@@ -11,6 +13,12 @@ import {
   TabButton,
   TabContainer,
 } from "./styles";
+
+// defining font
+const instrumentSans = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument-sans",
+});
 
 export default function ReservationsPage() {
   // remembers and selects tab (upcoming is default vs past)
@@ -29,7 +37,8 @@ export default function ReservationsPage() {
   });
 
   return (
-    <PageContainer>
+    // makes sure all the elements inherit the same instrument sans font
+    <PageContainer className={instrumentSans.className}>
       <PageTitle>Your Reservations</PageTitle>
       <PageSubtitle>View and manage your kitchen reservations.</PageSubtitle>
 
