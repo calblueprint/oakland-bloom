@@ -1,14 +1,17 @@
+import type { LanguageModel } from "ai";
 import type { MetaClient } from "../metaClient.ts";
 import type { Rpc } from "./replies.ts";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { MetaApiError } from "../metaClient.ts";
+import { styleAgentNotice } from "./noticeStyle.ts";
 
 const notificationSchema = z.discriminatedUnion("kind", [
   z.strictObject({
     id: z.uuid(),
     phone: z.string().regex(/^[1-9]\d{1,14}$/),
     kind: z.literal("text"),
+    facts: z.unknown().optional(),
     body: z.string().min(1).max(4000),
   }),
   z.strictObject({
@@ -24,16 +27,18 @@ const notificationSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
-/** Sends persisted gig alerts and staff replies without an inference call. */
+/** Delivers approved templates, staff replies, and agent-written notices. */
 export function createNotificationWorker({
   rpc,
   meta,
+  model,
   phone,
   template,
   workerId = randomUUID(),
 }: {
   rpc: Rpc;
   meta: Pick<MetaClient, "sendText" | "sendTemplate">;
+  model?: LanguageModel;
   phone: string;
   template?: { name: string; language: string };
   workerId?: string;
@@ -59,12 +64,15 @@ export function createNotificationWorker({
   return {
     /** Claims one eligible notification; uncertain delivery remains held for staff review. */
     async sendNext() {
-      const data = await database("claim_wa_notification", {
-        target_phone: phone,
-        worker_id: workerId,
-        template_name: template?.name ?? null,
-        template_language: template?.language ?? null,
-      });
+      const data = await database(
+        model ? "claim_wa_notification_for_agent" : "claim_wa_notification",
+        {
+          target_phone: phone,
+          worker_id: workerId,
+          template_name: template?.name ?? null,
+          template_language: template?.language ?? null,
+        },
+      );
       if (data === null) return false;
       const notification = notificationSchema.parse(data);
       if (notification.phone !== phone)
@@ -72,12 +80,29 @@ export function createNotificationWorker({
           "Notification does not belong to the configured test recipient.",
         );
 
+      let body = notification.body;
+      if (
+        model &&
+        notification.kind === "text" &&
+        notification.facts !== undefined
+      ) {
+        body = await styleAgentNotice(model, notification.facts, body);
+        // Recheck permission and current facts after drafting, then save the exact text to send.
+        const ready = await database("prepare_wa_agent_notice", {
+          notification_id: notification.id,
+          worker_id: workerId,
+          styled_body: body,
+          target_phone: phone,
+        });
+        if (ready !== true) return false;
+      }
+
       let sent;
       try {
         sent =
           notification.kind === "template"
             ? await meta.sendTemplate(phone, notification.template)
-            : await meta.sendText(phone, notification.body);
+            : await meta.sendText(phone, body);
       } catch (error) {
         // Only a definite refusal is safe to label failed. Never retry an ambiguous send.
         if (

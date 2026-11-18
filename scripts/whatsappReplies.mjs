@@ -279,6 +279,7 @@ async function main() {
     notifications: createNotificationWorker({
       rpc: (name, args) => db.rpc(name, args),
       meta,
+      model,
       phone,
       template,
     }),

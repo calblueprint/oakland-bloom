@@ -113,7 +113,9 @@ catering requests automatically queue alerts only for already opted-in chefs.
 Booking creation, edits, approvals, denials, and removal also queue owner-only updates.
 Already announced catering requests queue updates when their details or status change.
 Rapid edits coalesce before delivery; past events and internal metadata changes are skipped.
-The worker sends notices and staff replies without model calls, still limited to
+The agent drafts automated notices around fixed event facts. A readable fallback
+covers a failed draft, and the delivery worker rechecks eligibility before sending.
+Staff replies and approved Meta templates keep their original wording. Delivery is limited to
 `WHATSAPP_TEST_RECIPIENT` locally or the explicit hosted pilot list. Outside the reply window, alerts require an approved
 template configured with `WHATSAPP_ALERT_TEMPLATE_NAME` and
 `WHATSAPP_ALERT_TEMPLATE_LANGUAGE`; its body variables are reference and title.
@@ -138,7 +140,7 @@ No dashboard, email, or staff-number notifications are added; an admin client co
 - `lib/whatsapp/agent/tools.ts`: catering tools and access/confirmation checks.
 - `lib/whatsapp/agent/kitchen.ts`: scoped kitchen reads and staff-review requests.
 - `lib/whatsapp/agent/replies.ts`: inbox processing, commit, and outgoing delivery.
-- `lib/whatsapp/agent/notifications.ts`: gig alerts and staff replies without inference.
+- `lib/whatsapp/agent/notifications.ts`: guarded delivery of notices and staff replies.
 - `lib/whatsapp/staffApi.ts`: authenticated staff API validation and dispatch.
 - `lib/whatsapp/agent/store.ts`: shared state validation and demo file storage.
 - `supabase/migrations/*whatsapp*.sql`: server-only storage and guarded functions.
