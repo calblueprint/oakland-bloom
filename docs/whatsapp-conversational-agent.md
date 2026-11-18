@@ -44,6 +44,14 @@ shared project settings stay in `.env.local`. Setup refuses hosted databases.
 Repeating `pnpm db:test` preserves responses and chat history. This is a minimal
 WhatsApp fixture schema, not the web app's complete onboarding setup.
 
+Run `pnpm db:fixture-ui` and open [the fixture lab](http://127.0.0.1:55325).
+Choose a test chef, set their test consent, then create or update catering
+requests and bookings. The page shows the latest outbox status. **Generate with
+Claude** fills a fictional catering draft for you to check before saving.
+Generation needs `ANTHROPIC_API_KEY` and a native Claude `WHATSAPP_AGENT_MODEL`
+in `.env.local`. The lab always uses the local fake database and sends no
+messages itself.
+
 OB101/OB102 are open examples, OB103 lacks event details, OB104 is closed,
 OB105 is accepted, and OB201 belongs to another chef. Try “list my requests”,
 “tell me about OB102”, “I'm interested in OB102”, then “confirm”.
@@ -142,11 +150,19 @@ No dashboard, email, or staff-number notifications are added; an admin client co
 
 ## Code and Checks
 
+Start with `scripts/whatsappReplies.mjs` for the full flow. It checks inbound
+signatures, saves messages, and wakes the worker. A turn reads one chef's
+messages and tools, saves the reply, then sends it from the outbox. Proactive
+changes follow the same outbox pattern. A draft can be retried, but a send
+that may have reached Meta goes to review so it cannot be sent twice.
+
 - `lib/whatsapp/agent/conversation.ts`: conversation context and model selection.
 - `lib/whatsapp/agent/tools.ts`: catering tools and access/confirmation checks.
 - `lib/whatsapp/agent/kitchen.ts`: scoped kitchen reads and staff-review requests.
 - `lib/whatsapp/agent/replies.ts`: inbox processing, commit, and outgoing delivery.
-- `lib/whatsapp/agent/notifications.ts`: guarded delivery of notices and staff replies.
+- `lib/whatsapp/agent/notifications.ts`: claim, prepare, send, and record a notice.
+- `lib/whatsapp/agent/noticeStyle.ts`: model-selected layout and fixed event facts.
+- `scripts/whatsappFixtureUi.mjs`: local test inserts and edits behind the HTML lab.
 - `lib/whatsapp/staffApi.ts`: authenticated staff API validation and dispatch.
 - `lib/whatsapp/agent/store.ts`: shared state validation and demo file storage.
 - `supabase/migrations/*whatsapp*.sql`: server-only storage and guarded functions.

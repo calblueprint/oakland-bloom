@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WhatsApp fixture lab</title>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span>Local fake database</span>
+        <h1>WhatsApp fixture lab</h1>
+        <p>Create or update fake records and check what the bot queues.</p>
+      </header>
+
+      <form id="consent-form">
+        <fieldset disabled>
+          <legend>Test chef</legend>
+          <label>
+            Chef
+            <select id="chef" required></select>
+          </label>
+          <p id="consent-state">Choose a chef to see test consent.</p>
+          <button id="consent-button">Enable test consent</button>
+        </fieldset>
+      </form>
+
+      <section id="create-forms" aria-label="Create a test fixture">
+        <form data-action="create_catering">
+          <fieldset disabled>
+            <legend>New catering request</legend>
+            <label>
+              Title
+              <input
+                name="title"
+                required
+                maxlength="120"
+                placeholder="Test lunch"
+              />
+            </label>
+            <label>
+              Guest count
+              <input
+                name="guestCount"
+                type="number"
+                min="1"
+                max="500"
+                value="25"
+                required
+              />
+            </label>
+            <label>
+              Location (optional)
+              <input
+                name="location"
+                maxlength="200"
+                placeholder="Test kitchen"
+              />
+            </label>
+            <div>
+              <button>Create catering request</button>
+              <button id="generate" type="button">Generate with Claude</button>
+            </div>
+          </fieldset>
+        </form>
+
+        <form data-action="create_booking">
+          <fieldset disabled>
+            <legend>New kitchen booking</legend>
+            <label>
+              Kitchen resource
+              <select name="amenity" required>
+                <option value="oven">Oven</option>
+                <option value="bar_prep_table">Bar prep table</option>
+                <option value="salad_bar_table">Salad bar table</option>
+                <option value="kitchen">Whole kitchen</option>
+              </select>
+            </label>
+            <p>New fixtures are assigned a future test time.</p>
+            <button>Create kitchen booking</button>
+          </fieldset>
+        </form>
+      </section>
+
+      <p id="feedback" role="status" aria-atomic="true">Loading fixtures…</p>
+
+      <section aria-labelledby="fixtures-title">
+        <div>
+          <h2 id="fixtures-title">Fixtures created here</h2>
+          <button id="refresh" type="button">Refresh queue status</button>
+        </div>
+        <div id="fixtures"></div>
+        <p id="empty" hidden>No fixtures yet.</p>
+      </section>
+
+      <template id="fixture-card">
+        <article>
+          <div>
+            <h3></h3>
+            <span data-field="fixture-notice"></span>
+          </div>
+          <p data-field="fixture-meta"></p>
+          <p data-field="fixture-time"></p>
+        </article>
+      </template>
+
+      <template id="catering-edit">
+        <form data-action="update_catering">
+          <fieldset>
+            <input type="hidden" name="id" />
+            <label>
+              Guest count
+              <input
+                name="guestCount"
+                type="number"
+                min="1"
+                max="500"
+                required
+              />
+            </label>
+            <label>
+              Location (optional)
+              <input name="location" maxlength="200" />
+            </label>
+            <label>
+              Status
+              <select name="status">
+                <option value="open">Open</option>
+                <option value="closed">Closed</option>
+              </select>
+            </label>
+            <button>Save catering changes</button>
+          </fieldset>
+        </form>
+      </template>
+
+      <template id="booking-edit">
+        <form data-action="update_booking">
+          <fieldset>
+            <input type="hidden" name="id" />
+            <label>
+              Status
+              <select name="status">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="denied">Denied</option>
+              </select>
+            </label>
+            <button>Save booking status</button>
+          </fieldset>
+        </form>
+      </template>
+    </main>
+
+    <script>
+      const feedback = document.querySelector("#feedback");
+      const fixtures = document.querySelector("#fixtures");
+      const empty = document.querySelector("#empty");
+      const refresh = document.querySelector("#refresh");
+      const chefMenu = document.querySelector("#chef");
+      const consentForm = document.querySelector("#consent-form");
+      const consentState = document.querySelector("#consent-state");
+      const consentButton = document.querySelector("#consent-button");
+      const generate = document.querySelector("#generate");
+      const cateringForm = document.querySelector(
+        '[data-action="create_catering"]',
+      );
+      const fixtureCard = document.querySelector("#fixture-card");
+      const cateringEdit = document.querySelector("#catering-edit");
+      const bookingEdit = document.querySelector("#booking-edit");
+      const localTime = new Intl.DateTimeFormat("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+        timeZone: "America/Los_Angeles",
+      });
+      const resourceNames = {
+        oven: "Oven",
+        bar_prep_table: "Bar prep table",
+        salad_bar_table: "Salad bar table",
+        kitchen: "Whole kitchen",
+      };
+      const noticeNames = {
+        pending: "Notice queued",
+        blocked: "Notice blocked",
+        unknown: "Send unconfirmed",
+        sent: "Notice accepted by Meta",
+        failed: "Notice failed",
+        review: "Notice needs review",
+      };
+      const messages = {
+        create_catering: "Catering request created.",
+        create_booking: "Kitchen booking created.",
+        update_catering: "Catering request updated.",
+        update_booking: "Booking status updated.",
+        set_consent: "Test consent updated.",
+      };
+      let busy = false;
+      let chefs = [];
+
+      /** Reports progress and errors without moving keyboard focus. */
+      function showFeedback(message, error = false) {
+        feedback.textContent = error ? `Error: ${message}` : message;
+      }
+
+      /** Prevents a second change while a request is in flight. */
+      function setBusy(value) {
+        busy = value;
+        refresh.disabled = value;
+        for (const fieldset of document.querySelectorAll("fieldset")) {
+          fieldset.disabled = value || chefs.length === 0;
+        }
+      }
+
+      /** Builds one editable card, inserting strings from the database as text. */
+      function renderFixture(fixture) {
+        const card = fixtureCard.content.firstElementChild.cloneNode(true);
+        const isCatering = fixture.kind === "catering";
+        card.querySelector("h3").textContent = fixture.title;
+        card.querySelector('[data-field="fixture-notice"]').textContent =
+          noticeNames[fixture.noticeStatus] ?? "No notice yet";
+
+        const kind = isCatering ? "Catering" : "Kitchen booking";
+        const resource = resourceNames[fixture.amenity] ?? fixture.amenity;
+        card.querySelector('[data-field="fixture-meta"]').textContent = [
+          kind,
+          fixture.chef,
+          fixture.reference,
+          resource,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
+        if (fixture.when) {
+          const time = new Date(fixture.when);
+          if (!Number.isNaN(time.getTime())) {
+            card.querySelector('[data-field="fixture-time"]').textContent =
+              localTime.format(time) + " Oakland time";
+          }
+        }
+
+        const template = isCatering ? cateringEdit : bookingEdit;
+        const form = template.content.firstElementChild.cloneNode(true);
+        form.elements.id.value = fixture.id;
+        form.elements.status.value = fixture.status;
+        if (isCatering) {
+          form.elements.guestCount.value = fixture.guestCount ?? "";
+          form.elements.location.value = fixture.location ?? "";
+        }
+        form.addEventListener("submit", submitFixture);
+        card.append(form);
+        return card;
+      }
+
+      /** Shows whether the selected chef can receive proactive test notices. */
+      function showConsent() {
+        const chef = chefs.find(item => item.id === chefMenu.value);
+        consentState.textContent = chef?.optedIn
+          ? "Opted in to test notices."
+          : "Test notices are off.";
+        consentButton.textContent = chef?.optedIn
+          ? "Withdraw test consent"
+          : "Enable test consent";
+      }
+
+      /** Rebuilds the test lists from the server and keeps the chosen chef. */
+      function render(data) {
+        chefs = data.chefs;
+        const selected = chefMenu.value;
+        chefMenu.replaceChildren(
+          ...chefs.map(chef => new Option(chef.name, chef.id)),
+        );
+        if (chefs.some(chef => chef.id === selected)) chefMenu.value = selected;
+        showConsent();
+        fixtures.replaceChildren(...data.fixtures.map(renderFixture));
+        empty.hidden = data.fixtures.length !== 0;
+      }
+
+      /** Uses only same-origin JSON endpoints and surfaces the server's validation errors. */
+      async function requestJson(path, data) {
+        const options = data
+          ? {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data),
+            }
+          : { cache: "no-store" };
+        const response = await fetch(path, options);
+        const result = await response.json();
+        if (!response.ok)
+          throw new Error(result.error || "The request failed.");
+        return result;
+      }
+
+      /** Reads or changes fixtures using the local server's fixed actions. */
+      async function loadFixtures(change) {
+        if (busy) return false;
+        setBusy(true);
+        showFeedback(change ? "Saving fixture…" : "Loading fixtures…");
+        try {
+          render(await requestJson("/api/fixtures", change));
+          showFeedback(
+            change ? messages[change.action] : "Queue status refreshed.",
+          );
+          return true;
+        } catch (error) {
+          showFeedback(error.message, true);
+          return false;
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      /** Converts form fields into the matching fixture action. */
+      async function submitFixture(event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const change = {
+          action: form.dataset.action,
+          ...Object.fromEntries(new FormData(form)),
+        };
+        if (change.action.startsWith("create_")) {
+          change.chef = chefMenu.value;
+        }
+        if ("guestCount" in change) {
+          change.guestCount = Number(change.guestCount);
+        }
+        const saved = await loadFixtures(change);
+        if (saved && change.action === "create_catering") {
+          form.elements.title.value = "";
+          form.elements.location.value = "";
+        }
+      }
+
+      /** Saves consent only after an explicit click. */
+      async function setConsent(event) {
+        event.preventDefault();
+        const chef = chefs.find(item => item.id === chefMenu.value);
+        if (chef) {
+          await loadFixtures({
+            action: "set_consent",
+            chef: chef.id,
+            optedIn: !chef.optedIn,
+          });
+        }
+      }
+
+      /** Fills the catering form with a draft. Creating the fixture is a separate step. */
+      async function generateFixture() {
+        if (busy) return;
+        setBusy(true);
+        showFeedback("Generating a draft with Claude…");
+        try {
+          const draft = await requestJson("/api/generate", {});
+          cateringForm.elements.title.value = draft.title;
+          cateringForm.elements.guestCount.value = draft.guestCount;
+          cateringForm.elements.location.value = draft.location;
+          showFeedback(
+            "Draft ready. Review it before creating the catering request.",
+          );
+        } catch (error) {
+          showFeedback(error.message, true);
+        } finally {
+          setBusy(false);
+        }
+      }
+
+      /** Refreshes queue progress without changing any fixture. */
+      function refreshFixtures() {
+        void loadFixtures();
+      }
+
+      for (const form of document.querySelectorAll("#create-forms form")) {
+        form.addEventListener("submit", submitFixture);
+      }
+      chefMenu.addEventListener("change", showConsent);
+      consentForm.addEventListener("submit", setConsent);
+      generate.addEventListener("click", generateFixture);
+      refresh.addEventListener("click", refreshFixtures);
+      refreshFixtures();
+    </script>
+  </body>
+</html>
