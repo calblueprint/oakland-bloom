@@ -116,3 +116,111 @@ test("hosted HTTP server reports readiness and preserves signed, durable ingest"
   assert.equal((await fetch(base + "/api/admin/whatsapp")).status, 404);
   assert.equal((await fetch(base + "/api/whatsapp/privacy")).status, 200);
 });
+
+test("database callbacks authenticate and only wake the persisted queue", async t => {
+  let wakes = 0;
+  const token = "a".repeat(48);
+  const server = createWebhookServer({
+    healthy: () => true,
+    databaseWebhookToken: token,
+    wake: () => wakes++,
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(
+    () =>
+      new Promise(resolve => {
+        server.close(resolve);
+        server.closeAllConnections();
+      }),
+  );
+  const url = `http://127.0.0.1:${server.address().port}/api/whatsapp/database-events`;
+  const signed = (key = token, seconds = Math.floor(Date.now() / 1000)) => {
+    const timestamp = String(seconds);
+    const nonce = "00000000-0000-4000-8000-000000000001";
+    return {
+      "x-wa-webhook-timestamp": timestamp,
+      "x-wa-webhook-nonce": nonce,
+      "x-wa-webhook-signature": createHmac("sha256", key)
+        .update(`${timestamp}.${nonce}`)
+        .digest("hex"),
+    };
+  };
+  const post = (headers, body = '{"event":"queue_changed"}') =>
+    fetch(url, { method: "POST", body, headers });
+  assert.equal((await post({})).status, 401);
+  assert.equal((await post(signed("b".repeat(48)))).status, 401);
+  assert.equal((await post(signed(), "invalid")).status, 400);
+  assert.equal((await post(signed(), "null")).status, 400);
+  assert.equal(
+    (
+      await post(
+        signed(),
+        JSON.stringify({
+          event: "queue_changed",
+          phone: "15555550101",
+          body: "untrusted",
+        }),
+      )
+    ).status,
+    400,
+  );
+  assert.equal((await post(signed(), "x".repeat(1025))).status, 413);
+  assert.equal(
+    (await post(signed(token, Math.floor(Date.now() / 1000) - 301))).status,
+    401,
+  );
+  assert.equal(
+    (await post(signed(token, Math.floor(Date.now() / 1000) + 301))).status,
+    401,
+  );
+  assert.equal(wakes, 0);
+  assert.equal((await post(signed())).status, 202);
+  assert.equal((await post(signed())).status, 202);
+  assert.equal(wakes, 2);
+  assert.throws(() => createWebhookServer({ databaseWebhookToken: "short" }));
+});
+
+test("unconfigured database callback stays disabled", async t => {
+  const server = createWebhookServer({ healthy: () => true });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  t.after(
+    () =>
+      new Promise(resolve => {
+        server.close(resolve);
+        server.closeAllConnections();
+      }),
+  );
+  assert.equal(
+    (
+      await fetch(
+        `http://127.0.0.1:${server.address().port}/api/whatsapp/database-events`,
+        {
+          method: "POST",
+          body: '{"event":"queue_changed"}',
+        },
+      )
+    ).status,
+    503,
+  );
+});
+
+test("worker coalesces duplicate callbacks and remembers wakes during work", async () => {
+  const { createWorkerWake } = await import("../scripts/whatsappReplies.mjs");
+  const signal = createWorkerWake();
+  signal.wake();
+  signal.wake();
+  await signal.wait(10_000);
+  let resumed = false;
+  const waiting = signal.wait(10_000).then(() => {
+    resumed = true;
+  });
+  await new Promise(resolve => setTimeout(resolve, 5));
+  assert.equal(resumed, false);
+  signal.wake();
+  await waiting;
+  assert.equal(resumed, true);
+  // An absent callback still gets a bounded recovery poll.
+  await signal.wait(1);
+});

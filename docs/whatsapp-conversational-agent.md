@@ -110,12 +110,27 @@ synthetic database. The test admin's login details are in `.env.whatsapp-test.lo
 
 Staff replies require takeover and an open 24-hour reply window. Assigned open
 catering requests automatically queue alerts only for already opted-in chefs.
-The worker sends alerts and staff replies without model calls, still limited to
+Booking creation, edits, approvals, denials, and removal also queue owner-only updates.
+Already announced catering requests queue updates when their details or status change.
+Rapid edits coalesce before delivery; past events and internal metadata changes are skipped.
+The worker sends notices and staff replies without model calls, still limited to
 `WHATSAPP_TEST_RECIPIENT` locally or the explicit hosted pilot list. Outside the reply window, alerts require an approved
 template configured with `WHATSAPP_ALERT_TEMPLATE_NAME` and
 `WHATSAPP_ALERT_TEMPLATE_LANGUAGE`; its body variables are reference and title.
-Missing templates and uncertain sends remain visible for review. No dashboard,
-email, or staff-number notifications are added; an admin client consumes this API.
+Missing templates and uncertain sends remain visible for review.
+Booking and catering-update notices wait for a fresh reply window; the catering-assignment
+template cannot be reused for them. Delivered notices enter the bot's recent context.
+
+Database wake callbacks use `pg_net` and Supabase Vault. After applying the two
+`20261117` migrations, set a random 32+ character URL-safe
+`WHATSAPP_DATABASE_WEBHOOK_TOKEN` on the worker. With server-only access, call
+`configure_wa_database_webhook(callback_url, callback_token)` using the same token and
+`https://<worker-host>/api/whatsapp/database-events`. Both values are stored in Vault;
+passing both as null disables callbacks. The callback carries only `queue_changed`,
+with a short-lived HMAC signature, never chef records or a permanent credential.
+Changes wake the worker after commit; a 30-second recovery poll covers missed callbacks.
+Verify responses in `net._http_response`; uncertain WhatsApp sends still need staff review.
+No dashboard, email, or staff-number notifications are added; an admin client consumes this API.
 
 ## Code and Checks
 

@@ -1,5 +1,5 @@
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
-import { setTimeout } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { createClient } from "@supabase/supabase-js";
 import { GET as privacyNotice } from "../app/api/whatsapp/privacy/route.ts";
@@ -74,14 +74,45 @@ export function runtimeSettings(env, args) {
   };
 }
 
-/** Exposes the signed webhook, existing privacy notice, and a content-free worker healthcheck. */
+/** Coalesces callbacks without losing a wake that arrives during a database cycle. */
+export function createWorkerWake() {
+  let pending = false;
+  let resume;
+  return {
+    wake() {
+      pending = true;
+      resume?.();
+    },
+    async wait(milliseconds = 30_000) {
+      if (!pending) {
+        await new Promise(resolve => {
+          const timer = setTimeout(resolve, milliseconds);
+          resume = () => {
+            clearTimeout(timer);
+            resolve();
+          };
+        });
+      }
+      resume = undefined;
+      pending = false;
+    },
+  };
+}
+
+/** Exposes signed Meta ingest and an authenticated, content-free database wake callback. */
 export function createWebhookServer({
   appSecret,
   verifyToken,
   phoneNumberId,
   ingest,
   healthy,
+  databaseWebhookToken,
+  wake = () => {},
 }) {
+  if (databaseWebhookToken && databaseWebhookToken.length < 32)
+    throw new Error(
+      "Database webhook token must contain at least 32 characters.",
+    );
   return createServer(async (incoming, outgoing) => {
     try {
       const url = new URL(incoming.url, "http://127.0.0.1:3001");
@@ -92,6 +123,67 @@ export function createWebhookServer({
           status: ready ? 200 : 503,
           headers: { "Cache-Control": "no-store" },
         });
+      } else if (
+        url.pathname === "/api/whatsapp/database-events" &&
+        incoming.method === "POST"
+      ) {
+        const timestamp = incoming.headers["x-wa-webhook-timestamp"] ?? "";
+        const nonce = incoming.headers["x-wa-webhook-nonce"] ?? "";
+        const signature = incoming.headers["x-wa-webhook-signature"] ?? "";
+        // pg_net retains request headers. A short-lived signature never exposes the Vault token.
+        const validHeaders =
+          typeof timestamp === "string" &&
+          /^\d{10}$/.test(timestamp) &&
+          Math.abs(Date.now() / 1000 - Number(timestamp)) <= 300 &&
+          typeof nonce === "string" &&
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(
+            nonce,
+          ) &&
+          typeof signature === "string" &&
+          /^[0-9a-f]{64}$/.test(signature);
+        const expected = createHmac("sha256", databaseWebhookToken ?? "")
+          .update(`${timestamp}.${nonce}`)
+          .digest();
+        const supplied = validHeaders
+          ? Buffer.from(signature, "hex")
+          : Buffer.alloc(0);
+        if (!databaseWebhookToken) {
+          response = new Response("Unavailable", { status: 503 });
+        } else if (
+          !validHeaders ||
+          supplied.length !== expected.length ||
+          !timingSafeEqual(supplied, expected)
+        ) {
+          response = new Response("Unauthorized", { status: 401 });
+        } else {
+          const chunks = [];
+          let size = 0;
+          for await (const chunk of incoming) {
+            size += chunk.length;
+            if (size > 1024) {
+              outgoing.writeHead(413);
+              outgoing.end();
+              return;
+            }
+            chunks.push(chunk);
+          }
+          let event;
+          try {
+            event = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+          } catch {
+            event = null;
+          }
+          if (
+            event?.event !== "queue_changed" ||
+            Object.keys(event).length !== 1
+          ) {
+            response = new Response("Invalid event", { status: 400 });
+          } else {
+            // Payloads cannot select a recipient or supply a message to send.
+            wake();
+            response = new Response(null, { status: 202 });
+          }
+        }
       } else if (
         url.pathname === "/api/whatsapp/privacy" &&
         incoming.method === "GET"
@@ -191,15 +283,19 @@ async function main() {
       template,
     }),
   }));
+  const signal = createWorkerWake();
   let running = true;
   let lastHealthyCycle = 0;
   const server = createWebhookServer({
     appSecret: required("WHATSAPP_APP_SECRET"),
+    databaseWebhookToken: process.env.WHATSAPP_DATABASE_WEBHOOK_TOKEN?.trim(),
+    wake: signal.wake,
     verifyToken: required("WHATSAPP_VERIFY_TOKEN"),
     phoneNumberId: required("WHATSAPP_PHONE_NUMBER_ID"),
     ingest: async batch => {
       const { error } = await db.rpc("ingest_inbound", { batch });
       if (error) throw new Error("Database ingest failed.");
+      signal.wake();
     },
     healthy: () => running && Date.now() - lastHealthyCycle < 120_000,
   });
@@ -214,6 +310,7 @@ async function main() {
   /** Stop accepting callbacks, then finish the bounded in-flight turn before exiting. */
   function stop() {
     running = false;
+    signal.wake();
     server.close();
   }
   process.on("SIGINT", stop);
@@ -222,11 +319,14 @@ async function main() {
     for (const worker of workers) {
       if (!running) break;
       try {
-        if (await worker.notifications.sendNext())
+        if (await worker.notifications.sendNext()) {
           console.log("Meta accepted a notification.");
+          signal.wake();
+        }
         const result = await worker.replies.runOnce();
         if (result.processed) console.log("Saved an AI reply.");
         if (result.sent) console.log("Meta accepted a reply.");
+        if (result.processed || result.sent) signal.wake();
         lastHealthyCycle = Date.now();
       } catch (error) {
         // Keep private message content and provider responses out of terminal logs.
@@ -237,7 +337,7 @@ async function main() {
         );
       }
     }
-    await setTimeout(1500);
+    if (running) await signal.wait();
   }
   server.close();
 }

@@ -186,13 +186,19 @@ test("the SDK kitchen tool queues review with a code-written receipt, without bo
   assert.match(state.handoffs[0].reason, /3 people/);
 });
 
-test("resumed chats receive staff context and a local reset clears it", async t => {
+test("resumed chats receive staff and proactive context and a reset clears both", async t => {
   const f = await fixture(t);
   await f.store.transaction(async state => {
     state.staffMessages = [
       {
         body: "Staff will check the oven on Tuesday.",
         sentAt: "2026-11-01T12:00:00.000Z",
+      },
+    ];
+    state.notificationMessages = [
+      {
+        body: "Kitchen reservation 12345678: Status: approved.",
+        sentAt: "2026-11-01T12:05:00.000Z",
       },
     ];
   });
@@ -205,6 +211,10 @@ test("resumed chats receive staff context and a local reset clears it", async t 
         JSON.stringify(options.prompt),
         /Staff will check the oven on Tuesday/,
       );
+      assert.match(
+        JSON.stringify(options.prompt),
+        /Kitchen reservation 12345678/,
+      );
       checked = true;
       return finalText("Staff will check it.");
     }),
@@ -213,6 +223,7 @@ test("resumed chats receive staff context and a local reset clears it", async t 
   assert.equal(checked, true);
   await f.store.reset();
   assert.equal((await f.state()).staffMessages, undefined);
+  assert.equal((await f.state()).notificationMessages, undefined);
 });
 
 // Opt in with WHATSAPP_AGENT_LIVE_EVAL=1 and configured model credentials.
