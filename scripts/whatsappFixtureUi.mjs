@@ -97,14 +97,15 @@ async function fixtureSnapshot(sql) {
       join public.users u on u.userid=b."user"
     )
     select e.id,e.kind,e.chef,e.title,e.status,e.reference,e."guestCount",
-           e.location,e."when",e.amenity,n.status as "noticeStatus"
+           e.location,e."when",e.amenity,coalesce(receipt.status,n.status) as "noticeStatus"
     from entries e
     left join lateral (
-      select status from public.wa_notifications
+      select status,provider_message_id from public.wa_notifications
       where (e.kind='catering' and catering_id=e.id)
          or (e.kind='booking' and booking_id=e.id)
       order by created_at desc,id desc limit 1
     ) n on true
+    left join public.wa_notification_receipts receipt on receipt.provider_message_id=n.provider_message_id
     order by e.created_at desc,e.id
     limit 50
   `;

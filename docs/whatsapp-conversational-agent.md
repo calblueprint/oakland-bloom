@@ -52,6 +52,14 @@ Generation needs `ANTHROPIC_API_KEY` and a native Claude `WHATSAPP_AGENT_MODEL`
 in `.env.local`. The lab always uses the local fake database and sends no
 messages itself.
 
+For live fixture delivery, run `pnpm whatsapp:fixture-delivery` with the hosted
+pilot's environment variables. The single `WHATSAPP_RECIPIENTS` number must
+match local Test Chef A. While the process runs, new catering requests for
+that chef wake the normal notification worker on commit. The worker checks the
+pilot's consent and recent WhatsApp activity before sending. **Refresh queue
+status** shows delivery once the worker has matched Meta's receipt. The worker
+logs the time from the local queue entry to the receipt.
+
 OB101/OB102 are open examples, OB103 lacks event details, OB104 is closed,
 OB105 is accepted, and OB201 belongs to another chef. Try “list my requests”,
 “tell me about OB102”, “I'm interested in OB102”, then “confirm”.
