@@ -99,12 +99,13 @@ test("hosted HTTP server reports readiness and preserves signed, durable ingest"
     object: "whatsapp_business_account",
     entry: [],
   });
-  const post = signature =>
+  const post = (signature, payload = body) =>
     fetch(base + "/api/whatsapp/webhook", {
       method: "POST",
-      body,
+      body: payload,
       headers: { "x-hub-signature-256": signature },
     });
+  assert.equal((await post("invalid", "x".repeat(256 * 1024 + 1))).status, 413);
   assert.equal((await post("invalid")).status, 401);
   assert.equal(persisted, false);
   const signature =

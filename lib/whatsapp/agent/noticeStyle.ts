@@ -2,6 +2,7 @@ import type { LanguageModel } from "ai";
 import { generateText, Output } from "ai";
 import { z } from "zod";
 
+// Supabase supplies the event facts. The model receives only their shape and the status.
 const noticeFacts = z.object({
   notificationKind: z.enum([
     "catering_alert",
@@ -22,21 +23,24 @@ const noticeFacts = z.object({
   amenities: z.array(z.string()).optional(),
 });
 
-const date = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Los_Angeles",
+type NoticeFacts = z.infer<typeof noticeFacts>;
+
+const oaklandTimeZone = "America/Los_Angeles";
+const localDate = new Intl.DateTimeFormat("en-US", {
+  timeZone: oaklandTimeZone,
   weekday: "short",
   month: "short",
   day: "numeric",
   year: "numeric",
 });
-const clock = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Los_Angeles",
+const localClock = new Intl.DateTimeFormat("en-US", {
+  timeZone: oaklandTimeZone,
   hour: "numeric",
   minute: "2-digit",
 });
 
-const clockWithZone = new Intl.DateTimeFormat("en-US", {
-  timeZone: "America/Los_Angeles",
+const localClockWithZone = new Intl.DateTimeFormat("en-US", {
+  timeZone: oaklandTimeZone,
   hour: "numeric",
   minute: "2-digit",
   timeZoneName: "short",
@@ -48,63 +52,37 @@ const amenityNames: Record<string, string> = {
   salad_bar_table: "Salad bar table",
 };
 
-/** Formats the reservation's time range in Oakland, including both dates for overnight bookings. */
-function when(start: string, end?: string) {
-  const first = new Date(start);
-  const startDate = date.format(first);
-  const starts = `${startDate} at ${clock.format(first)}`;
-  if (!end) return `${starts} (Oakland time)`;
-  const last = new Date(end);
-  const endDate = date.format(last);
-  // A fall-back interval can have identical wall-clock times with different offsets.
-  const zone = (value: Date) =>
-    clockWithZone
-      .formatToParts(value)
-      .find(part => part.type === "timeZoneName")?.value;
-  const times = zone(first) === zone(last) ? clock : clockWithZone;
-  return `${startDate} at ${times.format(first)}–${startDate === endDate ? "" : `${endDate} at `}${times.format(last)} (Oakland time)`;
+// Only the code below can write an approval, decline, or call to action.
+const bookingHeadings: Record<string, string> = {
+  approved: "Kitchen booking approved",
+  pending: "Kitchen booking pending",
+  denied: "Kitchen booking declined",
+  removed: "Kitchen booking removed",
+};
+
+/** Shows a time-zone abbreviation when the two ends cross a daylight-saving change. */
+function zoneAt(time: Date) {
+  return localClockWithZone
+    .formatToParts(time)
+    .find(part => part.type === "timeZoneName")?.value;
 }
 
-/** Builds the facts that the model may arrange but may not edit or omit. */
-function makeParts(facts: z.infer<typeof noticeFacts>) {
-  const { notificationKind, status, reference } = facts;
-  const booking = notificationKind === "booking_update";
-  const headings: Record<string, string> = {
-    approved: "Kitchen booking approved",
-    pending: "Kitchen booking pending",
-    denied: "Kitchen booking declined",
-    removed: "Kitchen booking removed",
-  };
-  const heading = booking
-    ? status && Object.hasOwn(headings, status)
-      ? headings[status]
-      : "Kitchen booking update"
-    : notificationKind === "catering_alert"
-      ? "New catering request"
-      : status === "closed"
-        ? "Catering request closed"
-        : status === "accepted"
-          ? "Catering request accepted"
-          : "Catering request updated";
-  const parts: Record<string, string | undefined> = {
-    HEADLINE: `*${heading}${booking ? "" : ` · ${reference}`}*`,
-  };
-  if (facts.title) parts.TITLE = facts.title;
-  if (notificationKind === "catering_update" && status === "open")
-    parts.STATUS = "Still open for responses.";
-  if (facts.startsAt) parts.WHEN = when(facts.startsAt, facts.endsAt);
-  if (facts.location) parts.WHERE = facts.location;
-  if (facts.amenities?.length)
-    parts.EQUIPMENT = facts.amenities
-      .map(name =>
-        Object.hasOwn(amenityNames, name) ? amenityNames[name] : name,
-      )
-      .join(", ");
-  if (facts.guestCount)
-    parts.PEOPLE = `${facts.guestCount} ${booking ? "people" : "guests"}`;
-  if (facts.details) parts.DETAILS = facts.details;
-  if (booking) parts.REFERENCE = `Ref. ${reference}`;
-  return parts;
+/** Keeps both calendar dates visible for an overnight booking and uses Oakland time. */
+function formatSchedule(start: string, end?: string) {
+  const first = new Date(start);
+  const startDate = localDate.format(first);
+  if (!end) return `${startDate} at ${localClock.format(first)} (Oakland time)`;
+
+  const last = new Date(end);
+  const endDate = localDate.format(last);
+  const clock =
+    zoneAt(first) === zoneAt(last) ? localClock : localClockWithZone;
+  const startLabel = `${startDate} at ${clock.format(first)}`;
+  const endLabel =
+    startDate === endDate
+      ? clock.format(last)
+      : `${endDate} at ${clock.format(last)}`;
+  return `${startLabel}–${endLabel} (Oakland time)`;
 }
 
 const styleChoice = z.strictObject({
@@ -121,7 +99,7 @@ const defaultStyle: StyleChoice = {
 };
 
 /** Uses a conversational first line whose wording is tied to the actual event and outcome. */
-function warmIntro(facts: z.infer<typeof noticeFacts>) {
+function warmIntro(facts: NoticeFacts) {
   const { notificationKind, status, reference } = facts;
   const title = facts.title?.replace(/\s+/g, " ").trim();
   const forTitle = title ? ` for ${title}` : "";
@@ -152,30 +130,67 @@ function warmIntro(facts: z.infer<typeof noticeFacts>) {
   return `There's an update to the catering request for ${event}.`;
 }
 
-/** Renders the full notice from canonical facts and the agent's style choice. */
-function renderNotice(facts: z.infer<typeof noticeFacts>, choice: StyleChoice) {
-  const parts = makeParts(facts);
-  const intro =
-    choice.tone === "warm"
-      ? warmIntro(facts)
-      : [parts.HEADLINE, [parts.TITLE, parts.STATUS].filter(Boolean).join(" ")]
-          .filter(Boolean)
-          .join("\n\n");
+/** Builds the more compact heading-and-title option, including the catering reference. */
+function directIntro(facts: NoticeFacts) {
+  const { notificationKind, status, reference, title } = facts;
+  if (notificationKind === "booking_update") {
+    const heading =
+      status && Object.hasOwn(bookingHeadings, status)
+        ? bookingHeadings[status]
+        : "Kitchen booking update";
+    return [`*${heading}*`, title].filter(Boolean).join("\n\n");
+  }
 
-  const joined = (...items: (string | undefined)[]) =>
-    items.filter(Boolean).join(" · ");
-  const details =
-    choice.layout === "compact"
-      ? [joined(parts.WHEN, parts.WHERE), joined(parts.EQUIPMENT, parts.PEOPLE)]
-      : [parts.WHEN, parts.WHERE, parts.EQUIPMENT, parts.PEOPLE];
+  let heading = "Catering request updated";
+  if (notificationKind === "catering_alert") heading = "New catering request";
+  else if (status === "closed") heading = "Catering request closed";
+  else if (status === "accepted") heading = "Catering request accepted";
+
+  const stillOpen =
+    notificationKind === "catering_update" && status === "open"
+      ? "Still open for responses."
+      : undefined;
+  const summary = [title, stillOpen].filter(Boolean).join(" ");
+  return [`*${heading} · ${reference}*`, summary].filter(Boolean).join("\n\n");
+}
+
+/** Formats factual lines. Compact layout groups time with place and equipment with headcount. */
+function formatDetails(facts: NoticeFacts, layout: StyleChoice["layout"]) {
+  const schedule =
+    facts.startsAt && formatSchedule(facts.startsAt, facts.endsAt);
+  const equipment = facts.amenities
+    ?.map(name =>
+      Object.hasOwn(amenityNames, name) ? amenityNames[name] : name,
+    )
+    .join(", ");
+  const people =
+    facts.guestCount &&
+    `${facts.guestCount} ${facts.notificationKind === "booking_update" ? "people" : "guests"}`;
+  const timeAndPlace = [schedule, facts.location].filter(Boolean);
+  const equipmentAndPeople = [equipment, people].filter(Boolean);
+  return layout === "compact"
+    ? [timeAndPlace.join(" · "), equipmentAndPeople.join(" · ")]
+        .filter(Boolean)
+        .join("\n")
+    : [...timeAndPlace, ...equipmentAndPeople].join("\n");
+}
+
+/** Combines an opening, current facts, and an invitation only when the request is open. */
+function renderNotice(facts: NoticeFacts, choice: StyleChoice) {
+  const intro = choice.tone === "warm" ? warmIntro(facts) : directIntro(facts);
+  const bookingReference =
+    facts.notificationKind === "booking_update"
+      ? `Ref. ${facts.reference}`
+      : undefined;
   const canShareDetails =
     facts.notificationKind === "catering_alert" ||
     (facts.notificationKind === "catering_update" && facts.status === "open");
+
   return [
     intro,
-    details.filter(Boolean).join("\n"),
-    parts.DETAILS,
-    parts.REFERENCE,
+    formatDetails(facts, choice.layout),
+    facts.details,
+    bookingReference,
     choice.inviteDetails && canShareDetails
       ? "Want to take a look? Reply here and I can share the details."
       : undefined,
@@ -193,6 +208,7 @@ export async function styleAgentNotice(
   const parsed = noticeFacts.safeParse(data);
   if (!parsed.success) return original;
   const facts = parsed.data;
+  // A timeout or invalid choice still produces a complete, readable notice.
   let choice = defaultStyle;
   try {
     const draft = await generateText({
@@ -219,5 +235,6 @@ The app writes the actual words and enforces the status and any action the chef 
     // The notice can still send if the model times out or returns an invalid choice.
   }
   const body = renderNotice(facts, choice);
+  // Keep the original database text if formatting would overrun the send limit.
   return body.length <= 4000 ? body : original;
 }
