@@ -113,18 +113,23 @@ catering requests automatically queue alerts only for already opted-in chefs.
 Booking creation, edits, approvals, denials, and removal also queue owner-only updates.
 Already announced catering requests queue updates when their details or status change.
 Rapid edits coalesce before delivery; past events and internal metadata changes are skipped.
-The agent drafts automated notices around fixed event facts. A readable fallback
-covers a failed draft, and the delivery worker rechecks eligibility before sending.
+The agent chooses a tone and layout from supported options. Code renders the
+actual status and event facts, and the worker checks eligibility again before
+sending. Interrupted drafts expire and can be retried. A send that may already
+have reached Meta is held for review. STOP is recorded when the message is saved,
+even when the WhatsApp reply window has expired.
 Staff replies and approved Meta templates keep their original wording. Delivery is limited to
 `WHATSAPP_TEST_RECIPIENT` locally or the explicit hosted pilot list. Outside the reply window, alerts require an approved
 template configured with `WHATSAPP_ALERT_TEMPLATE_NAME` and
 `WHATSAPP_ALERT_TEMPLATE_LANGUAGE`; its body variables are reference and title.
 Missing templates and uncertain sends remain visible for review.
 Booking and catering-update notices wait for a fresh reply window; the catering-assignment
-template cannot be reused for them. Delivered notices enter the bot's recent context.
+template cannot be reused for them. The bot treats accepted notices as past
+context and omits notices with a confirmed delivery failure. Kitchen follow-ups
+use all reserved equipment and can identify a booking from a quoted notice.
 
-Database wake callbacks use `pg_net` and Supabase Vault. After applying the two
-`20261117` migrations, set a random 32+ character URL-safe
+Database wake callbacks use `pg_net` and Supabase Vault. After applying the WhatsApp migrations through
+`20261118030000_whatsapp_delivery_receipts.sql`, set a random 32+ character URL-safe
 `WHATSAPP_DATABASE_WEBHOOK_TOKEN` on the worker. With server-only access, call
 `configure_wa_database_webhook(callback_url, callback_token)` using the same token and
 `https://<worker-host>/api/whatsapp/database-events`. Both values are stored in Vault;

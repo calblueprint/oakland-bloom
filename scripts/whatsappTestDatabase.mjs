@@ -443,6 +443,10 @@ async function runSqlRegressions(admin, databaseUrl) {
       "whatsappProactive.sql",
       "whatsappDatabaseWebhooks.sql",
       "whatsappNoticeStyle.sql",
+      "whatsappDraftRecovery.sql",
+      "whatsappStopIngest.sql",
+      "whatsappBookingResources.sql",
+      "whatsappDeliveryReceipts.sql",
     ]) {
       await db
         .unsafe(await readFile(resolve(root, "tests", file), "utf8"))

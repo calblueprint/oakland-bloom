@@ -16,6 +16,7 @@ function setup({
   model,
   facts,
   prepare = true,
+  prepareError = false,
 } = {}) {
   const events = [];
   const row = {
@@ -53,7 +54,10 @@ function setup({
       }
       assert.equal(args.notification_id, row.id);
       if (name === "prepare_wa_agent_notice")
-        return { data: prepare, error: null };
+        return {
+          data: prepare,
+          error: prepareError ? { message: "failed" } : null,
+        };
       if (name === "finish_wa_notification") {
         if (finishFails)
           return { data: null, error: { message: "private database detail" } };
@@ -161,10 +165,14 @@ const catering = {
   title: "Test lunch",
 };
 
-test("the agent writes around locked facts and the worker saves exactly what it sends", async () => {
-  const model = draftModel(
-    "[[HEADLINE]]\n\nA new gig just came in for [[TITLE]]. Want the details? Reply here.",
-  );
+const warmCompact = JSON.stringify({
+  tone: "warm",
+  layout: "compact",
+  inviteDetails: true,
+});
+
+test("the agent chooses a style and the worker saves exactly what it sends", async () => {
+  const model = draftModel(warmCompact);
   const app = setup({ facts: catering, model });
   assert.equal(await app.worker.sendNext(), true);
   const saved = app.events.find(
@@ -175,7 +183,7 @@ test("the agent writes around locked facts and the worker saves exactly what it 
   assert.equal(saved.args.target_phone, phone);
   assert.equal(
     send.body,
-    "*New catering request · OB300*\n\nA new gig just came in for Test lunch. Want the details? Reply here.",
+    "*New catering request · OB300*\n\nA new request came in for Test lunch.\n\nWant the details? Just reply here.",
   );
   assert.doesNotMatch(
     JSON.stringify(model.doGenerateCalls),
@@ -183,28 +191,73 @@ test("the agent writes around locked facts and the worker saves exactly what it 
   );
 });
 
-test("a missing fact, invented number, or failed model falls back to a readable notice", async () => {
+test("invalid model choices and extra prose cannot change a declined booking", async () => {
   for (const draft of [
-    "[[HEADLINE]]",
-    "[[HEADLINE]]\n\n[[TITLE]] for 8 people",
+    "Your booking is approved.",
+    JSON.stringify({
+      tone: "warm",
+      layout: "compact",
+      inviteDetails: true,
+      copy: "You're all set.",
+    }),
+    warmCompact,
     undefined,
   ]) {
-    const app = setup({ facts: catering, model: draftModel(draft) });
+    const app = setup({
+      facts: {
+        notificationKind: "booking_update",
+        title: "Test booking",
+        reference: "test",
+        status: "denied",
+      },
+      model: draftModel(draft),
+    });
     assert.equal(await app.worker.sendNext(), true);
+    const body = app.events.find(event => event.name === "send").body;
     assert.equal(
-      app.events.find(event => event.name === "send").body,
-      "*New catering request · OB300*\n\nTest lunch\n\nReply here if you want the details.",
+      body,
+      "*Kitchen booking declined*\n\nTest booking\n\nRef. test",
     );
   }
+});
+
+test("the model can choose a direct tone with no invitation", async () => {
+  const model = draftModel(
+    JSON.stringify({ tone: "direct", layout: "spaced", inviteDetails: false }),
+  );
+  const app = setup({ model, facts: catering });
+  assert.equal(await app.worker.sendNext(), true);
+  assert.equal(
+    app.events.find(event => event.name === "send").body,
+    "*New catering request · OB300*\n\nTest lunch",
+  );
 });
 
 test("a claim that becomes ineligible while the agent drafts does not send", async () => {
   const app = setup({
     facts: catering,
-    model: draftModel("[[HEADLINE]]\n\n[[TITLE]]"),
+    model: draftModel(warmCompact),
     prepare: false,
   });
   assert.equal(await app.worker.sendNext(), false);
+  assert.ok(!app.events.some(event => event.name === "send"));
+});
+
+test("a prepare error releases the same attempt before any Meta call", async () => {
+  const app = setup({
+    facts: catering,
+    model: draftModel(warmCompact),
+    prepareError: true,
+  });
+  await assert.rejects(app.worker.sendNext(), /prepare_wa_agent_notice failed/);
+  const prepare = app.events.find(
+    event => event.name === "prepare_wa_agent_notice",
+  );
+  const abandon = app.events.find(
+    event => event.name === "abandon_wa_agent_notice",
+  );
+  assert.equal(abandon.args.worker_id, prepare.args.worker_id);
+  assert.equal(abandon.args.notification_id, prepare.args.notification_id);
   assert.ok(!app.events.some(event => event.name === "send"));
 });
 
@@ -221,9 +274,7 @@ test("staff text and approved Meta templates bypass agent styling", async () => 
 });
 
 test("a booking spanning midnight shows both Oakland dates and preserves its approval", async () => {
-  const model = draftModel(
-    "[[HEADLINE]]\n\n[[TITLE]]\n\n[[WHEN]]\n[[EQUIPMENT]] · [[PEOPLE]]\n\n[[REFERENCE]]",
-  );
+  const model = draftModel(warmCompact);
   const app = setup({
     model,
     facts: {
@@ -246,4 +297,22 @@ test("a booking spanning midnight shows both Oakland dates and preserves its app
   );
   assert.match(body, /Bar prep table · 2 people/);
   assert.match(body, /Ref\. 1483ae37$/);
+});
+
+test("a booking crossing fall-back distinguishes Pacific daylight and standard time", async () => {
+  const app = setup({
+    model: draftModel(warmCompact),
+    facts: {
+      notificationKind: "booking_update",
+      status: "approved",
+      reference: "test",
+      startsAt: "2026-11-01T08:30:00Z",
+      endsAt: "2026-11-01T09:30:00Z",
+    },
+  });
+  await app.worker.sendNext();
+  assert.match(
+    app.events.find(event => event.name === "send").body,
+    /1:30 AM PDT–1:30 AM PST/,
+  );
 });

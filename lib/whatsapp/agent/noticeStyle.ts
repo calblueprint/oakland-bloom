@@ -1,5 +1,5 @@
 import type { LanguageModel } from "ai";
-import { generateText } from "ai";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 
 const noticeFacts = z.object({
@@ -35,6 +35,12 @@ const clock = new Intl.DateTimeFormat("en-US", {
   minute: "2-digit",
 });
 
+const clockWithZone = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  hour: "numeric",
+  minute: "2-digit",
+  timeZoneName: "short",
+});
 const amenityNames: Record<string, string> = {
   oven: "Oven",
   kitchen: "Kitchen",
@@ -50,7 +56,13 @@ function when(start: string, end?: string) {
   if (!end) return `${starts} (Oakland time)`;
   const last = new Date(end);
   const endDate = date.format(last);
-  return `${starts}–${startDate === endDate ? "" : `${endDate} at `}${clock.format(last)} (Oakland time)`;
+  // A fall-back interval can have identical wall-clock times with different offsets.
+  const zone = (value: Date) =>
+    clockWithZone
+      .formatToParts(value)
+      .find(part => part.type === "timeZoneName")?.value;
+  const times = zone(first) === zone(last) ? clock : clockWithZone;
+  return `${startDate} at ${times.format(first)}–${startDate === endDate ? "" : `${endDate} at `}${times.format(last)} (Oakland time)`;
 }
 
 /** Builds the facts that the model may arrange but may not edit or omit. */
@@ -74,7 +86,7 @@ function makeParts(facts: z.infer<typeof noticeFacts>) {
         : status === "accepted"
           ? "Catering request accepted"
           : "Catering request updated";
-  const parts: Record<string, string> = {
+  const parts: Record<string, string | undefined> = {
     HEADLINE: `*${heading}${booking ? "" : ` · ${reference}`}*`,
   };
   if (facts.title) parts.TITLE = facts.title;
@@ -95,32 +107,56 @@ function makeParts(facts: z.infer<typeof noticeFacts>) {
   return parts;
 }
 
-/** Resolves slots only after validating that the draft includes every fact exactly once. */
-function fillDraft(draft: string, parts: Record<string, string>) {
-  const slots = [...draft.matchAll(/\[\[([A-Z]+)\]\]/g)].map(match => match[1]);
-  if (
-    (!draft.startsWith("[[HEADLINE]]\n\n") && draft !== "[[HEADLINE]]") ||
-    slots.length !== Object.keys(parts).length ||
-    Object.keys(parts).some(
-      name => slots.filter(slot => slot === name).length !== 1,
-    )
-  )
-    return null;
-  const prose = draft.replace(/\[\[[A-Z]+\]\]/g, "").trim();
-  if (
-    prose.length > 140 ||
-    /\b(status|when|where|headcount|equipment|reference):/i.test(prose) ||
-    /[0-9@\[\]<>*_`~]|https?:|\bwww\./i.test(prose)
-  )
-    return null;
-  const message = draft.replace(
-    /\[\[([A-Z]+)\]\]/g,
-    (_, name: string) => parts[name],
-  );
-  return message.length <= 4000 ? message : null;
+const styleChoice = z.strictObject({
+  tone: z.enum(["warm", "direct"]),
+  layout: z.enum(["compact", "spaced"]),
+  inviteDetails: z.boolean(),
+});
+type StyleChoice = z.infer<typeof styleChoice>;
+
+const defaultStyle: StyleChoice = {
+  tone: "warm",
+  layout: "compact",
+  inviteDetails: true,
+};
+
+/** Writes the notice using approved phrasing for its actual outcome. */
+function renderNotice(facts: z.infer<typeof noticeFacts>, choice: StyleChoice) {
+  const parts = makeParts(facts);
+  const { notificationKind, status } = facts;
+  let lead = parts.TITLE;
+  if (lead && choice.tone === "warm") {
+    if (notificationKind === "catering_alert")
+      lead = `A new request came in for ${lead}.`;
+    else if (notificationKind === "catering_update")
+      lead = `Quick update on ${lead}.`;
+    else if (status === "approved") lead = `You're all set for ${lead}.`;
+  }
+
+  const joined = (...items: (string | undefined)[]) =>
+    items.filter(Boolean).join(" · ");
+  const details =
+    choice.layout === "compact"
+      ? [joined(parts.WHEN, parts.WHERE), joined(parts.EQUIPMENT, parts.PEOPLE)]
+      : [parts.WHEN, parts.WHERE, parts.EQUIPMENT, parts.PEOPLE];
+  const canShareDetails =
+    notificationKind === "catering_alert" ||
+    (notificationKind === "catering_update" && status === "open");
+  return [
+    parts.HEADLINE,
+    [lead, parts.STATUS].filter(Boolean).join(" "),
+    details.filter(Boolean).join("\n"),
+    parts.DETAILS,
+    parts.REFERENCE,
+    choice.inviteDetails && canShareDetails
+      ? "Want the details? Just reply here."
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
-/** Lets the conversation model write a short notice without tools or private field values. */
+/** Lets the conversation model choose tone and layout while code controls every word sent. */
 export async function styleAgentNotice(
   model: LanguageModel,
   data: unknown,
@@ -129,44 +165,31 @@ export async function styleAgentNotice(
   const parsed = noticeFacts.safeParse(data);
   if (!parsed.success) return original;
   const facts = parsed.data;
-  const parts = makeParts(facts);
-  const fallback = [
-    parts.HEADLINE,
-    Object.values(parts).slice(1).join("\n"),
-    ...(facts.notificationKind === "catering_alert"
-      ? ["Reply here if you want the details."]
-      : []),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  let choice = defaultStyle;
   try {
     const draft = await generateText({
       model,
-      system: `You write short WhatsApp notifications for Oakland Bloom chefs. Sound like a friendly coordinator.
-Start with [[HEADLINE]] on its own line, followed by a blank line. The headline already states the event and its outcome.
-Use each supplied placeholder verbatim and exactly once. Put the title in a short natural sentence or on its own line.
-Keep related details together on short lines. The slots already include natural wording where needed.
-Avoid field labels like "Status:", "When:", "Equipment:", "Headcount:", or "Reference:". Avoid "Here are the details" and generic closings.
-Example for an approved booking: [[HEADLINE]]\n\nYou're all set for [[TITLE]].\n\n[[WHEN]]\n[[EQUIPMENT]] · [[PEOPLE]]\n\n[[REFERENCE]]
-Example for an open catering update: [[HEADLINE]]\n\nQuick update on [[TITLE]]. [[STATUS]]\n\n[[WHEN]] · [[WHERE]]\n[[PEOPLE]]
-These are examples of tone only. Use only the slots listed in the input.
-You may invite the chef to ask for details when that helps, but don't ask for confirmation, propose a new action, or imply anything was booked or accepted beyond the headline.
-Add no facts, numbers, links, extra markup, filler greeting, or signature. Write only the message draft.`,
+      system: `Choose how Oakland Bloom should format this WhatsApp notice.
+"warm" adds a short conversational lead where appropriate. "direct" uses the title on its own.
+"compact" combines related details on a line. "spaced" gives each detail its own line.
+Request an invitation only when it would help with an open catering request.
+The app writes the actual words and enforces the status and any action the chef can take.`,
       prompt: JSON.stringify({
         event: facts.notificationKind,
         status: facts.status,
-        slots: Object.keys(parts).map(name => `[[${name}]]`),
+        hasSchedule: Boolean(facts.startsAt),
+        hasLocation: Boolean(facts.location),
+        hasEquipment: Boolean(facts.amenities?.length),
       }),
+      output: Output.object({ schema: styleChoice }),
       maxOutputTokens: 512,
       maxRetries: 0,
       timeout: 8_000,
     });
-    if (draft.finishReason === "stop") {
-      const message = fillDraft(draft.text.trim(), parts);
-      if (message) return message;
-    }
+    if (draft.finishReason === "stop") choice = styleChoice.parse(draft.output);
   } catch {
-    // The notice can still send if the model times out or is unavailable.
+    // The notice can still send if the model times out or returns an invalid choice.
   }
-  return fallback.length <= 4000 ? fallback : original;
+  const body = renderNotice(facts, choice);
+  return body.length <= 4000 ? body : original;
 }

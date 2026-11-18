@@ -324,6 +324,14 @@ async function main() {
           console.log("Meta accepted a notification.");
           signal.wake();
         }
+      } catch (error) {
+        console.error(
+          error instanceof MetaApiError
+            ? `Meta rejected a notice (HTTP ${error.status}, code ${error.code ?? "unknown"}).`
+            : "Notice attempt failed; check the database outbox.",
+        );
+      }
+      try {
         const result = await worker.replies.runOnce();
         if (result.processed) console.log("Saved an AI reply.");
         if (result.sent) console.log("Meta accepted a reply.");

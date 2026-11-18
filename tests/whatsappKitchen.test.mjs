@@ -102,6 +102,25 @@ test("own bookings preserve status and include explicit Oakland time labels", as
   assert.ok(!("user" in rows[0]));
 });
 
+test("booking follow-ups expose canonical resources and the exact quoted booking", async () => {
+  const app = setup({
+    bookings: [
+      {
+        ...booking,
+        amenity: "kitchen",
+        amenities: ["bar_prep_table", "oven"],
+        title: "Catering prep",
+        quoted: true,
+      },
+    ],
+  });
+  const [row] = await app.call("list_my_kitchen_bookings");
+  assert.equal(row.title, "Catering prep");
+  assert.equal(row.quoted, true);
+  assert.deepEqual(row.amenities, ["bar_prep_table", "oven"]);
+  assert.ok(!("amenity" in row));
+});
+
 test("missing backend or linked account never reads kitchen records", async () => {
   for (const options of [{ kitchen: false }, { linked: false }]) {
     const app = setup(options);

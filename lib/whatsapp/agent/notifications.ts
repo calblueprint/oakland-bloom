@@ -34,7 +34,7 @@ export function createNotificationWorker({
   model,
   phone,
   template,
-  workerId = randomUUID(),
+  workerId,
 }: {
   rpc: Rpc;
   meta: Pick<MetaClient, "sendText" | "sendTemplate">;
@@ -46,7 +46,7 @@ export function createNotificationWorker({
   z.string()
     .regex(/^[1-9]\d{1,14}$/)
     .parse(phone);
-  z.uuid().parse(workerId);
+  if (workerId) z.uuid().parse(workerId);
   if (template) {
     z.string()
       .regex(/^[a-z0-9_]{1,512}$/)
@@ -64,11 +64,12 @@ export function createNotificationWorker({
   return {
     /** Claims one eligible notification; uncertain delivery remains held for staff review. */
     async sendNext() {
+      const claimId = workerId ?? randomUUID();
       const data = await database(
         model ? "claim_wa_notification_for_agent" : "claim_wa_notification",
         {
           target_phone: phone,
-          worker_id: workerId,
+          worker_id: claimId,
           template_name: template?.name ?? null,
           template_language: template?.language ?? null,
         },
@@ -86,15 +87,28 @@ export function createNotificationWorker({
         notification.kind === "text" &&
         notification.facts !== undefined
       ) {
-        body = await styleAgentNotice(model, notification.facts, body);
-        // Recheck permission and current facts after drafting, then save the exact text to send.
-        const ready = await database("prepare_wa_agent_notice", {
-          notification_id: notification.id,
-          worker_id: workerId,
-          styled_body: body,
-          target_phone: phone,
-        });
-        if (ready !== true) return false;
+        try {
+          body = await styleAgentNotice(model, notification.facts, body);
+          // Save the exact wording after rechecking permission and current facts.
+          const ready = await database("prepare_wa_agent_notice", {
+            notification_id: notification.id,
+            worker_id: claimId,
+            styled_body: body,
+            target_phone: phone,
+          });
+          if (ready !== true) return false;
+        } catch (error) {
+          // No Meta call has started. Release only this worker's claimed attempt.
+          try {
+            await database("abandon_wa_agent_notice", {
+              notification_id: notification.id,
+              worker_id: claimId,
+            });
+          } catch {
+            // A draft still carries its expiry if prepare never committed.
+          }
+          throw error;
+        }
       }
 
       let sent;
@@ -114,14 +128,14 @@ export function createNotificationWorker({
         ) {
           await database("fail_wa_notification", {
             notification_id: notification.id,
-            worker_id: workerId,
+            worker_id: claimId,
           });
         }
         throw error;
       }
       await database("finish_wa_notification", {
         notification_id: notification.id,
-        worker_id: workerId,
+        worker_id: claimId,
         provider_id: sent.providerMessageId,
       });
       return true;

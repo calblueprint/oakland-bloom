@@ -85,6 +85,7 @@ export function createReplyWorker({
                 target_phone: phone,
                 worker_id: workerId,
                 inbound_id: turn.inboundId,
+                include_resources: true,
               }),
             ),
           checkAvailability: async input =>
