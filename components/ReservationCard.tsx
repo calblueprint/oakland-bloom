@@ -1,28 +1,51 @@
 "use client";
 
 import type { CalendarReservation } from "@/types/reservations";
-import styled from "styled-components";
 import { amenityLabel } from "@/lib/bookingRequest";
-import { calendarDateRangeLabel } from "@/lib/calendarTime";
+import { IconSvgs } from "@/lib/icons";
+import {
+  AmenityTag,
+  AmenityTags,
+  DateSection,
+  DayNumber,
+  GuestCount,
+  MonthYear,
+  ReservationInfo,
+  ReservationTime,
+  ReservationTitle,
+  StatusBadge,
+  StatusSection,
+  StyledCard,
+  Weekday,
+} from "./ReservationCard.styles";
 
 type ReservationCardProps = {
   reservation: CalendarReservation;
 };
 
-// styles each individual reservation
-const StyledCard = styled.div`
-  padding: 2rem;
-  border: 1px solid #e0e0e0;
-  border-radius: 1rem;
-  background-color: #ffffff;
-`;
+// Date() converts the reservation time's string into a JS Date Object
 
 export function ReservationCard({ reservation }: ReservationCardProps) {
-  const formattedDate = calendarDateRangeLabel(
-    reservation.start_time,
-    reservation.end_time,
-    { year: "numeric", month: "long", day: "numeric" },
-  );
+  const date = new Date(reservation.start_time);
+
+  // short to shorten "Monday" -> "Mon"
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    weekday: "short",
+  }).format(date);
+
+  // numeric to format date as #
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    day: "numeric",
+  }).format(date);
+
+  // shortens month title + formats year as #
+  const monthYear = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    month: "short",
+    year: "numeric",
+  }).format(date);
 
   const timeFormatter = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/Los_Angeles",
@@ -38,14 +61,45 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
   return (
     <StyledCard>
-      <h2>{reservation.title}</h2>
-      <p>{reservation.amenities.map(amenityLabel).join(", ")}</p>
-      <p>Date: {formattedDate}</p>
-      <p>
-        Time: {formattedStartTime} - {formattedEndTime}
-      </p>
-      <p>Chefs: {reservation.num_people}</p>
-      <p>Status: {reservation.approval_status}</p>
+      <ReservationInfo>
+        <DateSection>
+          <Weekday>{weekday.toUpperCase()}</Weekday>
+          <DayNumber>{day}</DayNumber>
+          <MonthYear>{monthYear}</MonthYear>
+        </DateSection>
+
+        <div>
+          <ReservationTitle>{reservation.title}</ReservationTitle>
+          <ReservationTime>
+            {formattedStartTime} – {formattedEndTime}
+          </ReservationTime>
+
+          <GuestCount>
+            {reservation.num_people}{" "}
+            {reservation.num_people === 1 ? "guest" : "guests"}
+          </GuestCount>
+
+          <AmenityTags>
+            {reservation.amenities.map(amenity => (
+              <AmenityTag key={amenity}>
+                {IconSvgs.amenityTable}
+                {amenityLabel(amenity)}
+              </AmenityTag>
+            ))}
+          </AmenityTags>
+        </div>
+      </ReservationInfo>
+
+      <StatusSection>
+        <StatusBadge $status={reservation.approval_status}>
+          {reservation.approval_status === "approved"
+            ? IconSvgs.statusApproved
+            : reservation.approval_status === "denied"
+              ? IconSvgs.statusDenied
+              : IconSvgs.statusPending}
+          {reservation.approval_status}
+        </StatusBadge>
+      </StatusSection>
     </StyledCard>
   );
 }

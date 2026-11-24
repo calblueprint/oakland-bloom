@@ -1,22 +1,9 @@
 import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
-import { ReservationCard } from "@/components/ReservationCard";
-import { ReservationList } from "@/components/ReservationList";
+import ReservationTabs from "./ReservationTabs";
 
+// loads the signed-in chef's saved reservations on the server; the tabs that
+// filter them need client state, so they live in ReservationTabs
 export default async function ReservationsPage() {
   const reservations = await getCalendarReservations();
-  return (
-    <main>
-      <h1>My Reservations</h1>
-
-      {reservations.length === 0 ? (
-        <p>You haven&apos;t requested any reservations yet.</p>
-      ) : (
-        <ReservationList>
-          {reservations.map(reservation => (
-            <ReservationCard key={reservation.id} reservation={reservation} />
-          ))}
-        </ReservationList>
-      )}
-    </main>
-  );
+  return <ReservationTabs reservations={reservations} />;
 }
