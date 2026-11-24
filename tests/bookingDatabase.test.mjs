@@ -79,6 +79,7 @@ test(
       for (const filename of [
         calendarMigration,
         "20261108000000_booking_requests.sql",
+        "20261124000000_cancel_booking_requests.sql",
       ]) {
         await db.unsafe(readFileSync(new URL(filename, migrations), "utf8"));
       }
@@ -340,6 +341,86 @@ test(
           await assert.rejects(
             asUser(owner, sql => request(sql, { ...saved, id: randomUUID() })),
             denied("22023"),
+          );
+        },
+      );
+
+      await t.test(
+        "lets chefs cancel only their own upcoming requests, which frees the time",
+        async () => {
+          const cancel = (sql, id) =>
+            sql`select public.cancel_booking_request(${id}::uuid) as id`;
+          const slot = {
+            start: "2100-09-01T10:00:00Z",
+            end: "2100-09-01T11:00:00Z",
+          };
+          const mine = { id: randomUUID(), ...slot };
+          await asUser(owner, sql => request(sql, mine));
+          await db`update public.booking_event set approval_status='approved' where id=${mine.id}`;
+
+          // another chef, a signed-out caller, and an unapproved chef can't
+          for (const userId of [other]) {
+            await assert.rejects(
+              asUser(userId, sql => cancel(sql, mine.id)),
+              denied("P0002"),
+            );
+          }
+          for (const userId of [null, pending]) {
+            await assert.rejects(
+              asUser(userId, sql => cancel(sql, mine.id)),
+              denied("42501"),
+            );
+          }
+
+          // the approved booking blocks the slot until it's cancelled
+          await assert.rejects(
+            asUser(other, sql => request(sql, { id: randomUUID(), ...slot })),
+            denied("23P01"),
+          );
+          const [done] = await asUser(owner, sql => cancel(sql, mine.id));
+          assert.equal(done.id, mine.id);
+          // retrying is harmless
+          await asUser(owner, sql => cancel(sql, mine.id));
+          const [row] =
+            await db`select approval_status from public.booking_event where id=${mine.id}`;
+          assert.equal(row.approval_status, "cancelled");
+          await asUser(other, sql =>
+            request(sql, { id: randomUUID(), ...slot }),
+          );
+
+          // denied and already-started requests stay as they are
+          const deniedRequest = {
+            id: randomUUID(),
+            start: "2100-10-01T10:00:00Z",
+            end: "2100-10-01T11:00:00Z",
+          };
+          await asUser(owner, sql => request(sql, deniedRequest));
+          await db`update public.booking_event set approval_status='denied' where id=${deniedRequest.id}`;
+          await assert.rejects(
+            asUser(owner, sql => cancel(sql, deniedRequest.id)),
+            denied("22023"),
+          );
+          const started = {
+            id: randomUUID(),
+            start: "2100-11-01T10:00:00Z",
+            end: "2100-11-01T11:00:00Z",
+          };
+          await asUser(owner, sql => request(sql, started));
+          await db`update public.booking_event set start_time='2020-11-01T10:00:00Z',
+            end_time='2020-11-01T11:00:00Z' where id=${started.id}`;
+          await assert.rejects(
+            asUser(owner, sql => cancel(sql, started.id)),
+            denied("22023"),
+          );
+
+          // chefs still can't change the status directly
+          await assert.rejects(
+            asUser(
+              owner,
+              sql =>
+                sql`update public.booking_event set approval_status='cancelled' where id=${started.id}`,
+            ),
+            denied("42501"),
           );
         },
       );

@@ -71,29 +71,31 @@ export default function ReservationTabs({
   return (
     // makes sure all the elements inherit the same instrument sans font
     <PageContainer className={instrumentSans.className}>
-      <PageTitle>Your Reservations</PageTitle>
-      <PageSubtitle>View and manage your kitchen reservations.</PageSubtitle>
-
-      <TabContainer>
-        <TabButton
-          type="button"
-          $active={activeTab === "upcoming"}
-          onClick={() => showTab("upcoming")}
-        >
-          Upcoming
-        </TabButton>
-
-        <TabButton
-          type="button"
-          $active={activeTab === "past"}
-          onClick={() => showTab("past")}
-        >
-          Past
-        </TabButton>
-      </TabContainer>
-
       <Layout $withDetails={!!selected}>
         <ListColumn>
+          <PageTitle>Your Reservations</PageTitle>
+          <PageSubtitle>
+            View and manage your kitchen reservations.
+          </PageSubtitle>
+
+          <TabContainer>
+            <TabButton
+              type="button"
+              $active={activeTab === "upcoming"}
+              onClick={() => showTab("upcoming")}
+            >
+              Upcoming
+            </TabButton>
+
+            <TabButton
+              type="button"
+              $active={activeTab === "past"}
+              onClick={() => showTab("past")}
+            >
+              Past
+            </TabButton>
+          </TabContainer>
+
           {filteredReservations.length === 0 ? (
             <p>
               {activeTab === "upcoming"
@@ -120,6 +122,7 @@ export default function ReservationTabs({
 
         {selected && (
           <ReservationDetails
+            key={selected.id}
             reservation={selected}
             owner={owner}
             onClose={closeDetails}

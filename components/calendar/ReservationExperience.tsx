@@ -3,12 +3,11 @@
 import type { Amenity, SelectedTime } from "@/lib/bookingRequest";
 import type { CalendarReservation } from "@/types/reservations";
 import type { ReservationContact } from "./ReservationForm";
-import { useRef, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { CalendarView } from "@/components/CalendarView";
 import { AMENITIES } from "@/lib/bookingRequest";
 import { nextRequestTime } from "@/lib/calendarTime";
 import { AmenityChip } from "./AmenityChip";
-import { ChefSidebar } from "./ChefSidebar";
 import { ReservationDetails } from "./ReservationDetails";
 import { ReservationForm } from "./ReservationForm";
 import "./calendar.css";
@@ -16,10 +15,18 @@ import "./calendar.css";
 export function ReservationExperience({
   reservations,
   contact,
+  signOut,
 }: {
   reservations: CalendarReservation[];
   contact: ReservationContact;
+  // temporary until the sidebar design has a sign-out
+  signOut?: ReactNode;
 }) {
+  // cancelled requests free their time, so they're left off the calendar
+  // (Your Reservations still lists them)
+  const activeReservations = reservations.filter(
+    reservation => reservation.approval_status !== "cancelled",
+  );
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [selection, setSelection] = useState<SelectedTime | null>(null);
   const [details, setDetails] = useState<CalendarReservation | null>(null);
@@ -60,10 +67,10 @@ export function ReservationExperience({
   };
   return (
     <div className="chef-calendar-shell">
-      <ChefSidebar contact={contact} reservations={reservations} />
       <main className="calendar-page">
         <header className="calendar-page-header">
           <h1>Open Test Kitchen Reservations</h1>
+          {signOut}
         </header>
         {message && (
           <p className="reservation-notice" role="status">
@@ -78,7 +85,7 @@ export function ReservationExperience({
             aria-label="Kitchen availability"
           >
             <CalendarView
-              reservations={reservations}
+              reservations={activeReservations}
               amenities={amenities}
               onSelectTime={chooseTime}
               onViewReservation={reservation => {

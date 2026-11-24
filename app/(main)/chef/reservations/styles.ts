@@ -59,8 +59,8 @@ export const TabButton = styled.button<{ $active: boolean }>`
   cursor: pointer;
 `;
 
-// the list, plus the details panel beside it when a card is open
-// (Figma: 650px list, 32px gap, 251px panel inside the 933px page)
+// the page (title, tabs, list), plus the details panel beside it when a card
+// is open. the panel starts level with the title (Figma)
 export const Layout = styled.div<{ $withDetails: boolean }>`
   display: grid;
   grid-template-columns: ${({ $withDetails }) =>

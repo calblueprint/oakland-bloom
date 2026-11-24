@@ -2,7 +2,7 @@
 
 import type { CalendarReservation } from "@/types/reservations";
 import { amenityLabel } from "@/lib/bookingRequest";
-import { IconSvgs } from "@/lib/icons";
+import { IconSvgs, statusIcon } from "@/lib/icons";
 import {
   AmenityTag,
   AmenityTags,
@@ -107,11 +107,7 @@ export function ReservationCard({
 
       <StatusSection>
         <StatusBadge $status={reservation.approval_status}>
-          {reservation.approval_status === "approved"
-            ? IconSvgs.statusApproved
-            : reservation.approval_status === "denied"
-              ? IconSvgs.statusDenied
-              : IconSvgs.statusPending}
+          {statusIcon(reservation.approval_status)}
           {reservation.approval_status}
         </StatusBadge>
         <Chevron>{IconSvgs.chevronRight}</Chevron>

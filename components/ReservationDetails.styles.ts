@@ -200,6 +200,7 @@ export const EditButton = styled.button`
 
 export const CancelButton = styled.button`
   ${actionButton}
+  cursor: pointer;
   border: 1px solid ${COLORS.accent};
   background: ${COLORS.accent};
   color: ${COLORS.white};
@@ -210,4 +211,18 @@ export const ActionsNote = styled.p`
   font-size: 0.6875rem;
   line-height: 1rem;
   color: ${COLORS.muted};
+`;
+
+export const ConfirmText = styled.p`
+  margin: 0 0 0.25rem;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  color: ${COLORS.ink};
+`;
+
+export const CancelErrorText = styled.p`
+  margin: 0;
+  font-size: 0.75rem;
+  line-height: 1.25rem;
+  color: ${COLORS.accent};
 `;

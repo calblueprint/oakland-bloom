@@ -176,6 +176,19 @@ export const Chevron = styled.span`
   color: #707070;
 `;
 
+// approved / denied / pending colours from Figma; cancelled is a neutral grey
+const statusColors: Record<
+  string,
+  { background: string; border: string; text: string }
+> = {
+  approved: { background: "#e8f1ff", border: "#c9ddfb", text: "#245ba8" },
+  denied: { background: "#fde8ec", border: "#f8cdd5", text: "#bd2942" },
+  pending: { background: "#f1ebff", border: "#ded0fa", text: "#7042b5" },
+  cancelled: { background: "#f3f3f3", border: "#d9d9d9", text: "#707070" },
+};
+const colorsFor = (status: string) =>
+  statusColors[status] ?? statusColors.pending;
+
 // $status indicates which colors to use for the styled component
 export const StatusBadge = styled.span<{ $status: string }>`
   display: inline-flex;
@@ -193,27 +206,9 @@ export const StatusBadge = styled.span<{ $status: string }>`
 
   text-transform: capitalize;
 
-  background-color: ${({ $status }) =>
-    $status === "approved"
-      ? "#e8f1ff"
-      : $status === "denied"
-        ? "#fde8ec"
-        : "#f1ebff"};
-
-  border: 1px solid
-    ${({ $status }) =>
-      $status === "approved"
-        ? "#C9DDFB"
-        : $status === "denied"
-          ? "#F8CDD5"
-          : "#DED0FA"};
-
-  color: ${({ $status }) =>
-    $status === "approved"
-      ? "#245ba8"
-      : $status === "denied"
-        ? "#BD2942"
-        : "#7042B5"};
+  background-color: ${({ $status }) => colorsFor($status).background};
+  border: 1px solid ${({ $status }) => colorsFor($status).border};
+  color: ${({ $status }) => colorsFor($status).text};
 `;
 
 // a span, since headings can't go inside the card's button
