@@ -1,4 +1,7 @@
+"use client";
+
 import styled from "styled-components";
+import { DETAILS_BREAKPOINT } from "@/components/ReservationDetails.styles";
 
 // wrap page content in a styled container, so cards don't stretch across entire browser page
 export const PageContainer = styled.main`
@@ -54,4 +57,23 @@ export const TabButton = styled.button<{ $active: boolean }>`
   font-weight: ${({ $active }) => ($active ? "500" : "300")};
 
   cursor: pointer;
+`;
+
+// the list, plus the details panel beside it when a card is open
+// (Figma: 650px list, 32px gap, 251px panel inside the 933px page)
+export const Layout = styled.div<{ $withDetails: boolean }>`
+  display: grid;
+  grid-template-columns: ${({ $withDetails }) =>
+    $withDetails ? "minmax(0, 1fr) 15.6875rem" : "minmax(0, 1fr)"};
+  gap: 2rem;
+  align-items: start;
+
+  /* the panel becomes a bottom sheet here, so the list keeps the full width */
+  @media (max-width: ${DETAILS_BREAKPOINT}) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`;
+
+export const ListColumn = styled.div`
+  min-width: 0;
 `;

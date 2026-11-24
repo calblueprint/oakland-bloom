@@ -6,6 +6,7 @@ import { IconSvgs } from "@/lib/icons";
 import {
   AmenityTag,
   AmenityTags,
+  Chevron,
   DateSection,
   DayNumber,
   GuestCount,
@@ -21,11 +22,18 @@ import {
 
 type ReservationCardProps = {
   reservation: CalendarReservation;
+  // whether this card's details panel is open
+  selected: boolean;
+  onSelect: () => void;
 };
 
 // Date() converts the reservation time's string into a JS Date Object
 
-export function ReservationCard({ reservation }: ReservationCardProps) {
+export function ReservationCard({
+  reservation,
+  selected,
+  onSelect,
+}: ReservationCardProps) {
   const date = new Date(reservation.start_time);
 
   // short to shorten "Monday" -> "Mon"
@@ -60,7 +68,14 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
   const formattedEndTime = timeFormatter.format(new Date(reservation.end_time));
 
   return (
-    <StyledCard>
+    <StyledCard
+      id={`reservation-card-${reservation.id}`}
+      type="button"
+      $selected={selected}
+      aria-pressed={selected}
+      aria-controls="reservation-details"
+      onClick={onSelect}
+    >
       <ReservationInfo>
         <DateSection>
           <Weekday>{weekday.toUpperCase()}</Weekday>
@@ -81,7 +96,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
           <AmenityTags>
             {reservation.amenities.map(amenity => (
-              <AmenityTag key={amenity}>
+              <AmenityTag key={amenity} $amenity={amenity}>
                 {IconSvgs.amenityTable}
                 {amenityLabel(amenity)}
               </AmenityTag>
@@ -99,6 +114,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
               : IconSvgs.statusPending}
           {reservation.approval_status}
         </StatusBadge>
+        <Chevron>{IconSvgs.chevronRight}</Chevron>
       </StatusSection>
     </StyledCard>
   );

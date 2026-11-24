@@ -1,11 +1,17 @@
 "use client";
 
 import type { CalendarReservation } from "@/types/reservations";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Instrument_Sans } from "next/font/google";
 import { ReservationCard } from "@/components/ReservationCard";
+import {
+  ReservationDetails,
+  ReservationOwner,
+} from "@/components/ReservationDetails";
 import { ReservationList } from "@/components/ReservationList";
 import {
+  Layout,
+  ListColumn,
   PageContainer,
   PageSubtitle,
   PageTitle,
@@ -21,11 +27,31 @@ const instrumentSans = Instrument_Sans({
 
 export default function ReservationTabs({
   reservations,
+  owner,
 }: {
   reservations: CalendarReservation[];
+  owner: ReservationOwner;
 }) {
   // remembers and selects tab (upcoming is default vs past)
   const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
+  // the card whose details panel is open, if any
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  // put focus back on the card that opened the panel
+  const closeDetails = useCallback(() => {
+    const id = selectedId;
+    setSelectedId(null);
+    if (id) {
+      requestAnimationFrame(() =>
+        document.getElementById(`reservation-card-${id}`)?.focus(),
+      );
+    }
+  }, [selectedId]);
+
+  const showTab = (tab: "upcoming" | "past") => {
+    setActiveTab(tab);
+    setSelectedId(null);
+  };
 
   // filtering based on whether reservation is BEFORE or AFTER today's date
   const filteredReservations = reservations.filter(reservation => {
@@ -38,6 +64,9 @@ export default function ReservationTabs({
 
     return endTime < now;
   });
+  const selected =
+    filteredReservations.find(reservation => reservation.id === selectedId) ??
+    null;
 
   return (
     // makes sure all the elements inherit the same instrument sans font
@@ -49,7 +78,7 @@ export default function ReservationTabs({
         <TabButton
           type="button"
           $active={activeTab === "upcoming"}
-          onClick={() => setActiveTab("upcoming")}
+          onClick={() => showTab("upcoming")}
         >
           Upcoming
         </TabButton>
@@ -57,25 +86,46 @@ export default function ReservationTabs({
         <TabButton
           type="button"
           $active={activeTab === "past"}
-          onClick={() => setActiveTab("past")}
+          onClick={() => showTab("past")}
         >
           Past
         </TabButton>
       </TabContainer>
 
-      {filteredReservations.length === 0 ? (
-        <p>
-          {activeTab === "upcoming"
-            ? "You don't have any upcoming reservations."
-            : "You don't have any past reservations."}
-        </p>
-      ) : (
-        <ReservationList>
-          {filteredReservations.map(reservation => (
-            <ReservationCard key={reservation.id} reservation={reservation} />
-          ))}
-        </ReservationList>
-      )}
+      <Layout $withDetails={!!selected}>
+        <ListColumn>
+          {filteredReservations.length === 0 ? (
+            <p>
+              {activeTab === "upcoming"
+                ? "You don't have any upcoming reservations."
+                : "You don't have any past reservations."}
+            </p>
+          ) : (
+            <ReservationList>
+              {filteredReservations.map(reservation => (
+                <ReservationCard
+                  key={reservation.id}
+                  reservation={reservation}
+                  selected={reservation.id === selectedId}
+                  onSelect={() =>
+                    setSelectedId(id =>
+                      id === reservation.id ? null : reservation.id,
+                    )
+                  }
+                />
+              ))}
+            </ReservationList>
+          )}
+        </ListColumn>
+
+        {selected && (
+          <ReservationDetails
+            reservation={selected}
+            owner={owner}
+            onClose={closeDetails}
+          />
+        )}
+      </Layout>
     </PageContainer>
   );
 }
