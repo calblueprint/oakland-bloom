@@ -79,7 +79,7 @@ test(
       for (const filename of [
         calendarMigration,
         "20261108000000_booking_requests.sql",
-        "20261124000000_cancel_booking_requests.sql",
+        "20261124061712_cancel_booking_requests.sql",
       ]) {
         await db.unsafe(readFileSync(new URL(filename, migrations), "utf8"));
       }
