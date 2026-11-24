@@ -1,74 +1,9 @@
-"use client";
+import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
+import ReservationTabs from "./ReservationTabs";
 
-import { useState } from "react";
-import { Instrument_Sans } from "next/font/google";
-import NavButton from "@/components/NavButton";
-import { ReservationCard } from "@/components/ReservationCard";
-import { ReservationList } from "@/components/ReservationList";
-import { mockReservations } from "@/data/mockReservations";
-import {
-  PageContainer,
-  PageSubtitle,
-  PageTitle,
-  TabButton,
-  TabContainer,
-} from "./styles";
-
-// defining font
-const instrumentSans = Instrument_Sans({
-  subsets: ["latin"],
-  variable: "--font-instrument-sans",
-});
-
-export default function ReservationsPage() {
-  // remembers and selects tab (upcoming is default vs past)
-  const [activeTab, setActiveTab] = useState<"upcoming" | "past">("upcoming");
-
-  // filtering based on whether reservation is BEFORE or AFTER today's date
-  const filteredReservations = mockReservations.filter(reservation => {
-    const endTime = new Date(reservation.end_time);
-    const now = new Date();
-
-    if (activeTab === "upcoming") {
-      return endTime >= now;
-    }
-
-    return endTime < now;
-  });
-
-  return (
-    // makes sure all the elements inherit the same instrument sans font
-    <PageContainer className={instrumentSans.className}>
-      <PageTitle>Your Reservations</PageTitle>
-      <PageSubtitle>View and manage your kitchen reservations.</PageSubtitle>
-
-      <TabContainer>
-        <TabButton
-          type="button"
-          $active={activeTab === "upcoming"}
-          onClick={() => setActiveTab("upcoming")}
-        >
-          Upcoming
-        </TabButton>
-
-        <TabButton
-          type="button"
-          $active={activeTab === "past"}
-          onClick={() => setActiveTab("past")}
-        >
-          Past
-        </TabButton>
-      </TabContainer>
-
-      {filteredReservations.length === 0 ? (
-        <p>You haven&apos;t requested any reservations yet.</p>
-      ) : (
-        <ReservationList>
-          {filteredReservations.map(reservation => (
-            <ReservationCard key={reservation.id} reservation={reservation} />
-          ))}
-        </ReservationList>
-      )}
-    </PageContainer>
-  );
+// loads the signed-in chef's saved reservations on the server; the tabs that
+// filter them need client state, so they live in ReservationTabs
+export default async function ReservationsPage() {
+  const reservations = await getCalendarReservations();
+  return <ReservationTabs reservations={reservations} />;
 }

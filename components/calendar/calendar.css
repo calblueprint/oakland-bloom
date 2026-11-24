@@ -1,0 +1,893 @@
+.chef-calendar-shell {
+  --calendar-ink: #20201e;
+  --calendar-muted: #707070;
+  --calendar-border: #e4e4e4;
+  --calendar-coral: #f35c57;
+  color: var(--calendar-ink);
+  background: #fff;
+  min-height: 100dvh;
+}
+.chef-calendar-shell button,
+.chef-calendar-shell input,
+.chef-calendar-shell summary {
+  font-family: inherit;
+}
+.chef-calendar-shell button,
+.chef-calendar-shell summary {
+  cursor: pointer;
+}
+.chef-calendar-shell button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.chef-calendar-shell :is(button, summary, input, a):focus-visible {
+  outline: 2px solid #367c65;
+  outline-offset: 3px;
+}
+.chef-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  width: 225px;
+  padding: 24px;
+  border-right: 1px solid var(--calendar-border);
+  background: #fff;
+}
+.chef-brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 24px;
+  color: #8a8a8a;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.chef-brand img {
+  flex-shrink: 0;
+  margin-right: -4px;
+}
+.chef-brand span {
+  font-family: Avenir, "Helvetica Neue", sans-serif;
+  font-size: 22px;
+  letter-spacing: -0.88px;
+}
+.chef-sidebar nav {
+  display: flex;
+  flex-direction: column;
+}
+.chef-sidebar nav > * {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px 0;
+  background: none;
+  border: 0;
+  border-top: 1px solid var(--calendar-border);
+  color: var(--calendar-ink);
+  text-decoration: none;
+  text-align: left;
+  font-size: 12px;
+  font-weight: 500;
+}
+.chef-sidebar nav > :last-child {
+  border-bottom: 1px solid var(--calendar-border);
+}
+.chef-sidebar nav .is-active {
+  font-weight: 600;
+}
+.chef-sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid var(--calendar-border);
+  font-size: 12px;
+  line-height: 20px;
+}
+.chef-sidebar-user > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.chef-sidebar-user p + p {
+  color: var(--calendar-muted);
+}
+.chef-sidebar-user button {
+  border: 0;
+  background: none;
+  color: #8a8a8a;
+  font-size: 11px;
+  padding: 0 0 0 3px;
+}
+.calendar-page {
+  margin-left: 225px;
+  padding: 48px clamp(24px, 4.75vw, 64px) 30px;
+  min-height: 100dvh;
+}
+.calendar-page-header {
+  margin-bottom: 32px;
+}
+.calendar-page-header h1 {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.2;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+}
+.reservation-experience {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  gap: 32px;
+}
+.reservation-experience--editing {
+  grid-template-columns: minmax(0, 1fr) 251px;
+}
+.calendar-workspace {
+  min-width: 0;
+}
+.calendar-control-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  min-height: 38px;
+  margin-bottom: 16px;
+}
+.calendar-navigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+.calendar-date-picker {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 14px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.calendar-date-picker img {
+  transform: rotate(-90deg);
+}
+.calendar-date-picker input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.calendar-today {
+  min-height: 38px;
+  padding: 8px 16px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 12px;
+  color: var(--calendar-muted);
+  background: #fff;
+  font-size: 12px;
+  margin-right: 10px;
+}
+.calendar-arrow {
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.calendar-arrow img {
+  display: block;
+}
+.amenity-dropdown {
+  position: relative;
+  font-size: 12px;
+}
+.amenity-dropdown summary {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  padding: 8px 16px;
+  min-height: 38px;
+  border-radius: 24px;
+  background: var(--calendar-coral);
+  color: #fff;
+  font-weight: 500;
+}
+.amenity-dropdown summary::-webkit-details-marker {
+  display: none;
+}
+.amenity-dropdown fieldset {
+  position: absolute;
+  z-index: 20;
+  left: 0;
+  top: calc(100% + 8px);
+  min-width: 235px;
+  padding: 16px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 28px #20201e12;
+}
+.amenity-dropdown legend {
+  padding: 0 4px;
+  color: var(--calendar-muted);
+}
+.amenity-dropdown label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0;
+  cursor: pointer;
+}
+.amenity-dropdown input {
+  width: 16px;
+  height: 16px;
+  accent-color: #367c65;
+}
+.amenity-picker-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+}
+.amenity-picker-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12px;
+}
+.amenity-picker-actions button:last-child {
+  background: var(--calendar-coral);
+  color: #fff;
+  border-color: var(--calendar-coral);
+}
+.selected-amenities {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.selected-amenities:empty {
+  display: none;
+}
+.amenity-chip {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 8px;
+  border-radius: 6px;
+  background: #e5f2ed;
+  color: #367c65;
+  font-size: 11px;
+  line-height: 20px;
+  font-weight: 500;
+}
+.amenity-chip--oven {
+  background: #f0eaf7;
+  color: #8064a0;
+}
+.amenity-chip button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.calendar-container {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  --fc-monarch-primary: #f35c57;
+  --fc-monarch-primary-foreground: #fff;
+  --fc-monarch-primary-over: #e14b46;
+  --fc-monarch-primary-down: #ce4540;
+  --fc-monarch-secondary: #fde5e4;
+  --fc-monarch-secondary-foreground: #f35c57;
+  --fc-monarch-secondary-over: #fde5e4;
+  --fc-monarch-secondary-down: #f7b8b6;
+  --fc-monarch-tertiary: #367c65;
+  --fc-monarch-tertiary-foreground: #fff;
+  --fc-monarch-event: #eef4f0;
+  --fc-monarch-event-contrast: #4f705f;
+  --fc-monarch-highlight: #f7b8b633;
+  --fc-monarch-now: #f35c57;
+  --fc-monarch-selected: #fde5e4;
+  --fc-monarch-selected-foreground: #f35c57;
+  --fc-monarch-outline: #f35c57;
+  --fc-monarch-background: #fff;
+  --fc-monarch-popover: #fff;
+  --fc-monarch-foreground: #20201e;
+  --fc-monarch-faint-foreground: #8a8a8a;
+  --fc-monarch-muted-foreground: #707070;
+  --fc-monarch-faint: #fff;
+  --fc-monarch-muted: #f7f7f7;
+  --fc-monarch-strong: #e4e4e4;
+  --fc-monarch-stronger: #d9d9d9;
+  --fc-monarch-strongest: #9f9f9f;
+  --fc-monarch-border: #b0b0b0;
+  --fc-monarch-strong-border: #9f9f9f;
+}
+.calendar-container > * {
+  min-width: 0;
+  max-width: 100%;
+}
+.calendar-container .calendar-grid {
+  font-size: 12px;
+  line-height: 1.3333;
+}
+.calendar-day-cell {
+  border: 0;
+  background: #fff;
+}
+.calendar-day-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0 8px;
+}
+.calendar-weekday {
+  color: #8a8a8a;
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}
+.calendar-day-number {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 20px;
+  font-weight: 400;
+  line-height: 24px;
+}
+.is-today .calendar-weekday {
+  color: var(--calendar-coral);
+}
+.is-today .calendar-day-number {
+  background: var(--calendar-coral);
+  color: #fff;
+}
+.calendar-time-label {
+  min-height: 16px;
+  color: #707070;
+  font-size: 12px;
+  letter-spacing: 0.5px;
+}
+.calendar-time-label-inner {
+  min-height: 16px;
+  padding: 0 6px 0 0;
+  font-size: 12px;
+  line-height: 16px;
+}
+.calendar-time-slot {
+  min-height: 27px;
+}
+.calendar-container .availability-cell {
+  opacity: 1;
+  background-color: var(--fc-event-color);
+  border-right: 0.5px solid #9f9f9f;
+  border-bottom: 0.5px solid #9f9f9f;
+  pointer-events: none;
+  border-radius: 0;
+  box-shadow:
+    inset -0.5px 0 #9f9f9f,
+    inset 0 -0.5px #9f9f9f;
+}
+.calendar-container .reservation-block {
+  color: var(--fc-event-contrast-color);
+  background: var(--fc-event-color);
+  border: 1px solid #98b2a2;
+  border-left-width: 3px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.calendar-container .reservation-block--pending {
+  border: 1px dashed #a89b7e;
+  background: #faf8f1;
+}
+.calendar-container .reservation-block--denied {
+  border-color: #b8b8b8;
+}
+.calendar-container .reservation-block--draft {
+  border: 1px solid #f35c57;
+  color: #f35c57;
+  background: #fde5e4;
+  cursor: grab;
+}
+.calendar-event {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  height: auto;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 11px;
+  line-height: 12px;
+}
+.calendar-event strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+}
+.calendar-event--short {
+  gap: 0;
+  padding: 1px 4px;
+  font-size: 9px;
+  line-height: 11px;
+}
+.calendar-event--short strong {
+  font-size: 10px;
+  line-height: 12px;
+}
+.calendar-event--short > span:nth-of-type(n + 2) {
+  display: none;
+}
+.calendar-event-status {
+  margin-top: auto;
+  text-transform: capitalize;
+}
+.calendar-instruction,
+.calendar-footnote {
+  margin-top: 12px;
+  color: #8a8a8a;
+  font-size: 11px;
+  line-height: 1.6;
+}
+.calendar-instruction button {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: #367c65;
+  text-decoration: underline;
+  font-size: inherit;
+}
+.calendar-footnote {
+  margin-top: 4px;
+  font-size: 10px;
+}
+.calendar-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  color: #707070;
+  font-size: 10px;
+}
+.calendar-legend > span {
+  width: 10px;
+  height: 10px;
+  margin-left: 12px;
+  border: 1px solid #bbb;
+  border-radius: 2px;
+}
+.calendar-legend > span:first-child {
+  margin-left: 0;
+}
+.legend-available {
+  background: #4b9f71;
+}
+.legend-partial {
+  background: #a9d9bd;
+}
+.legend-unavailable {
+  background: #fff;
+}
+.calendar-availability-message {
+  padding: 10px;
+  margin-bottom: 12px;
+  border: 1px solid #eac399;
+  border-radius: 8px;
+  background: #fff8ed;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.calendar-availability-message button {
+  margin-left: 8px;
+  padding: 4px 8px;
+}
+.reservation-notice {
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  border: 1px solid #b6d8c7;
+  border-radius: 8px;
+  background: #e5f2ed;
+  color: #285c47;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.reservation-panel {
+  min-width: 0;
+  padding: 20px 15px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 12px;
+  background: #fff;
+}
+.reservation-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.reservation-panel h2 {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.18px;
+}
+.reservation-panel fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+  border: 0;
+}
+.reservation-panel :is(label, .reservation-field-label) {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 20px;
+}
+.reservation-panel label:not(:first-child),
+.reservation-panel .reservation-field-label {
+  margin-top: 6px;
+}
+.reservation-panel input {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  background: #fff;
+  color: #242424;
+  font-size: 12px;
+}
+.reservation-panel input::placeholder {
+  color: #b0b0b0;
+}
+.reservation-panel input[aria-invalid="true"] {
+  border-color: #b42318;
+}
+.reservation-panel hr {
+  width: 100%;
+  margin: 8px 0;
+  border: 0;
+  border-top: 1px solid #eee;
+}
+.reservation-date {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  line-height: 20px;
+}
+.reservation-timezone {
+  font-size: 10px;
+  color: #707070;
+}
+.reservation-time-inputs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+}
+.reservation-time-inputs label {
+  display: grid;
+  gap: 4px;
+}
+.reservation-time-inputs input {
+  padding: 6px;
+}
+.chef-counter {
+  display: flex;
+  align-items: center;
+  width: 134px;
+}
+.chef-counter button {
+  display: flex;
+  border: 0;
+  background: none;
+  padding: 0;
+}
+.reservation-panel .chef-counter input {
+  padding: 0;
+  border-radius: 0;
+  border-left: 0;
+  border-right: 0;
+  text-align: center;
+  appearance: textfield;
+}
+.chef-counter input::-webkit-inner-spin-button {
+  appearance: none;
+}
+.reservation-amenities {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.reservation-contact {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 4px 0 8px;
+}
+.contact-avatar {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 1px solid #e4e4e4;
+  border-radius: 50%;
+  background: #ededed;
+  color: #999;
+  font-size: 11px;
+}
+.reservation-contact > div {
+  min-width: 0;
+  color: #707070;
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.reservation-contact p + p {
+  color: #8a8a8a;
+}
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 4px;
+  border: 0;
+  background: none;
+}
+.additional-contact {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.add-contact-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  width: 100%;
+  padding: 6px 16px;
+  border: 1px solid #d9d9d9;
+  border-radius: 12px;
+  color: #707070;
+  background: #fff;
+  font-size: 12px;
+  text-align: left;
+}
+.reservation-note {
+  color: #8a8a8a;
+  font-size: 10px;
+  line-height: 1.5;
+}
+.reservation-field-error {
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.reservation-submit-error {
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #edb4b1;
+  border-radius: 8px;
+  background: #fff4f3;
+  color: #9c2924;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.reservation-panel .request-reservation-button,
+.reservation-panel .cancel-reservation-button {
+  width: 100%;
+  min-height: 37px;
+  height: auto;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  line-height: 20px;
+}
+.reservation-panel .request-reservation-button {
+  border: 1px solid #f35c57;
+  background: #f35c57;
+  color: #fff;
+}
+.reservation-panel .request-reservation-button:hover:not(:disabled) {
+  background: #df4c47;
+}
+.reservation-panel .cancel-reservation-button {
+  border: 1px solid #707070;
+  background: #fff;
+  color: #20201e;
+}
+.reservation-details {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 12px;
+  line-height: 20px;
+  overflow-wrap: anywhere;
+}
+.reservation-details h3 {
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+.reservation-status {
+  align-self: flex-start;
+  padding: 5px 12px;
+  border-radius: 8px;
+  background: #eef4f0;
+  color: #4f705f;
+  text-transform: capitalize;
+}
+.reservation-status--pending {
+  background: #faf8f1;
+  color: #82765b;
+}
+.reservation-status--denied {
+  background: #eee;
+  color: #777;
+}
+.chef-statistics {
+  margin: auto;
+  max-width: calc(100vw - 32px);
+  width: 360px;
+  padding: 24px;
+  border: 1px solid #e4e4e4;
+  border-radius: 12px;
+  color: #20201e;
+}
+.chef-statistics::backdrop {
+  background: #20201e44;
+}
+.chef-statistics h2 {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+.chef-statistics p {
+  color: #707070;
+  font-size: 12px;
+}
+.chef-statistics dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin: 20px 0;
+  font-size: 14px;
+}
+.chef-statistics button {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background: #fff;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+@media (min-width: 1600px) {
+  .calendar-page {
+    max-width: 1500px;
+    margin-right: auto;
+  }
+}
+@media (max-width: 1100px) {
+  .calendar-page {
+    padding: 32px 24px;
+  }
+  .reservation-experience--editing {
+    grid-template-columns: minmax(0, 1fr) 251px;
+    gap: 20px;
+  }
+  .calendar-navigation {
+    gap: 4px;
+  }
+  .calendar-date-picker {
+    margin-right: 4px;
+  }
+}
+@media (max-width: 900px) and (min-width: 768px) {
+  .reservation-experience--editing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 767px) {
+  .chef-sidebar {
+    position: static;
+    width: 100%;
+    padding: 16px;
+    border-right: 0;
+    border-bottom: 1px solid #eee;
+  }
+  .chef-brand {
+    margin-bottom: 12px;
+  }
+  .chef-sidebar nav {
+    flex-direction: row;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .chef-sidebar nav > * {
+    padding: 8px 0;
+    border: 0;
+    gap: 8px;
+  }
+  .chef-sidebar nav > :last-child {
+    border: 0;
+  }
+  .chef-sidebar-user {
+    display: none;
+  }
+  .calendar-page {
+    margin-left: 0;
+    padding: 24px 12px;
+  }
+  .calendar-page-header h1 {
+    font-size: 24px;
+  }
+  .calendar-page-header {
+    margin-bottom: 24px;
+  }
+  .reservation-experience--editing {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .calendar-control-row {
+    gap: 12px;
+  }
+  .calendar-navigation {
+    width: 100%;
+    justify-content: flex-end;
+  }
+  .calendar-date-picker {
+    margin-right: auto;
+  }
+  .reservation-panel input {
+    font-size: 16px;
+  }
+  .calendar-event {
+    padding: 3px;
+    font-size: 10px;
+    line-height: 14px;
+  }
+  .calendar-event strong {
+    font-size: 11px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chef-calendar-shell * {
+    scroll-behavior: auto;
+    transition: none;
+  }
+}

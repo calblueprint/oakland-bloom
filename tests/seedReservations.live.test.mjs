@@ -50,6 +50,11 @@ await test(
       await db.begin(async sql => {
         await sql`create temporary table users (like public.users including all) on commit drop`;
         await sql`create temporary table booking_event (like public.booking_event including all) on commit drop`;
+        // LIKE omits the production compatibility trigger. These legacy fixtures
+        // all reserve the whole kitchen, so supply its defaults on the temp copy.
+        await sql`alter table pg_temp.booking_event
+          alter column title set default 'Kitchen reservation',
+          alter column amenities set default ARRAY['bar_prep_table', 'salad_bar_table', 'oven']::text[]`;
         await sql`create temporary table auth_users (id uuid, email text) on commit drop`;
         await sql`insert into auth_users values (${user1}::uuid, 'one@example.invalid'), (${user2}::uuid, 'two@example.invalid')`;
         await sql`select set_config('oak10.user1', ${user1}, true), set_config('oak10.user2', ${user2}, true)`;

@@ -1,15 +1,18 @@
 "use client";
 
-import type { Reservation } from "@/types/reservations";
+import type { CalendarReservation } from "@/types/reservations";
+import { amenityLabel } from "@/lib/bookingRequest";
 import { IconSvgs } from "@/lib/icons";
 import {
   AmenityTag,
+  AmenityTags,
   DateSection,
   DayNumber,
   GuestCount,
   MonthYear,
   ReservationInfo,
   ReservationTime,
+  ReservationTitle,
   StatusBadge,
   StatusSection,
   StyledCard,
@@ -17,7 +20,7 @@ import {
 } from "./ReservationCard.styles";
 
 type ReservationCardProps = {
-  reservation: Reservation;
+  reservation: CalendarReservation;
 };
 
 // Date() converts the reservation time's string into a JS Date Object
@@ -51,12 +54,6 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     hour12: true,
   });
 
-  const statusIcons = {
-    approved: "statusApproved",
-    denied: "statusDenied",
-    pending: "statusPending",
-  };
-
   const formattedStartTime = timeFormatter.format(
     new Date(reservation.start_time),
   );
@@ -72,6 +69,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
         </DateSection>
 
         <div>
+          <ReservationTitle>{reservation.title}</ReservationTitle>
           <ReservationTime>
             {formattedStartTime} – {formattedEndTime}
           </ReservationTime>
@@ -81,10 +79,14 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
             {reservation.num_people === 1 ? "guest" : "guests"}
           </GuestCount>
 
-          <AmenityTag>
-            {IconSvgs.amenityTable}
-            {reservation.amenity}
-          </AmenityTag>
+          <AmenityTags>
+            {reservation.amenities.map(amenity => (
+              <AmenityTag key={amenity}>
+                {IconSvgs.amenityTable}
+                {amenityLabel(amenity)}
+              </AmenityTag>
+            ))}
+          </AmenityTags>
         </div>
       </ReservationInfo>
 

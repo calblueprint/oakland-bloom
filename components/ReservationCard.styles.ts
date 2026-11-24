@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import COLORS from "@/styles/colors";
 
 // styles each individual reservation card
 // arranging the (IMMEDIATE) children horizontally
@@ -164,4 +163,19 @@ export const StatusBadge = styled.span<{ $status: string }>`
       : $status === "denied"
         ? "#BD2942"
         : "#7042B5"};
+`;
+
+export const ReservationTitle = styled.h2`
+  color: var(--Ink, #20201e);
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  margin: 0 0 0.25rem 0;
+`;
+
+// a booking can hold several amenities; wrap their tags onto new lines
+export const AmenityTags = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
 `;
