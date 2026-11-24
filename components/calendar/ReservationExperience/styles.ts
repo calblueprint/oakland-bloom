@@ -47,6 +47,10 @@ export const Page = styled.main`
   @media ${COMPACT} {
     padding: 0;
   }
+  @media ${MOBILE} {
+    margin-left: 0;
+    padding: 24px 12px;
+  }
 `;
 
 export const PageHeader = styled.header`
