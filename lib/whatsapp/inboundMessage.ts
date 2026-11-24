@@ -59,6 +59,12 @@ export interface RejectedMessage {
   reason: string;
 }
 
+/** Delivery evidence from a signed Meta callback. */
+export interface MetaDeliveryReceipt {
+  providerMessageId: string;
+  status: "delivered" | "read" | "failed";
+}
+
 /**
  * Result of parsing one webhook POST. Per-message problems land in `rejected`
  * so one unsupported message never blocks the valid ones batched with it.
@@ -66,6 +72,7 @@ export interface RejectedMessage {
 export interface InboundBatch {
   messages: InboundMessage[];
   rejected: RejectedMessage[];
+  deliveryReceipts?: MetaDeliveryReceipt[];
 }
 
 /**

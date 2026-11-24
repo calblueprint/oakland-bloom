@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile, spawn } from "node:child_process";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { chmod, mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -168,7 +168,9 @@ async function createAccounts(db, previous) {
       "CHEF_A",
       "Test Chef A",
       "chef-a@example.test",
-      process.env.WHATSAPP_TEST_RECIPIENT || "15555550101",
+      process.env.WHATSAPP_TEST_RECIPIENT ||
+        previous.WHATSAPP_TEST_RECIPIENT ||
+        "15555550101",
       false,
     ],
     ["CHEF_B", "Test Chef B", "chef-b@example.test", "15555550102", false],
@@ -320,10 +322,10 @@ async function seedFixtures(db, accounts) {
     db,
     "booking_event",
     [
-      [1, a, "Oven", 1, "approved"],
-      [2, a, "Bar Prep Table", 2, "pending"],
-      [3, a, "Salad Bar Prep Table", -3, "denied"],
-      [4, b, "Oven", 3, "approved"],
+      [1, a, "oven", 1, "approved"],
+      [2, a, "bar_prep_table", 2, "pending"],
+      [3, a, "salad_bar_table", -3, "denied"],
+      [4, b, "oven", 3, "approved"],
     ].map(([number, chef, amenity, days, status]) => ({
       id: id(3, number),
       user: chef.id,
@@ -408,6 +410,55 @@ async function startTestApp(status) {
   }
 }
 
+/** Runs schema regressions in a disposable database, preserving the interactive test app. */
+async function runSqlRegressions(admin, databaseUrl) {
+  const name = `wa_regression_${randomUUID().replaceAll("-", "")}`;
+  const target = new URL(databaseUrl);
+  target.pathname = `/${name}`;
+  let db;
+  await admin`create database ${admin(name)}`;
+  try {
+    db = postgres(target.toString(), {
+      max: 1,
+      ssl: false,
+      onnotice: () => {},
+    });
+    await db
+      .unsafe(
+        `
+      create schema auth; create schema extensions; create schema vault;
+      create function auth.uid() returns uuid language sql stable as $$
+        select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid
+      $$;
+      grant usage on schema auth,public to authenticated,anon,service_role;
+    `,
+      )
+      .simple();
+    await applySchema(db);
+    for (const file of [
+      "whatsappReplies.sql",
+      "whatsappCateringIntegration.sql",
+      "whatsappCapabilities.sql",
+      "whatsappKitchen.sql",
+      "whatsappProactive.sql",
+      "whatsappDatabaseWebhooks.sql",
+      "whatsappNoticeStyle.sql",
+      "whatsappDraftRecovery.sql",
+      "whatsappStopIngest.sql",
+      "whatsappBookingResources.sql",
+      "whatsappDeliveryReceipts.sql",
+      "whatsappResumeAfterUncertain.sql",
+    ]) {
+      await db
+        .unsafe(await readFile(resolve(root, "tests", file), "utf8"))
+        .simple();
+    }
+  } finally {
+    if (db) await db.end({ timeout: 5 });
+    await admin`drop database ${admin(name)} with (force)`;
+  }
+}
+
 /** Starts and seeds only the isolated local project; repeated runs keep test conversation data. */
 export async function main() {
   if (process.argv.slice(2).some(arg => arg !== "--app"))
@@ -456,16 +507,7 @@ export async function main() {
     );
     await chmod(envPath, 0o600);
     await verifyDatabase(db, status.API_URL, publicKey, accounts);
-    for (const file of [
-      "whatsappReplies.sql",
-      "whatsappCateringIntegration.sql",
-      "whatsappCapabilities.sql",
-      "whatsappKitchen.sql",
-    ]) {
-      await sql
-        .unsafe(await readFile(resolve(root, "tests", file), "utf8"))
-        .simple();
-    }
+    await runSqlRegressions(sql, status.DB_URL);
     console.log(
       "Synthetic test database ready: 3 accounts, 2 businesses, 6 catering requests, 4 kitchen bookings and 3 menu items.",
     );

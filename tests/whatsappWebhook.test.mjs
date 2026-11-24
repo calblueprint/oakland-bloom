@@ -151,6 +151,52 @@ test("status-only callbacks are acknowledged with an empty batch", async () => {
   assert.deepEqual(ingested[0], { messages: [], rejected: [] });
 });
 
+test("a signed callback saves only valid receipts for the configured business number", async () => {
+  const { config, ingested } = setup();
+  config.phoneNumberId = "111";
+  const change = (phone, statuses) => ({
+    field: "messages",
+    value: { metadata: { phone_number_id: phone }, statuses },
+  });
+  const body = JSON.stringify({
+    object: "whatsapp_business_account",
+    entry: [
+      {
+        id: "1",
+        changes: [
+          change("111", [
+            {
+              id: "wamid.delivered",
+              status: "delivered",
+              recipient_id: "15555550101",
+            },
+            { id: "wamid.wrong-status", status: "sent" },
+            { id: "wamid.bad id", status: "failed" },
+            {
+              id: "wamid.failed",
+              status: "failed",
+              errors: [{ title: "provider detail" }],
+            },
+          ]),
+          change("222", [{ id: "wamid.other-number", status: "read" }]),
+        ],
+      },
+    ],
+  });
+  const response = await handleMetaWebhook(post(body), config);
+  assert.equal(response.status, 200);
+  assert.deepEqual(ingested, [
+    {
+      messages: [],
+      rejected: [],
+      deliveryReceipts: [
+        { providerMessageId: "meta:wamid.delivered", status: "delivered" },
+        { providerMessageId: "meta:wamid.failed", status: "failed" },
+      ],
+    },
+  ]);
+});
+
 test("the subscription handshake echoes the challenge only for our token", () => {
   const url = token =>
     new URL(

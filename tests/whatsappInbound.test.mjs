@@ -93,11 +93,15 @@ test("rejects a malformed Twilio payload explicitly", () => {
   );
 });
 
-test("ignores Meta delivery-status callbacks without failing", () => {
-  // Status callbacks share the webhook URL but carry no `messages` array.
-  assert.deepEqual(parseMetaPayload(json("meta-status-callback.json")), {
+test("normalizes a Meta delivery receipt without creating an inbound message", () => {
+  const fixture = json("meta-status-callback.json");
+  const { id } = fixture.entry[0].changes[0].value.statuses[0];
+  assert.deepEqual(parseMetaPayload(fixture), {
     messages: [],
     rejected: [],
+    deliveryReceipts: [
+      { providerMessageId: `meta:${id}`, status: "delivered" },
+    ],
   });
 });
 

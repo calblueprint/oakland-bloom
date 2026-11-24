@@ -17,7 +17,7 @@ function setup({ modelFails = false, commitFails = false, sendError } = {}) {
       provider: "meta",
       providerMessageId: "meta:in-1",
       from: phone,
-      text: "yo",
+      text: "What can you help with?",
     },
     state: {
       version: 1,
@@ -116,7 +116,10 @@ test("AI reply and conversation commit before the real send; polling again does 
   const app = setup();
   assert.deepEqual(await app.worker.runOnce(), { processed: true, sent: true });
   assert.ok(app.events.indexOf("commit_wa_turn") < app.events.indexOf("send"));
-  assert.equal(app.saved.conversations[0].turns[0].text, "yo");
+  assert.equal(
+    app.saved.conversations[0].turns[0].text,
+    "What can you help with?",
+  );
   assert.equal(app.outgoing.status, "sent");
   assert.deepEqual(await app.worker.runOnce(), {
     processed: false,

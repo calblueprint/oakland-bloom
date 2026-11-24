@@ -52,6 +52,19 @@ export class MetaApiError extends Error {
   }
 }
 
+/** Identifies a rejection that can be recorded as a failed send. Other errors leave delivery uncertain. */
+export function isDefiniteMetaRefusal(error: unknown) {
+  if (!(error instanceof MetaApiError)) return false;
+  // Treat timeouts and rate limits conservatively. The queue cannot prove that
+  // retrying either response would avoid sending a duplicate.
+  return (
+    error.status >= 400 &&
+    error.status < 500 &&
+    error.status !== 408 &&
+    error.status !== 429
+  );
+}
+
 /** Media the agent will fetch: images up to 5 MB, stickers up to 500 KB. */
 const MEDIA_LIMITS: Record<string, number> = {
   "image/jpeg": 5 * 1024 * 1024,
