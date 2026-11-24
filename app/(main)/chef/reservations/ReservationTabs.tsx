@@ -12,6 +12,7 @@ import { ReservationList } from "@/components/ReservationList";
 import {
   Layout,
   ListColumn,
+  Notice,
   PageContainer,
   PageSubtitle,
   PageTitle,
@@ -48,9 +49,17 @@ export default function ReservationTabs({
     }
   }, [selectedId]);
 
+  // announced after a cancel, since the card and panel both disappear
+  const [notice, setNotice] = useState("");
+  const onCancelled = useCallback(() => {
+    setSelectedId(null);
+    setNotice("Reservation cancelled.");
+  }, []);
+
   const showTab = (tab: "upcoming" | "past") => {
     setActiveTab(tab);
     setSelectedId(null);
+    setNotice("");
   };
 
   // filtering based on whether reservation is BEFORE or AFTER today's date
@@ -96,6 +105,9 @@ export default function ReservationTabs({
             </TabButton>
           </TabContainer>
 
+          {/* always mounted so screen readers hear it */}
+          <Notice role="status">{notice}</Notice>
+
           {filteredReservations.length === 0 ? (
             <p>
               {activeTab === "upcoming"
@@ -109,11 +121,12 @@ export default function ReservationTabs({
                   key={reservation.id}
                   reservation={reservation}
                   selected={reservation.id === selectedId}
-                  onSelect={() =>
+                  onSelect={() => {
+                    setNotice("");
                     setSelectedId(id =>
                       id === reservation.id ? null : reservation.id,
-                    )
-                  }
+                    );
+                  }}
                 />
               ))}
             </ReservationList>
@@ -126,6 +139,7 @@ export default function ReservationTabs({
             reservation={selected}
             owner={owner}
             onClose={closeDetails}
+            onCancelled={onCancelled}
           />
         )}
       </Layout>

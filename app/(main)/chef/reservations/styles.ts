@@ -77,3 +77,14 @@ export const Layout = styled.div<{ $withDetails: boolean }>`
 export const ListColumn = styled.div`
   min-width: 0;
 `;
+
+// "Reservation cancelled." after a cancel; empty (and takes no room) otherwise
+export const Notice = styled.p`
+  margin: 0;
+  font-size: 0.875rem;
+  color: #367c65;
+
+  &:not(:empty) {
+    margin-bottom: 1rem;
+  }
+`;

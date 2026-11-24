@@ -22,11 +22,6 @@ export function ReservationExperience({
   // temporary until the sidebar design has a sign-out
   signOut?: ReactNode;
 }) {
-  // cancelled requests free their time, so they're left off the calendar
-  // (Your Reservations still lists them)
-  const activeReservations = reservations.filter(
-    reservation => reservation.approval_status !== "cancelled",
-  );
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [selection, setSelection] = useState<SelectedTime | null>(null);
   const [details, setDetails] = useState<CalendarReservation | null>(null);
@@ -85,7 +80,7 @@ export function ReservationExperience({
             aria-label="Kitchen availability"
           >
             <CalendarView
-              reservations={activeReservations}
+              reservations={reservations}
               amenities={amenities}
               onSelectTime={chooseTime}
               onViewReservation={reservation => {

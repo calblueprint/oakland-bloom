@@ -691,10 +691,6 @@
   background: #eee;
   color: #777;
 }
-.reservation-status--cancelled {
-  background: #f3f3f3;
-  color: #707070;
-}
 .chef-statistics {
   margin: auto;
   max-width: calc(100vw - 32px);

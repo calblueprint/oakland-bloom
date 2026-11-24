@@ -176,7 +176,7 @@ export const Chevron = styled.span`
   color: #707070;
 `;
 
-// approved / denied / pending colours from Figma; cancelled is a neutral grey
+// approved / denied / pending colours from Figma
 const statusColors: Record<
   string,
   { background: string; border: string; text: string }
@@ -184,7 +184,6 @@ const statusColors: Record<
   approved: { background: "#e8f1ff", border: "#c9ddfb", text: "#245ba8" },
   denied: { background: "#fde8ec", border: "#f8cdd5", text: "#bd2942" },
   pending: { background: "#f1ebff", border: "#ded0fa", text: "#7042b5" },
-  cancelled: { background: "#f3f3f3", border: "#d9d9d9", text: "#707070" },
 };
 const colorsFor = (status: string) =>
   statusColors[status] ?? statusColors.pending;

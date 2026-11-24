@@ -43,10 +43,12 @@ export function ReservationDetails({
   reservation,
   owner,
   onClose,
+  onCancelled,
 }: {
   reservation: CalendarReservation;
   owner: ReservationOwner;
   onClose: () => void;
+  onCancelled: () => void;
 }) {
   const heading = useRef<HTMLHeadingElement>(null);
   // cancelling asks once more in the panel before it does anything
@@ -83,8 +85,8 @@ export function ReservationDetails({
       try {
         const result = await cancelBookingRequest(reservation.id);
         if (result.error) setCancelError(result.error);
-        // the page reloads its reservations; this one now shows as cancelled
-        else setConfirming(false);
+        // the page reloads its reservations without this one
+        else onCancelled();
       } catch {
         setCancelError(
           "Could not reach the server. Check your connection and try again.",
