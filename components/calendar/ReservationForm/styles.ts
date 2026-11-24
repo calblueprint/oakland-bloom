@@ -299,3 +299,16 @@ export const PlainCancelButton = styled.button`
   background: ${COLORS.white};
   color: ${COLORS.ink};
 `;
+
+export const ContactAvatar = styled.span`
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border: 1px solid ${COLORS.divider};
+  border-radius: 50%;
+  background: ${COLORS.avatarFill};
+  color: ${COLORS.avatarText};
+  font-size: 11px;
+`;

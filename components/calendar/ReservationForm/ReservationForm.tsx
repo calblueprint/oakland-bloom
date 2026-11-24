@@ -15,13 +15,13 @@ import {
 } from "@/lib/calendarTime";
 import { AmenityChip } from "../AmenityChip/AmenityChip";
 import { CalendarIcon } from "../CalendarIcon/CalendarIcon";
-import { ContactAvatar } from "../ChefSidebar/styles";
 import {
   AddContactButton,
   AdditionalContact,
   CancelButton,
   ChefCounter,
   Contact,
+  ContactAvatar,
   DateLine,
   FieldError,
   FieldLabel,

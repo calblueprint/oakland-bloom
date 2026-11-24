@@ -1,8 +1,14 @@
+import type { ElementType } from "react";
 import { redirect } from "next/navigation";
 import { signOut } from "@/actions/auth";
 
 // Plain server-action sign-out; signOut redirects to /login on success.
-export default function SignOutButton() {
+// pass a styled button as `as` to change how it looks
+export default function SignOutButton({
+  as: Button = "button",
+}: {
+  as?: ElementType;
+}) {
   return (
     <form
       action={async () => {
@@ -13,7 +19,7 @@ export default function SignOutButton() {
         }
       }}
     >
-      <button type="submit">Sign out</button>
+      <Button type="submit">Sign out</Button>
     </form>
   );
 }

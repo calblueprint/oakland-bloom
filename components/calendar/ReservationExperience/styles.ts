@@ -7,7 +7,6 @@ import { COMPACT, MOBILE, TABLET, WIDE } from "../breakpoints";
 export const Shell = styled.div`
   color: ${COLORS.ink};
   background: ${COLORS.white};
-  min-height: 100dvh;
 
   button,
   input,
@@ -35,25 +34,27 @@ export const Shell = styled.div`
   }
 `;
 
+// AppShell (chef/layout.tsx) already pads the page by 32px. This adds the rest
+// of the original calendar spacing: 48px above and clamp(24px, 4.75vw, 64px)
+// at the sides on wide screens
 export const Page = styled.main`
-  margin-left: 225px;
-  padding: 48px clamp(24px, 4.75vw, 64px) 30px;
-  min-height: 100dvh;
+  min-width: 0;
+  padding: 16px clamp(0px, calc(4.75vw - 32px), 32px) 0;
 
   @media ${WIDE} {
     max-width: 1500px;
-    margin-right: auto;
   }
   @media ${COMPACT} {
-    padding: 32px 24px;
-  }
-  @media ${MOBILE} {
-    margin-left: 0;
-    padding: 24px 12px;
+    padding: 0;
   }
 `;
 
 export const PageHeader = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 32px;
 
   h1 {
@@ -248,4 +249,14 @@ export const LegendSwatch = styled.span<{
   &:first-child {
     margin-left: 0;
   }
+`;
+
+// temporary until the sidebar design has a sign-out
+export const SignOutButton = styled.button`
+  padding: 6px 12px;
+  border: 1px solid ${COLORS.divider};
+  border-radius: 8px;
+  background: ${COLORS.white};
+  color: ${COLORS.heading};
+  font-size: 12px;
 `;

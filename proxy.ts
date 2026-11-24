@@ -17,7 +17,14 @@ function redirectWithSession(url: URL, supabaseResponse: NextResponse) {
 }
 
 // routes reachable without a session - everything else requires a logged-in user
-const publicRoutes = ["/login", "/sign-up", "/auth", "/api", "/error"];
+const publicRoutes = [
+  "/login",
+  "/sign-up",
+  "/forgot-password",
+  "/auth",
+  "/api",
+  "/error",
+];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

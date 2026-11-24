@@ -3,10 +3,11 @@
 import type { CalendarReservation } from "@/types/reservations";
 import { amenityLabel } from "@/lib/bookingRequest";
 import { calendarTimeRangeLabel, formatCalendarDate } from "@/lib/calendarTime";
-import { IconSvgs } from "@/lib/icons";
+import { IconSvgs, statusIcon } from "@/lib/icons";
 import {
   AmenityTag,
   AmenityTags,
+  Chevron,
   DateSection,
   DayNumber,
   GuestCount,
@@ -22,9 +23,18 @@ import {
 
 type ReservationCardProps = {
   reservation: CalendarReservation;
+  // whether this card's details panel is open
+  selected: boolean;
+  onSelect: () => void;
 };
 
-export function ReservationCard({ reservation }: ReservationCardProps) {
+// Date() converts the reservation time's string into a JS Date Object
+
+export function ReservationCard({
+  reservation,
+  selected,
+  onSelect,
+}: ReservationCardProps) {
   const start = reservation.start_time;
   const weekday = formatCalendarDate(start, { weekday: "short" });
   const day = formatCalendarDate(start, { day: "numeric" });
@@ -32,10 +42,16 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     month: "short",
     year: "numeric",
   });
-  const timeRange = calendarTimeRangeLabel(start, reservation.end_time);
 
   return (
-    <StyledCard>
+    <StyledCard
+      id={`reservation-card-${reservation.id}`}
+      type="button"
+      $selected={selected}
+      aria-pressed={selected}
+      aria-controls="reservation-details"
+      onClick={onSelect}
+    >
       <ReservationInfo>
         <DateSection>
           <Weekday>{weekday.toUpperCase()}</Weekday>
@@ -45,7 +61,12 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
         <div>
           <ReservationTitle>{reservation.title}</ReservationTitle>
-          <ReservationTime>{timeRange}</ReservationTime>
+          <ReservationTime>
+            {calendarTimeRangeLabel(
+              reservation.start_time,
+              reservation.end_time,
+            )}
+          </ReservationTime>
 
           <GuestCount>
             {reservation.num_people}{" "}
@@ -54,7 +75,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
           <AmenityTags>
             {reservation.amenities.map(amenity => (
-              <AmenityTag key={amenity}>
+              <AmenityTag key={amenity} $amenity={amenity}>
                 {IconSvgs.amenityTable}
                 {amenityLabel(amenity)}
               </AmenityTag>
@@ -65,13 +86,10 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
       <StatusSection>
         <StatusBadge $status={reservation.approval_status}>
-          {reservation.approval_status === "approved"
-            ? IconSvgs.statusApproved
-            : reservation.approval_status === "denied"
-              ? IconSvgs.statusDenied
-              : IconSvgs.statusPending}
+          {statusIcon(reservation.approval_status)}
           {reservation.approval_status}
         </StatusBadge>
+        <Chevron>{IconSvgs.chevronRight}</Chevron>
       </StatusSection>
     </StyledCard>
   );

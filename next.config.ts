@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: localDevHosts,
   // readable class names in dev and consistent ones between server and client
   compiler: { styledComponents: true },
+  // the calendar moved to the chef home page; keep old links working
+  async redirects() {
+    return [{ source: "/calendar", destination: "/chef", permanent: false }];
+  },
 };
 
 export default nextConfig;

@@ -3,12 +3,11 @@
 import type { Amenity, SelectedTime } from "@/lib/bookingRequest";
 import type { CalendarReservation } from "@/types/reservations";
 import type { ReservationContact } from "../ReservationForm/ReservationForm";
-import { useRef, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { AMENITIES } from "@/lib/bookingRequest";
 import { nextRequestTime } from "@/lib/calendarTime";
 import { AmenityChip } from "../AmenityChip/AmenityChip";
 import { CalendarView } from "../CalendarView/CalendarView";
-import { ChefSidebar } from "../ChefSidebar/ChefSidebar";
 import { ReservationDetails } from "../ReservationDetails/ReservationDetails";
 import { ReservationForm } from "../ReservationForm/ReservationForm";
 import {
@@ -30,9 +29,12 @@ import {
 export function ReservationExperience({
   reservations,
   contact,
+  signOut,
 }: {
   reservations: CalendarReservation[];
   contact: ReservationContact;
+  // temporary until the sidebar design has a sign-out
+  signOut?: ReactNode;
 }) {
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [selection, setSelection] = useState<SelectedTime | null>(null);
@@ -74,10 +76,10 @@ export function ReservationExperience({
   };
   return (
     <Shell>
-      <ChefSidebar contact={contact} reservations={reservations} />
       <Page>
         <PageHeader>
           <h1>Open Test Kitchen Reservations</h1>
+          {signOut}
         </PageHeader>
         {message && <Notice role="status">{message}</Notice>}
         <Experience $editing={!!(selection || details)}>

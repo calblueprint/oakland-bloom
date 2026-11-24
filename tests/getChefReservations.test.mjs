@@ -79,7 +79,10 @@ await test("reservation query using simulated verified sessions", async t => {
           "id,title,amenities,amenity,start_time,end_time,num_people,approval_status,additional_contacts",
         );
         assert.equal(url.searchParams.get("order"), "start_time.asc,id.asc");
+        // cancelled requests are withdrawn, so they're never returned
+        assert.equal(url.searchParams.get("approval_status"), "neq.cancelled");
         assert.deepEqual([...url.searchParams.keys()].sort(), [
+          "approval_status",
           "order",
           "select",
           "user",

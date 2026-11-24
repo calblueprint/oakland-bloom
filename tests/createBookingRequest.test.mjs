@@ -66,7 +66,7 @@ test("booking action delegates atomic availability and retries to the database",
       });
       assert.equal(state.calls[0].name, "create_booking_request");
       assert.equal(state.calls[0].args.p_id, request.requestId);
-      assert.deepEqual(state.paths, ["/calendar", "/chef/reservations"]);
+      assert.deepEqual(state.paths, ["/chef", "/chef/reservations"]);
     },
   );
   await t.test(

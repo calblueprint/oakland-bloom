@@ -19,6 +19,9 @@ export async function getChefReservations(): Promise<CalendarReservation[]> {
       "id, title, amenities, amenity, start_time, end_time, num_people, approval_status, additional_contacts",
     )
     .eq("user", user.id)
+    // a cancelled request is withdrawn, so it isn't shown anywhere (unlike a
+    // denied one, which the chef should still see)
+    .neq("approval_status", "cancelled")
     .order("start_time", { ascending: true })
     .order("id", { ascending: true });
 
