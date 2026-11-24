@@ -2,7 +2,9 @@ import styled from "styled-components";
 
 // styles each individual reservation card
 // arranging the (IMMEDIATE) children horizontally
-export const StyledCard = styled.div`
+// a button, so the card can be clicked or picked with the keyboard to open
+// its details. $selected gives the open card the darker Figma border
+export const StyledCard = styled.button<{ $selected: boolean }>`
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -14,12 +16,28 @@ export const StyledCard = styled.div`
   padding: 12px 32px;
   box-sizing: border-box;
 
-  border: 1px solid #e4e4e4;
+  border: 1px solid ${({ $selected }) => ($selected ? "#707070" : "#e4e4e4")};
   border-radius: 10px;
   background-color: #ffffff;
 
+  /* undo the browser's button styles */
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: #707070;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #f35c57;
+    outline-offset: 2px;
+  }
+
   /* reduce spacing and padding on mobile screens */
   @media (max-width: 480px) {
+    flex-wrap: wrap;
     gap: 0.75rem;
     padding: 12px;
   }
@@ -29,8 +47,15 @@ export const StyledCard = styled.div`
 export const ReservationInfo = styled.div`
   display: flex;
   align-items: center;
+  flex: 1;
   gap: 32px;
   min-width: 0;
+
+  /* the text column takes the room left after the date */
+  > :last-child {
+    flex: 1;
+    min-width: 0;
+  }
 
   @media (max-width: 480px) {
     gap: 12px;
@@ -96,17 +121,18 @@ export const GuestCount = styled.p`
   margin: 0 0 0.25rem 0;
 `;
 
-// reuseable color tag for each amenity
-// when we figure out which amenity tags -> add specific color filtering?
-export const AmenityTag = styled.span`
+// reuseable color tag for each amenity: tables are green, the oven is purple
+// (Figma). the amenity icon uses currentColor, so it follows the text color
+export const AmenityTag = styled.span<{ $amenity?: string }>`
   border-radius: 0.375rem;
-  background-color: #e5f2ed;
+  background-color: ${({ $amenity }) =>
+    $amenity === "oven" ? "#f0eaf7" : "#e5f2ed"};
   display: inline-flex;
   padding: 0 8px;
   justify-content: center;
   align-items: center;
   gap: 6px;
-  color: #367c65;
+  color: ${({ $amenity }) => ($amenity === "oven" ? "#8064a0" : "#367c65")};
   font-size: 11px;
   font-style: normal;
   font-weight: 500;
@@ -114,16 +140,53 @@ export const AmenityTag = styled.span`
   letter-spacing: -0.22px;
   margin-top: 0.25rem;
 
-  /* prevent long amenity names from overextending on mobile */
+  /* keep each name on one line; the tags wrap as whole pills instead */
   max-width: 100%;
-  white-space: normal;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  /* phone cards are too narrow for some names, so let those wrap */
+  @media (max-width: 480px) {
+    white-space: normal;
+  }
 `;
 
 // uses avail space to push JUST the *status section* to the right
 export const StatusSection = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-left: auto;
+
+  /* phones: status and chevron get their own row under the details */
+  @media (max-width: 480px) {
+    width: 100%;
+    justify-content: space-between;
+    padding-top: 0.75rem;
+    border-top: 1px solid #e4e4e4;
+  }
 `;
+
+// the ">" after the status badge
+export const Chevron = styled.span`
+  display: inline-flex;
+  color: #707070;
+`;
+
+// approved / denied / pending colours from Figma
+const statusColors: Record<
+  string,
+  { background: string; border: string; text: string }
+> = {
+  approved: { background: "#e8f1ff", border: "#c9ddfb", text: "#245ba8" },
+  denied: { background: "#fde8ec", border: "#f8cdd5", text: "#bd2942" },
+  pending: { background: "#f1ebff", border: "#ded0fa", text: "#7042b5" },
+};
+const colorsFor = (status: string) =>
+  statusColors[status] ?? statusColors.pending;
 
 // $status indicates which colors to use for the styled component
 export const StatusBadge = styled.span<{ $status: string }>`
@@ -142,30 +205,14 @@ export const StatusBadge = styled.span<{ $status: string }>`
 
   text-transform: capitalize;
 
-  background-color: ${({ $status }) =>
-    $status === "approved"
-      ? "#e8f1ff"
-      : $status === "denied"
-        ? "#fde8ec"
-        : "#f1ebff"};
-
-  border: 1px solid
-    ${({ $status }) =>
-      $status === "approved"
-        ? "#C9DDFB"
-        : $status === "denied"
-          ? "#F8CDD5"
-          : "#DED0FA"};
-
-  color: ${({ $status }) =>
-    $status === "approved"
-      ? "#245ba8"
-      : $status === "denied"
-        ? "#BD2942"
-        : "#7042B5"};
+  background-color: ${({ $status }) => colorsFor($status).background};
+  border: 1px solid ${({ $status }) => colorsFor($status).border};
+  color: ${({ $status }) => colorsFor($status).text};
 `;
 
-export const ReservationTitle = styled.h2`
+// a span, since headings can't go inside the card's button
+export const ReservationTitle = styled.span`
+  display: block;
   color: var(--Ink, #20201e);
   font-size: 1rem;
   font-weight: 600;

@@ -53,7 +53,7 @@ export async function createBookingRequest(
         };
       return { error: "Your request could not be saved. Please try again." };
     }
-    revalidatePath("/calendar");
+    revalidatePath("/chef");
     revalidatePath("/chef/reservations");
     return { id: data };
   } catch {

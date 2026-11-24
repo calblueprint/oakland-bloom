@@ -1,4 +1,7 @@
+"use client";
+
 import styled from "styled-components";
+import { DETAILS_BREAKPOINT } from "@/components/ReservationDetails.styles";
 
 // wrap page content in a styled container, so cards don't stretch across entire browser page
 export const PageContainer = styled.main`
@@ -54,4 +57,34 @@ export const TabButton = styled.button<{ $active: boolean }>`
   font-weight: ${({ $active }) => ($active ? "500" : "300")};
 
   cursor: pointer;
+`;
+
+// the page (title, tabs, list), plus the details panel beside it when a card
+// is open. the panel starts level with the title (Figma)
+export const Layout = styled.div<{ $withDetails: boolean }>`
+  display: grid;
+  grid-template-columns: ${({ $withDetails }) =>
+    $withDetails ? "minmax(0, 1fr) 15.6875rem" : "minmax(0, 1fr)"};
+  gap: 2rem;
+  align-items: start;
+
+  /* the panel becomes a bottom sheet here, so the list keeps the full width */
+  @media (max-width: ${DETAILS_BREAKPOINT}) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+`;
+
+export const ListColumn = styled.div`
+  min-width: 0;
+`;
+
+// "Reservation cancelled." after a cancel; empty (and takes no room) otherwise
+export const Notice = styled.p`
+  margin: 0;
+  font-size: 0.875rem;
+  color: #367c65;
+
+  &:not(:empty) {
+    margin-bottom: 1rem;
+  }
 `;

@@ -127,7 +127,8 @@ Then, navigate to http://localhost:3000 to launch the web application.
 
 ### Calendar reservations
 
-Open `/calendar` with an approved account. Choose one or more amenities (Bar Prep
+Sign in with an approved chef account; the calendar is the chef home page
+(`/chef`). Choose one or more amenities (Bar Prep
 Table, Salad Bar Table, Oven) under **Book amenities**, then click a time cell or
 drag a range. Move or resize the draft on the calendar, or edit its time in the
 form. **Enter a time instead** provides keyboard date and time inputs as an

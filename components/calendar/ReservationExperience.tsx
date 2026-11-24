@@ -3,12 +3,11 @@
 import type { Amenity, SelectedTime } from "@/lib/bookingRequest";
 import type { CalendarReservation } from "@/types/reservations";
 import type { ReservationContact } from "./ReservationForm";
-import { useRef, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import { CalendarView } from "@/components/CalendarView";
 import { AMENITIES } from "@/lib/bookingRequest";
 import { nextRequestTime } from "@/lib/calendarTime";
 import { AmenityChip } from "./AmenityChip";
-import { ChefSidebar } from "./ChefSidebar";
 import { ReservationDetails } from "./ReservationDetails";
 import { ReservationForm } from "./ReservationForm";
 import "./calendar.css";
@@ -16,9 +15,12 @@ import "./calendar.css";
 export function ReservationExperience({
   reservations,
   contact,
+  signOut,
 }: {
   reservations: CalendarReservation[];
   contact: ReservationContact;
+  // temporary until the sidebar design has a sign-out
+  signOut?: ReactNode;
 }) {
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [selection, setSelection] = useState<SelectedTime | null>(null);
@@ -60,10 +62,10 @@ export function ReservationExperience({
   };
   return (
     <div className="chef-calendar-shell">
-      <ChefSidebar contact={contact} reservations={reservations} />
       <main className="calendar-page">
         <header className="calendar-page-header">
           <h1>Open Test Kitchen Reservations</h1>
+          {signOut}
         </header>
         {message && (
           <p className="reservation-notice" role="status">

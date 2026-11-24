@@ -845,6 +845,10 @@ export type Database = {
       };
     };
     Functions: {
+      cancel_booking_request: {
+        Args: { p_id: string };
+        Returns: string;
+      };
       claim_wa_reply: {
         Args: { target_phone: string; worker_id: string };
         Returns: Json;
