@@ -74,6 +74,12 @@ export const TitleRow = styled.div`
 
 export const Heading = styled.h2`
   margin: 0;
+
+  /* focus moves here when the panel opens so screen readers start in it;
+     the heading isn't interactive, so don't draw a focus ring */
+  &:focus {
+    outline: none;
+  }
   font-size: 1.125rem;
   font-weight: 500;
   line-height: 1.5rem;
