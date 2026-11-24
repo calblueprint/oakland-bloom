@@ -1,5 +1,5 @@
-import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
+import { getChefReservations } from "@/actions/supabase/queries/reservations";
 import ReservationTabs from "./ReservationTabs";
 
 // loads the signed-in chef's saved reservations on the server; the tabs that
@@ -7,7 +7,7 @@ import ReservationTabs from "./ReservationTabs";
 export default async function ReservationsPage() {
   // both cached per request; (main)/layout.tsx has already checked the account
   const [reservations, account] = await Promise.all([
-    getCalendarReservations(),
+    getChefReservations(),
     getAccount(),
   ]);
   return (

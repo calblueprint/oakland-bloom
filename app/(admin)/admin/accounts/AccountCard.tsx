@@ -1,4 +1,4 @@
-import type { ChefAccount } from "@/lib/admin/chefAccounts";
+import type { ChefAccount } from "@/actions/supabase/queries/chefAccounts";
 import chevron from "@/assets/images/accounts/chevron.svg";
 import { accountsHref, AccountTab } from "@/lib/admin/accountsView";
 import {

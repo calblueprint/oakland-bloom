@@ -1,9 +1,10 @@
 import { Instrument_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
-import { signOut } from "@/actions/auth";
-import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
-import { ReservationExperience } from "@/components/calendar/ReservationExperience";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
+import { getChefReservations } from "@/actions/supabase/queries/reservations";
+import { ReservationExperience } from "@/components/calendar/ReservationExperience/ReservationExperience";
+import { SignOutButton as SignOutStyle } from "@/components/calendar/ReservationExperience/styles";
+import SignOutButton from "@/components/SignOutButton/SignOutButton";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -15,7 +16,7 @@ const instrumentSans = Instrument_Sans({
 export default async function ChefHome() {
   const [account, reservations] = await Promise.all([
     getAccount(),
-    getCalendarReservations(),
+    getChefReservations(),
   ]);
   if (!account) redirect("/login");
 
@@ -30,19 +31,7 @@ export default async function ChefHome() {
               .join(" ") || "Chef",
           email: account.email,
         }}
-        signOut={
-          <form
-            action={async () => {
-              "use server";
-              const result = await signOut();
-              if (result?.error) redirect("/error");
-            }}
-          >
-            <button type="submit" className="calendar-sign-out">
-              Sign out
-            </button>
-          </form>
-        }
+        signOut={<SignOutButton as={SignOutStyle} />}
       />
     </div>
   );

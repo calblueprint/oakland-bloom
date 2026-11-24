@@ -1,4 +1,4 @@
-import AppShell from "@/components/AppShell";
+import AppShell from "@/components/AppShell/AppShell";
 
 // every chef page gets the chef sidebar. (main)/layout.tsx already checks access
 export default function ChefLayout({

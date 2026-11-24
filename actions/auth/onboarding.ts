@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
 import {
   cleanOnboardingInput,
   OnboardingFieldErrors,

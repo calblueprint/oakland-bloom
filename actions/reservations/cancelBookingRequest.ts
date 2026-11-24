@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import Logger from "../logging";
 

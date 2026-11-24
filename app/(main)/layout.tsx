@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
 
 export default async function MainLayout({
   children,

@@ -3,12 +3,12 @@
 import type { CalendarReservation } from "@/types/reservations";
 import { useCallback, useState } from "react";
 import { Instrument_Sans } from "next/font/google";
-import { ReservationCard } from "@/components/ReservationCard";
+import { ReservationCard } from "@/components/ReservationCard/ReservationCard";
 import {
   ReservationDetails,
   ReservationOwner,
-} from "@/components/ReservationDetails";
-import { ReservationList } from "@/components/ReservationList";
+} from "@/components/ReservationDetails/ReservationDetails";
+import { ReservationList } from "@/components/ReservationList/ReservationList";
 import {
   Layout,
   ListColumn,

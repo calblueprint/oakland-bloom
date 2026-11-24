@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import getOccupiedPeriods from "@/actions/supabase/queries/getOccupiedPeriods";
+import { getOccupiedPeriods } from "@/actions/supabase/queries/reservations";
 import { isValidCalendarRange } from "@/lib/calendarRange";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 

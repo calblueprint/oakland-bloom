@@ -1,5 +1,5 @@
 import type { StaffRpc } from "@/lib/whatsapp/staffApi";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createStaffApi } from "@/lib/whatsapp/staffApi";
 

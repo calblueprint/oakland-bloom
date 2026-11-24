@@ -1,7 +1,8 @@
 "use client";
 
 import styled from "styled-components";
-import { DETAILS_BREAKPOINT } from "@/components/ReservationDetails.styles";
+import { DETAILS_BREAKPOINT } from "@/components/ReservationDetails/styles";
+import COLORS from "@/styles/colors";
 
 // wrap page content in a styled container, so cards don't stretch across entire browser page
 export const PageContainer = styled.main`
@@ -21,14 +22,14 @@ export const PageContainer = styled.main`
 export const PageTitle = styled.h1`
   font-size: 1.75rem;
   font-weight: 600;
-  color: #242424;
+  color: ${COLORS.text};
   margin-bottom: 0.8rem;
 `;
 
 // styles the View and manage reservations text box
 export const PageSubtitle = styled.p`
   font-size: 0.875rem;
-  color: #8a8a8a;
+  color: ${COLORS.muted};
   margin-bottom: 2rem;
 `;
 
@@ -36,7 +37,7 @@ export const PageSubtitle = styled.p`
 export const TabContainer = styled.div`
   display: flex;
   gap: 1.5rem;
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid ${COLORS.tabDivider};
   margin-bottom: 1rem;
 `;
 
@@ -48,9 +49,9 @@ export const TabButton = styled.button<{ $active: boolean }>`
   background: transparent;
   border: none;
   border-bottom: 2px solid
-    ${({ $active }) => ($active ? "#f35c57" : "transparent")};
+    ${({ $active }) => ($active ? COLORS.accent : "transparent")};
 
-  color: ${({ $active }) => ($active ? "#242424" : "#8a8a8a")};
+  color: ${({ $active }) => ($active ? COLORS.text : COLORS.muted)};
 
   font-size: 0.95rem;
   font-family: inherit;
@@ -82,7 +83,7 @@ export const ListColumn = styled.div`
 export const Notice = styled.p`
   margin: 0;
   font-size: 0.875rem;
-  color: #367c65;
+  color: ${COLORS.tagGreenText};
 
   &:not(:empty) {
     margin-bottom: 1rem;

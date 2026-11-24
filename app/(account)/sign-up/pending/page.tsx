@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { signOut } from "@/actions/auth/logout";
+import { getAccount } from "@/actions/supabase/queries/account";
 import AuthShell from "@/app/(auth)/AuthShell";
 import {
   LinkButton,
@@ -7,7 +8,6 @@ import {
   MessageEmail,
   TextLink,
 } from "@/app/(auth)/styles";
-import { getAccount } from "@/lib/auth/account";
 import { homePathFor } from "@/lib/auth/accountStatus";
 import { parseEmailParam } from "@/lib/auth/validation";
 import { getCurrentUser } from "@/lib/supabase/getUser";

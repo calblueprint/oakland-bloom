@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
-import { signOut } from "@/actions/auth";
-import NavButton from "@/components/NavButton";
+import NavButton from "@/components/NavButton/NavButton";
+import SignOutButton from "@/components/SignOutButton/SignOutButton";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 
 // admin home, moved here from "/"
@@ -15,17 +14,7 @@ export default async function AdminHome() {
       {/* the admin layout already checks is_admin, so no extra check here */}
       <NavButton href="/admin/accounts">Review Pending Accounts</NavButton>
 
-      <form
-        action={async () => {
-          "use server";
-          const result = await signOut();
-          if (result?.error) {
-            redirect("/error");
-          }
-        }}
-      >
-        <button type="submit">Sign out</button>
-      </form>
+      <SignOutButton />
     </main>
   );
 }

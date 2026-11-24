@@ -22,12 +22,18 @@ registerHooks({
         shortCircuit: true,
       };
     }
+    // other app modules (e.g. @/lib/calendarRange) load as the real files
+    if (specifier.startsWith("@/lib/"))
+      return nextResolve(
+        new URL(`../${specifier.slice(2)}.ts`, import.meta.url).href,
+        context,
+      );
     return nextResolve(specifier, context);
   },
 });
 
-const { default: getChefReservations } =
-  await import("../actions/supabase/queries/getChefReservations.ts");
+const { getChefReservations } =
+  await import("../actions/supabase/queries/reservations.ts");
 let responseRows = [];
 let databaseError = false;
 const requests = [];
@@ -70,10 +76,13 @@ await test("reservation query using simulated verified sessions", async t => {
         assert.equal(url.searchParams.get("user"), `eq.${id}`);
         assert.equal(
           url.searchParams.get("select"),
-          "id,amenity,start_time,end_time,num_people,approval_status",
+          "id,title,amenities,amenity,start_time,end_time,num_people,approval_status,additional_contacts",
         );
         assert.equal(url.searchParams.get("order"), "start_time.asc,id.asc");
+        // cancelled requests are withdrawn, so they're never returned
+        assert.equal(url.searchParams.get("approval_status"), "neq.cancelled");
         assert.deepEqual([...url.searchParams.keys()].sort(), [
+          "approval_status",
           "order",
           "select",
           "user",

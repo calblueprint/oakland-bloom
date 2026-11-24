@@ -198,6 +198,28 @@ server with database-creation access and run `pnpm test`. The database tests cre
 and remove an isolated test database; they reject remote hosts and never modify
 the server's existing databases.
 
+## Project structure
+
+```
+app/                  Next.js App Router routes, grouped by layout:
+                      (auth) login/sign-up, (account) onboarding, (admin), (main) chef pages,
+                      api/ route handlers. Components used by one route live next to its page.
+actions/              server-only code that talks to Supabase
+  auth/, admin/, reservations/   server actions ("use server") called from forms
+  supabase/queries/   reads (getAccount, chef accounts, reservations)
+  logging/            Logger and action wrappers
+components/           shared UI, one folder per component (Component.tsx + styles.ts)
+lib/                  pure helpers and clients: supabase/ clients, auth/ validation and
+                      status rules, calendar math, whatsapp/ bot logic
+styles/               global CSS, colors and text tokens
+types/                generated database types and shared TS types
+assets/               images and icons imported by components
+supabase/             SQL migrations and the test schema
+scripts/              seeding, type generation, and WhatsApp CLI tools
+tests/                node:test suites and fixtures
+docs/                 design notes and research
+```
+
 ## Auth setup
 
 1. Copy `example.env` to `.env.local` and fill in the values from Supabase

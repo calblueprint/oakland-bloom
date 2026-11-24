@@ -218,7 +218,7 @@ export const Avatar = styled.span`
   font-size: 0.75rem;
   font-weight: 500;
   line-height: 0.9375rem;
-  color: #999999;
+  color: ${COLORS.avatarInitials};
 `;
 
 export const ProfileText = styled.div`

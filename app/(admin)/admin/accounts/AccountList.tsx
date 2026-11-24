@@ -1,5 +1,5 @@
+import { listChefAccounts } from "@/actions/supabase/queries/chefAccounts";
 import { AccountTab } from "@/lib/admin/accountsView";
-import { listChefAccounts } from "@/lib/admin/chefAccounts";
 import AccountCard from "./AccountCard";
 import { EmptyState, List } from "./styles";
 

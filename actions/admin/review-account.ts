@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { getAccount } from "@/actions/supabase/queries/account";
 import { accountsHref, parseAccountId } from "@/lib/admin/accountsView";
-import { getAccount } from "@/lib/auth/account";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import Logger from "../logging";
 

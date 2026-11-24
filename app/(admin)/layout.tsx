@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
 
 // admin-only pages. is_admin comes from public.users, which users can't write.
 // the approve action checks it again on its own

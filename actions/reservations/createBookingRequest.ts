@@ -2,7 +2,7 @@
 
 import type { BookingResult } from "@/lib/bookingRequest";
 import { revalidatePath } from "next/cache";
-import { getAccount } from "@/lib/auth/account";
+import { getAccount } from "@/actions/supabase/queries/account";
 import { validateBookingRequest } from "@/lib/bookingRequest";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
