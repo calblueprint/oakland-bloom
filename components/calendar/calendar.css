@@ -23,9 +23,12 @@
   outline: 2px solid #367c65;
   outline-offset: 3px;
 }
-/* AppShell (chef/layout.tsx) already pads the page beside its sidebar */
+/* AppShell (chef/layout.tsx) already pads the page by 32px. This adds the
+   rest of the original calendar spacing: 48px above and
+   clamp(24px, 4.75vw, 64px) at the sides on wide screens */
 .calendar-page {
   min-width: 0;
+  padding: 16px clamp(0px, calc(4.75vw - 32px), 32px) 0;
 }
 .calendar-page-header {
   display: flex;
@@ -742,6 +745,10 @@
   }
 }
 @media (max-width: 1100px) {
+  /* the original used 32px 24px here; AppShell's 32px already covers it */
+  .calendar-page {
+    padding: 0;
+  }
   .reservation-experience--editing {
     grid-template-columns: minmax(0, 1fr) 251px;
     gap: 20px;
