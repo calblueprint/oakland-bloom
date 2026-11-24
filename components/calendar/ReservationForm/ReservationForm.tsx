@@ -7,14 +7,34 @@ import type {
 } from "@/lib/bookingRequest";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createBookingRequest } from "@/actions/reservations/createBookingRequest";
-import { Button } from "@/components/Button";
 import {
   calendarDateRangeLabel,
   fromLocalInput,
   toLocalInput,
 } from "@/lib/calendarTime";
-import { AmenityChip } from "./AmenityChip";
-import { CalendarIcon } from "./CalendarIcon";
+import { AmenityChip } from "../AmenityChip/AmenityChip";
+import { CalendarIcon } from "../CalendarIcon/CalendarIcon";
+import { ContactAvatar } from "../ChefSidebar/styles";
+import {
+  AddContactButton,
+  AdditionalContact,
+  CancelButton,
+  ChefCounter,
+  Contact,
+  DateLine,
+  FieldError,
+  FieldLabel,
+  IconButton,
+  Note,
+  Panel,
+  PanelAmenities,
+  PanelHeader,
+  RequestButton,
+  SubmitError,
+  TimeInputs,
+  Timezone,
+  VisuallyHidden,
+} from "./styles";
 
 export type ReservationContact = { name: string; email: string };
 
@@ -135,45 +155,41 @@ export function ReservationForm({
   const dateLabel = calendarDateRangeLabel(displayStart, displayEnd);
 
   return (
-    <aside
-      className="reservation-panel"
+    <Panel
       aria-labelledby="reservation-form-heading"
       onKeyDown={e => {
         if (e.key === "Escape" && !pending) onCancel();
       }}
     >
-      <header className="reservation-panel-header">
+      <PanelHeader>
         <h2 id="reservation-form-heading" ref={heading} tabIndex={-1}>
           New Reservation
         </h2>
-        <button
+        <IconButton
           type="button"
-          className="icon-button"
           aria-label="Close reservation form"
           onClick={onCancel}
           disabled={pending}
         >
           <CalendarIcon name="close" />
-        </button>
-      </header>
+        </IconButton>
+      </PanelHeader>
       <form onSubmit={submit}>
         <fieldset disabled={pending}>
-          <legend className="sr-only">Reservation details</legend>
-          <div className="reservation-date">
+          <VisuallyHidden as="legend">Reservation details</VisuallyHidden>
+          <DateLine as="div">
             <CalendarIcon name="date" />
             <span>{dateLabel}</span>
-          </div>
-          <div className="reservation-date">
+          </DateLine>
+          <DateLine as="div">
             <CalendarIcon name="time" />
             <span>
               {timeFormatter.format(new Date(displayStart))} –{" "}
               {timeFormatter.format(new Date(displayEnd))}
             </span>
-          </div>
-          <p className="reservation-timezone">
-            All times in America/Los_Angeles
-          </p>
-          <div className="reservation-time-inputs">
+          </DateLine>
+          <Timezone>All times in America/Los_Angeles</Timezone>
+          <TimeInputs>
             <label>
               Start date and time
               <input
@@ -216,15 +232,13 @@ export function ReservationForm({
                 }
               />
             </label>
-          </div>
-          <p className="reservation-note">
+          </TimeInputs>
+          <Note>
             Enter a date and time or drag your draft up or down. Use its edges
             to change the duration.
-          </p>
+          </Note>
           {fields.time && (
-            <p id="reservation-time-error" className="reservation-field-error">
-              {fields.time}
-            </p>
+            <FieldError id="reservation-time-error">{fields.time}</FieldError>
           )}
           <hr />
           <label htmlFor="reservation-title">Reservation Title</label>
@@ -245,12 +259,10 @@ export function ReservationForm({
             }
           />
           {fields.title && (
-            <p id="reservation-title-error" className="reservation-field-error">
-              {fields.title}
-            </p>
+            <FieldError id="reservation-title-error">{fields.title}</FieldError>
           )}
           <label htmlFor="reservation-chefs">Number of Chefs</label>
-          <div className="chef-counter">
+          <ChefCounter>
             <button
               type="button"
               aria-label="Fewer chefs"
@@ -290,44 +302,38 @@ export function ReservationForm({
             >
               <CalendarIcon name="increment" />
             </button>
-          </div>
-          {fields.numPeople && (
-            <p className="reservation-field-error">{fields.numPeople}</p>
-          )}
-          <p className="reservation-field-label">Amenities</p>
-          <div className="reservation-amenities">
+          </ChefCounter>
+          {fields.numPeople && <FieldError>{fields.numPeople}</FieldError>}
+          <FieldLabel>Amenities</FieldLabel>
+          <PanelAmenities>
             {amenities.map(a => (
               <AmenityChip key={a} amenity={a} />
             ))}
-          </div>
+          </PanelAmenities>
           {!amenities.length && (
-            <p className="reservation-field-error">
-              Choose an amenity above the calendar.
-            </p>
+            <FieldError>Choose an amenity above the calendar.</FieldError>
           )}
-          {fields.amenities && (
-            <p className="reservation-field-error">{fields.amenities}</p>
-          )}
+          {fields.amenities && <FieldError>{fields.amenities}</FieldError>}
           <hr />
-          <p className="reservation-field-label">Contact Information</p>
-          <div className="reservation-contact">
-            <span className="contact-avatar" aria-hidden="true">
+          <FieldLabel>Contact Information</FieldLabel>
+          <Contact>
+            <ContactAvatar aria-hidden="true">
               {contact.name
                 .split(/\s+/)
                 .map(n => n[0])
                 .slice(0, 2)
                 .join("")}
-            </span>
+            </ContactAvatar>
             <div>
               <p>{contact.name} (You)</p>
               <p>{contact.email}</p>
             </div>
-          </div>
+          </Contact>
           {contacts.map((email, i) => (
-            <div className="additional-contact" key={i}>
-              <label htmlFor={`additional-contact-${i}`} className="sr-only">
+            <AdditionalContact key={i}>
+              <VisuallyHidden as="label" htmlFor={`additional-contact-${i}`}>
                 Additional contact {i + 1}
-              </label>
+              </VisuallyHidden>
               <input
                 id={`additional-contact-${i}`}
                 type="email"
@@ -344,9 +350,8 @@ export function ReservationForm({
                 }}
                 aria-invalid={!!fields.additionalContacts}
               />
-              <button
+              <IconButton
                 type="button"
-                className="icon-button"
                 aria-label={`Remove contact ${i + 1}`}
                 onClick={() => {
                   setContacts(list => list.filter((_, j) => j !== i));
@@ -354,12 +359,11 @@ export function ReservationForm({
                 }}
               >
                 <CalendarIcon name="close" />
-              </button>
-            </div>
+              </IconButton>
+            </AdditionalContact>
           ))}
-          <button
+          <AddContactButton
             type="button"
-            className="add-contact-button"
             disabled={contacts.length >= 10}
             onClick={() => {
               setContacts(list => [...list, ""]);
@@ -368,48 +372,30 @@ export function ReservationForm({
           >
             <CalendarIcon name="addContact" />
             Add another contact
-          </button>
+          </AddContactButton>
           {fields.additionalContacts && (
-            <p className="reservation-field-error">
-              {fields.additionalContacts}
-            </p>
+            <FieldError>{fields.additionalContacts}</FieldError>
           )}
-          <p className="reservation-note">
+          <Note>
             Additional contacts are saved with your request. No emails are sent.
-          </p>
+          </Note>
           <hr />
-          <p className="reservation-note">
+          <Note>
             Requests are pending until approved. Pending requests may overlap.
-          </p>
+          </Note>
         </fieldset>
         {error && (
-          <div
-            className="reservation-submit-error"
-            role="alert"
-            tabIndex={-1}
-            ref={errorRef}
-          >
+          <SubmitError role="alert" tabIndex={-1} ref={errorRef}>
             {error}
-          </div>
+          </SubmitError>
         )}
-        <Button
-          as="button"
-          type="submit"
-          className="request-reservation-button"
-          disabled={pending || !amenities.length}
-        >
+        <RequestButton type="submit" disabled={pending || !amenities.length}>
           {pending ? "Saving request…" : "Request Reservation"}
-        </Button>
-        <Button
-          as="button"
-          type="button"
-          className="cancel-reservation-button"
-          onClick={onCancel}
-          disabled={pending}
-        >
+        </RequestButton>
+        <CancelButton type="button" onClick={onCancel} disabled={pending}>
           Cancel
-        </Button>
+        </CancelButton>
       </form>
-    </aside>
+    </Panel>
   );
 }

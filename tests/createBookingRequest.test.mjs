@@ -32,12 +32,6 @@ const mocks = {
   }`,
   "next/cache":
     "export function revalidatePath(path) { globalThis.bookingActionTest.paths.push(path); }",
-  "@/actions/supabase/queries/getCalendarReservations": `export default async function getCalendarReservations() {
-    return [{ id: '${request.requestId}', amenities: ['oven'], approval_status: 'approved',
-      start_time: '${request.start}', end_time: '${request.end}' }];
-  }`,
-  "@/actions/supabase/queries/getOccupiedPeriods":
-    "export default async function getOccupiedPeriods() { return []; }",
 };
 registerHooks({
   resolve(specifier, context, nextResolve) {

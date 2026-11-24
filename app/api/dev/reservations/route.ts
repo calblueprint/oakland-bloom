@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import getChefReservations from "@/actions/supabase/queries/getChefReservations";
+import { getChefReservations } from "@/actions/supabase/queries/reservations";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 
 /** Opt-in development integration probe; never enabled in production. */

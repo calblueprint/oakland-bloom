@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { signOut } from "@/actions/auth";
-import NavButton from "@/components/NavButton";
+import NavButton from "@/components/NavButton/NavButton";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 
 // admin home, moved here from "/"

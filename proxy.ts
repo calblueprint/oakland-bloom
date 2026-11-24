@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateSession } from "./lib/supabase/middleware";
+import { updateSession } from "./lib/supabase/proxy";
 
 /**
  * Carries the refreshed auth cookies from `updateSession` onto a redirect.
@@ -17,18 +17,9 @@ function redirectWithSession(url: URL, supabaseResponse: NextResponse) {
 }
 
 // routes reachable without a session - everything else requires a logged-in user
-const publicRoutes = [
-  "/login",
-  "/sign-up",
-  "/forgot-password",
-  // reset-password owns its own redirect (see app/reset-password/layout.tsx),
-  // so let it through rather than sending expired recovery links to /login
-  "/auth",
-  "/api",
-  "/error",
-];
+const publicRoutes = ["/login", "/sign-up", "/auth", "/api", "/error"];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const { user, supabaseResponse } = await updateSession(request);
 

@@ -1,4 +1,4 @@
-import AppShell from "@/components/AppShell";
+import AppShell from "@/components/AppShell/AppShell";
 
 // every admin page gets the admin sidebar. (admin)/layout.tsx already checks access
 export default function AdminSectionLayout({

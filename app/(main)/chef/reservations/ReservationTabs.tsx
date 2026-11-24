@@ -3,8 +3,8 @@
 import type { CalendarReservation } from "@/types/reservations";
 import { useState } from "react";
 import { Instrument_Sans } from "next/font/google";
-import { ReservationCard } from "@/components/ReservationCard";
-import { ReservationList } from "@/components/ReservationList";
+import { ReservationCard } from "@/components/ReservationCard/ReservationCard";
+import { ReservationList } from "@/components/ReservationList/ReservationList";
 import {
   PageContainer,
   PageSubtitle,

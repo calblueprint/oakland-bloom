@@ -1,5 +1,5 @@
 import { ReactNode } from "react";
-import Sidebar from "@/components/Sidebar";
+import Sidebar from "@/components/Sidebar/Sidebar";
 import { getAccount } from "@/lib/auth/account";
 import { Content, Shell } from "./styles";
 

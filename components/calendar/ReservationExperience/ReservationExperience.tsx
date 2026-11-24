@@ -2,16 +2,30 @@
 
 import type { Amenity, SelectedTime } from "@/lib/bookingRequest";
 import type { CalendarReservation } from "@/types/reservations";
-import type { ReservationContact } from "./ReservationForm";
+import type { ReservationContact } from "../ReservationForm/ReservationForm";
 import { useRef, useState } from "react";
-import { CalendarView } from "@/components/CalendarView";
 import { AMENITIES } from "@/lib/bookingRequest";
 import { nextRequestTime } from "@/lib/calendarTime";
-import { AmenityChip } from "./AmenityChip";
-import { ChefSidebar } from "./ChefSidebar";
-import { ReservationDetails } from "./ReservationDetails";
-import { ReservationForm } from "./ReservationForm";
-import "./calendar.css";
+import { AmenityChip } from "../AmenityChip/AmenityChip";
+import { CalendarView } from "../CalendarView/CalendarView";
+import { ChefSidebar } from "../ChefSidebar/ChefSidebar";
+import { ReservationDetails } from "../ReservationDetails/ReservationDetails";
+import { ReservationForm } from "../ReservationForm/ReservationForm";
+import {
+  AmenityDropdown,
+  AmenityPickerActions,
+  Experience,
+  Footnote,
+  Instruction,
+  Legend,
+  LegendSwatch,
+  Notice,
+  Page,
+  PageHeader,
+  SelectedAmenities,
+  Shell,
+  Workspace,
+} from "./styles";
 
 export function ReservationExperience({
   reservations,
@@ -59,24 +73,15 @@ export function ReservationExperience({
     setMessage("");
   };
   return (
-    <div className="chef-calendar-shell">
+    <Shell>
       <ChefSidebar contact={contact} reservations={reservations} />
-      <main className="calendar-page">
-        <header className="calendar-page-header">
+      <Page>
+        <PageHeader>
           <h1>Open Test Kitchen Reservations</h1>
-        </header>
-        {message && (
-          <p className="reservation-notice" role="status">
-            {message}
-          </p>
-        )}
-        <div
-          className={`reservation-experience ${selection || details ? "reservation-experience--editing" : ""}`}
-        >
-          <section
-            className="calendar-workspace"
-            aria-label="Kitchen availability"
-          >
+        </PageHeader>
+        {message && <Notice role="status">{message}</Notice>}
+        <Experience $editing={!!(selection || details)}>
+          <Workspace aria-label="Kitchen availability">
             <CalendarView
               reservations={reservations}
               amenities={amenities}
@@ -92,8 +97,7 @@ export function ReservationExperience({
               disabled={pending}
               revision={revision}
               controls={
-                <details
-                  className="amenity-dropdown"
+                <AmenityDropdown
                   ref={picker}
                   onKeyDown={e => {
                     if (e.key === "Escape") e.currentTarget.open = false;
@@ -115,7 +119,7 @@ export function ReservationExperience({
                         {a.label}
                       </label>
                     ))}
-                    <div className="amenity-picker-actions">
+                    <AmenityPickerActions>
                       <button
                         type="button"
                         disabled={pending}
@@ -137,12 +141,12 @@ export function ReservationExperience({
                       >
                         Done
                       </button>
-                    </div>
+                    </AmenityPickerActions>
                   </fieldset>
-                </details>
+                </AmenityDropdown>
               }
               chips={
-                <div className="selected-amenities">
+                <SelectedAmenities>
                   {amenities.map(a => (
                     <AmenityChip
                       key={a}
@@ -150,10 +154,10 @@ export function ReservationExperience({
                       onRemove={pending ? undefined : () => toggle(a)}
                     />
                   ))}
-                </div>
+                </SelectedAmenities>
               }
             />
-            <p className="calendar-instruction">
+            <Instruction>
               {amenities.length
                 ? "Click or drag a time range to create a reservation. You can move or resize your draft."
                 : "Choose amenities, then click or drag to create a reservation."}{" "}
@@ -165,22 +169,22 @@ export function ReservationExperience({
               >
                 Enter a time instead
               </button>
-            </p>
+            </Instruction>
             {amenities.length > 0 && (
-              <p className="calendar-legend">
-                <span className="legend-available" />
+              <Legend>
+                <LegendSwatch $kind="available" />
                 All selected available
-                <span className="legend-partial" />
+                <LegendSwatch $kind="partial" />
                 Partially available
-                <span className="legend-unavailable" />
+                <LegendSwatch $kind="unavailable" />
                 Unavailable
-              </p>
+              </Legend>
             )}
-            <p className="calendar-footnote">
+            <Footnote>
               America/Los_Angeles · Requests must start in the future.
               Availability is rechecked on submission.
-            </p>
-          </section>
+            </Footnote>
+          </Workspace>
           {selection && (
             <ReservationForm
               selection={selection}
@@ -206,8 +210,8 @@ export function ReservationExperience({
               onClose={close}
             />
           )}
-        </div>
-      </main>
-    </div>
+        </Experience>
+      </Page>
+    </Shell>
   );
 }

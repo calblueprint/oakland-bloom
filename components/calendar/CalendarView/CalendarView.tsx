@@ -14,7 +14,6 @@ import { Calendar } from "@fullcalendar/react";
 import interactionPlugin from "@fullcalendar/react/interaction";
 import themePlugin from "@fullcalendar/react/themes/monarch";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
-import { CalendarIcon } from "@/components/calendar/CalendarIcon";
 import { availabilityEvents } from "@/lib/calendarAvailability";
 import {
   CALENDAR_TIME_ZONE,
@@ -22,7 +21,22 @@ import {
 } from "@/lib/reservationsToCalendarEvents";
 import "@fullcalendar/react/skeleton.css";
 import "@fullcalendar/react/themes/monarch/theme.css";
-import "./calendar/calendar.css";
+import COLORS from "@/styles/colors";
+import { CalendarIcon } from "../CalendarIcon/CalendarIcon";
+import {
+  ArrowButton,
+  AvailabilityMessage,
+  CalendarContainer,
+  ControlRow,
+  DatePicker,
+  DayHeading,
+  DayNumber,
+  EventContent,
+  EventStatus,
+  Navigation,
+  TodayButton,
+  Weekday,
+} from "./styles";
 
 const calendarPlugins = [themePlugin, timeGridPlugin, interactionPlugin];
 
@@ -76,8 +90,8 @@ export function CalendarView({
               title: draft.title || "New Reservation",
               start: selection.start,
               end: selection.end,
-              color: "#fde5e4",
-              contrastColor: "#f35c57",
+              color: COLORS.accentSoft,
+              contrastColor: COLORS.accent,
               editable: !disabled,
               extendedProps: {
                 approvalStatus: "draft",
@@ -155,10 +169,10 @@ export function CalendarView({
 
   return (
     <>
-      <div className="calendar-control-row">
+      <ControlRow>
         {controls}
-        <nav className="calendar-navigation" aria-label="Calendar dates">
-          <label className="calendar-date-picker">
+        <Navigation aria-label="Calendar dates">
+          <DatePicker>
             <span aria-live="polite">{title}</span>
             <CalendarIcon name="chevron" />
             <input
@@ -171,35 +185,29 @@ export function CalendarView({
                 if (api) setTitle(api.view.title);
               }}
             />
-          </label>
-          <button
-            type="button"
-            className="calendar-today"
-            onClick={() => navigate("today")}
-          >
+          </DatePicker>
+          <TodayButton type="button" onClick={() => navigate("today")}>
             Today
-          </button>
-          <button
+          </TodayButton>
+          <ArrowButton
             type="button"
-            className="calendar-arrow"
             aria-label="Previous dates"
             onClick={() => navigate("prev")}
           >
             <CalendarIcon name="previous" />
-          </button>
-          <button
+          </ArrowButton>
+          <ArrowButton
             type="button"
-            className="calendar-arrow"
             aria-label="Next dates"
             onClick={() => navigate("next")}
           >
             <CalendarIcon name="next" />
-          </button>
-        </nav>
-      </div>
+          </ArrowButton>
+        </Navigation>
+      </ControlRow>
       {chips}
       {availabilityError && (
-        <p className="calendar-availability-message" role="alert">
+        <AvailabilityMessage role="alert">
           Other chefs’ availability could not be loaded. Empty times are not
           confirmed available.
           <button
@@ -208,9 +216,9 @@ export function CalendarView({
           >
             Retry
           </button>
-        </p>
+        </AvailabilityMessage>
       )}
-      <div className="calendar-container" aria-busy={isMobile === null}>
+      <CalendarContainer aria-busy={isMobile === null}>
         {isMobile !== null && (
           <Calendar
             ref={calendarRef}
@@ -249,8 +257,12 @@ export function CalendarView({
               `reservation-block reservation-block--${event.extendedProps.approvalStatus}`
             }
             eventContent={({ event, timeText }) => (
-              <div
-                className={`calendar-event ${event.start && event.end && event.end.getTime() - event.start.getTime() <= 1800000 ? "calendar-event--short" : ""}`}
+              <EventContent
+                $short={
+                  !!event.start &&
+                  !!event.end &&
+                  event.end.getTime() - event.start.getTime() <= 1800000
+                }
               >
                 <strong>{event.title}</strong>
                 <span>{timeText}</span>
@@ -259,11 +271,11 @@ export function CalendarView({
                   {event.extendedProps.numPeople === 1 ? "chef" : "chefs"}
                 </span>
                 {event.id !== "draft" && (
-                  <span className="calendar-event-status">
+                  <EventStatus>
                     {event.extendedProps.approvalStatus}
-                  </span>
+                  </EventStatus>
                 )}
-              </div>
+              </EventContent>
             )}
             plugins={calendarPlugins}
             selectable={!disabled}
@@ -344,27 +356,25 @@ export function CalendarView({
             titleFormat={{ month: "short", day: "numeric", year: "numeric" }}
             dayHeaderClass="calendar-day-cell"
             dayHeaderContent={({ date, isToday }) => (
-              <div
-                className={`calendar-day-heading${isToday ? " is-today" : ""}`}
-              >
-                <span className="calendar-weekday">
+              <DayHeading>
+                <Weekday $today={isToday}>
                   {new Intl.DateTimeFormat("en-US", {
                     timeZone: CALENDAR_TIME_ZONE,
                     weekday: "short",
                   }).format(date)}
-                </span>
-                <span className="calendar-day-number">
+                </Weekday>
+                <DayNumber $today={isToday}>
                   {new Intl.DateTimeFormat("en-US", {
                     timeZone: CALENDAR_TIME_ZONE,
                     day: "numeric",
                   }).format(date)}
-                </span>
-              </div>
+                </DayNumber>
+              </DayHeading>
             )}
             height="auto"
           />
         )}
-      </div>
+      </CalendarContainer>
     </>
   );
 }

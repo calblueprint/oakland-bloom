@@ -2,7 +2,7 @@
 
 import { headers } from "next/headers";
 import { isValidEmail, normalizeEmail } from "@/lib/auth/validation";
-import { getSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import Logger from "../logging";
 
 export type ResendVerificationErrorCode =

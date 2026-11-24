@@ -1,7 +1,7 @@
 "use client";
 
 import type { CalendarReservation } from "@/types/reservations";
-import type { ReservationContact } from "./ReservationForm";
+import type { ReservationContact } from "../ReservationForm/ReservationForm";
 import { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -10,6 +10,14 @@ import brandLeaf from "@/assets/calendar/brand-leaf.png";
 import home from "@/assets/calendar/home.svg";
 import reservationIcon from "@/assets/calendar/reservations.svg";
 import statistics from "@/assets/calendar/statistics.svg";
+import {
+  Brand,
+  ContactAvatar,
+  Sidebar,
+  SidebarNav,
+  SidebarUser,
+  StatisticsDialog,
+} from "./styles";
 
 export function ChefSidebar({
   contact,
@@ -27,14 +35,14 @@ export function ChefSidebar({
   );
   return (
     <>
-      <aside className="chef-sidebar" aria-label="Chef navigation">
+      <Sidebar aria-label="Chef navigation">
         <div>
-          <Link href="/calendar" className="chef-brand">
+          <Brand href="/calendar">
             <Image src={brandLeaf} alt="" width={37} height={29} />
             <span>Oakland Bloom</span>
-          </Link>
-          <nav aria-label="Main navigation">
-            <Link href="/calendar" className="is-active" aria-current="page">
+          </Brand>
+          <SidebarNav aria-label="Main navigation">
+            <Link href="/calendar" aria-current="page">
               <Image src={home} alt="" />
               Home
             </Link>
@@ -46,16 +54,16 @@ export function ChefSidebar({
               <Image src={statistics} alt="" />
               Usage Statistics
             </button>
-          </nav>
+          </SidebarNav>
         </div>
-        <div className="chef-sidebar-user">
-          <span className="contact-avatar" aria-hidden="true">
+        <SidebarUser>
+          <ContactAvatar aria-hidden="true">
             {contact.name
               .split(/\s+/)
               .map(n => n[0])
               .slice(0, 2)
               .join("")}
-          </span>
+          </ContactAvatar>
           <div>
             <p>{contact.name}</p>
             <p>
@@ -70,9 +78,9 @@ export function ChefSidebar({
               </button>
             </p>
           </div>
-        </div>
-      </aside>
-      <dialog ref={stats} className="chef-statistics">
+        </SidebarUser>
+      </Sidebar>
+      <StatisticsDialog ref={stats}>
         <h2>Usage Statistics</h2>
         <p>Based on your saved reservations.</p>
         <dl>
@@ -96,7 +104,7 @@ export function ChefSidebar({
         <button type="button" onClick={() => stats.current?.close()}>
           Close
         </button>
-      </dialog>
+      </StatisticsDialog>
     </>
   );
 }

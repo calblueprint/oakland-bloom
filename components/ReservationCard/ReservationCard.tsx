@@ -17,7 +17,7 @@ import {
   StatusSection,
   StyledCard,
   Weekday,
-} from "./ReservationCard.styles";
+} from "./styles";
 
 type ReservationCardProps = {
   reservation: CalendarReservation;

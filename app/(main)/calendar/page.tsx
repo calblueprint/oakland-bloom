@@ -1,7 +1,7 @@
 import { Instrument_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
-import getCalendarReservations from "@/actions/supabase/queries/getCalendarReservations";
-import { ReservationExperience } from "@/components/calendar/ReservationExperience";
+import { getChefReservations } from "@/actions/supabase/queries/reservations";
+import { ReservationExperience } from "@/components/calendar/ReservationExperience/ReservationExperience";
 import { getAccount } from "@/lib/auth/account";
 
 const instrumentSans = Instrument_Sans({
@@ -13,7 +13,7 @@ const instrumentSans = Instrument_Sans({
 export default async function CalendarPage() {
   const account = await getAccount();
   if (!account) redirect("/login");
-  const reservations = await getCalendarReservations();
+  const reservations = await getChefReservations();
 
   return (
     <div className={instrumentSans.className}>

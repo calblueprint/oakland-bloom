@@ -317,5 +317,5 @@ export const MessageEmail = styled.span`
 export const FieldError = styled.p`
   margin: 4px 0 0;
   font-size: 0.875rem;
-  color: #b42318;
+  color: ${COLORS.error};
 `;

@@ -21,7 +21,7 @@ export async function getSupabaseServerClient() {
             cookieStore.set(name, value, options);
           } catch {
             // Called from a Server Component, where cookies can't be set.
-            // Safe to ignore: middleware refreshes the session.
+            // Safe to ignore: proxy.ts refreshes the session.
           }
         });
       },

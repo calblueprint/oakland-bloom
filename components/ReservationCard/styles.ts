@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import COLORS from "@/styles/colors";
 
 // styles each individual reservation card
 // arranging the (IMMEDIATE) children horizontally
@@ -14,9 +15,9 @@ export const StyledCard = styled.div`
   padding: 12px 32px;
   box-sizing: border-box;
 
-  border: 1px solid #e4e4e4;
+  border: 1px solid ${COLORS.divider};
   border-radius: 10px;
-  background-color: #ffffff;
+  background-color: ${COLORS.white};
 
   /* reduce spacing and padding on mobile screens */
   @media (max-width: 480px) {
@@ -48,7 +49,7 @@ export const DateSection = styled.div`
   width: 80px;
   padding-right: 30px;
 
-  border-right: 1px solid #e4e4e4;
+  border-right: 1px solid ${COLORS.divider};
 `;
 
 export const Weekday = styled.span`
@@ -56,11 +57,11 @@ export const Weekday = styled.span`
   font-weight: 500;
   line-height: 16px;
   letter-spacing: 0.8px;
-  color: #8a8a8a;
+  color: ${COLORS.muted};
 `;
 
 export const DayNumber = styled.span`
-  color: var(--Ink, #20201e);
+  color: ${COLORS.ink};
   font-size: 20px;
   font-style: normal;
   font-weight: 500;
@@ -72,12 +73,12 @@ export const MonthYear = styled.span`
   font-size: 12px;
   font-weight: 400;
   line-height: 24px;
-  color: #8a8a8a;
+  color: ${COLORS.muted};
   white-space: nowrap;
 `;
 
 export const ReservationTime = styled.p`
-  color: var(--Ink, #20201e);
+  color: ${COLORS.ink};
   font-size: 14px;
   font-style: normal;
   font-weight: 600;
@@ -87,7 +88,7 @@ export const ReservationTime = styled.p`
 `;
 
 export const GuestCount = styled.p`
-  color: var(--Text-Secondary, #707070);
+  color: ${COLORS.heading};
   font-size: 12px;
   font-style: normal;
   font-weight: 400;
@@ -100,13 +101,13 @@ export const GuestCount = styled.p`
 // when we figure out which amenity tags -> add specific color filtering?
 export const AmenityTag = styled.span`
   border-radius: 0.375rem;
-  background-color: #e5f2ed;
+  background-color: ${COLORS.tagGreenFill};
   display: inline-flex;
   padding: 0 8px;
   justify-content: center;
   align-items: center;
   gap: 6px;
-  color: #367c65;
+  color: ${COLORS.tagGreenText};
   font-size: 11px;
   font-style: normal;
   font-weight: 500;
@@ -144,29 +145,29 @@ export const StatusBadge = styled.span<{ $status: string }>`
 
   background-color: ${({ $status }) =>
     $status === "approved"
-      ? "#e8f1ff"
+      ? COLORS.badgeApprovedFill
       : $status === "denied"
-        ? "#fde8ec"
-        : "#f1ebff"};
+        ? COLORS.badgeDeniedFill
+        : COLORS.badgePendingFill};
 
   border: 1px solid
     ${({ $status }) =>
       $status === "approved"
-        ? "#C9DDFB"
+        ? COLORS.badgeApprovedBorder
         : $status === "denied"
-          ? "#F8CDD5"
-          : "#DED0FA"};
+          ? COLORS.badgeDeniedBorder
+          : COLORS.badgePendingBorder};
 
   color: ${({ $status }) =>
     $status === "approved"
-      ? "#245ba8"
+      ? COLORS.badgeApprovedText
       : $status === "denied"
-        ? "#BD2942"
-        : "#7042B5"};
+        ? COLORS.badgeDeniedText
+        : COLORS.badgePendingText};
 `;
 
 export const ReservationTitle = styled.h2`
-  color: var(--Ink, #20201e);
+  color: ${COLORS.ink};
   font-size: 1rem;
   font-weight: 600;
   line-height: 1.5rem;

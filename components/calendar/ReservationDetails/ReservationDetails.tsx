@@ -1,8 +1,18 @@
 import type { CalendarReservation } from "@/types/reservations";
-import type { ReservationContact } from "./ReservationForm";
+import type { ReservationContact } from "../ReservationForm/ReservationForm";
 import { calendarDateRangeLabel } from "@/lib/calendarTime";
-import { AmenityChip } from "./AmenityChip";
-import { CalendarIcon } from "./CalendarIcon";
+import { AmenityChip } from "../AmenityChip/AmenityChip";
+import { CalendarIcon } from "../CalendarIcon/CalendarIcon";
+import {
+  DateLine,
+  DetailsPanel,
+  FieldLabel,
+  IconButton,
+  PanelAmenities,
+  PanelHeader,
+  PlainCancelButton,
+  StatusBadge,
+} from "../ReservationForm/styles";
 
 export function ReservationDetails({
   reservation,
@@ -19,62 +29,52 @@ export function ReservationDetails({
     minute: "2-digit",
   });
   return (
-    <aside
-      className="reservation-panel reservation-details"
-      aria-label="Reservation details"
-    >
-      <header className="reservation-panel-header">
+    <DetailsPanel aria-label="Reservation details">
+      <PanelHeader>
         <h2>Reservation Details</h2>
-        <button
+        <IconButton
           type="button"
-          className="icon-button"
           aria-label="Close reservation details"
           onClick={onClose}
         >
           <CalendarIcon name="close" />
-        </button>
-      </header>
-      <p
-        className={`reservation-status reservation-status--${reservation.approval_status}`}
-      >
+        </IconButton>
+      </PanelHeader>
+      <StatusBadge $status={reservation.approval_status}>
         {reservation.approval_status}
-      </p>
+      </StatusBadge>
       <hr />
       <h3>{reservation.title}</h3>
-      <p className="reservation-date">
+      <DateLine>
         <CalendarIcon name="date" />
         {calendarDateRangeLabel(reservation.start_time, reservation.end_time)}
-      </p>
-      <p className="reservation-date">
+      </DateLine>
+      <DateLine>
         <CalendarIcon name="time" />
         {time.format(new Date(reservation.start_time))} –{" "}
         {time.format(new Date(reservation.end_time))}
-      </p>
+      </DateLine>
       <p>
         {reservation.num_people}{" "}
         {reservation.num_people === 1 ? "chef" : "chefs"}
       </p>
       <hr />
-      <p className="reservation-field-label">Amenities</p>
-      <div className="reservation-amenities">
+      <FieldLabel>Amenities</FieldLabel>
+      <PanelAmenities>
         {reservation.amenities.map(a => (
           <AmenityChip key={a} amenity={a} />
         ))}
-      </div>
+      </PanelAmenities>
       <hr />
-      <p className="reservation-field-label">Contact Information</p>
+      <FieldLabel>Contact Information</FieldLabel>
       <p>{contact.name}</p>
       <p>{contact.email}</p>
       {reservation.additional_contacts.map(email => (
         <p key={email}>{email}</p>
       ))}
-      <button
-        type="button"
-        className="cancel-reservation-button"
-        onClick={onClose}
-      >
+      <PlainCancelButton type="button" onClick={onClose}>
         Close
-      </button>
-    </aside>
+      </PlainCancelButton>
+    </DetailsPanel>
   );
 }

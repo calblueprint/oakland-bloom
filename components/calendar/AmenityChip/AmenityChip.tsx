@@ -1,5 +1,6 @@
 import { amenityLabel } from "@/lib/bookingRequest";
-import { CalendarIcon } from "./CalendarIcon";
+import { CalendarIcon } from "../CalendarIcon/CalendarIcon";
+import { Chip } from "./styles";
 
 export function AmenityChip({
   amenity,
@@ -9,9 +10,7 @@ export function AmenityChip({
   onRemove?: () => void;
 }) {
   return (
-    <span
-      className={`amenity-chip ${amenity === "oven" ? "amenity-chip--oven" : ""}`}
-    >
+    <Chip $oven={amenity === "oven"}>
       <CalendarIcon name={amenity === "oven" ? "oven" : "prepTable"} />
       {amenityLabel(amenity)}
       {onRemove && (
@@ -25,6 +24,6 @@ export function AmenityChip({
           />
         </button>
       )}
-    </span>
+    </Chip>
   );
 }

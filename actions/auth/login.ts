@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getSupabaseServerClient } from "@/lib/supabase";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { EmailPasswordCredentials } from "@/types/types";
 import Logger from "../logging";
 
