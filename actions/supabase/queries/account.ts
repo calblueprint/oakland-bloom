@@ -1,8 +1,8 @@
 import "server-only";
 import { cache } from "react";
+import { getAccountStatus, homePathFor } from "@/lib/auth/accountStatus";
 import { getCurrentUser } from "@/lib/supabase/getUser";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { getAccountStatus, homePathFor } from "./accountStatus";
 
 export type Account = NonNullable<Awaited<ReturnType<typeof getAccount>>>;
 

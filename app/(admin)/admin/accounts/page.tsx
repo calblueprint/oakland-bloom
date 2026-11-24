@@ -1,13 +1,13 @@
 import { Suspense } from "react";
 import { Instrument_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
+import { getAccount } from "@/actions/supabase/queries/account";
+import { getChefAccount } from "@/actions/supabase/queries/chefAccounts";
 import {
   accountsHref,
   parseAccountId,
   parseTab,
 } from "@/lib/admin/accountsView";
-import { getChefAccount } from "@/lib/admin/chefAccounts";
-import { getAccount } from "@/lib/auth/account";
 import AccountDetailsPanel, { UnavailablePanel } from "./AccountDetailsPanel";
 import AccountList from "./AccountList";
 import AccountTabs from "./AccountTabs";

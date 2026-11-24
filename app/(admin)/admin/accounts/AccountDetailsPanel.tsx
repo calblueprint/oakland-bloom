@@ -1,4 +1,4 @@
-import type { ChefAccount } from "@/lib/admin/chefAccounts";
+import type { ChefAccount } from "@/actions/supabase/queries/chefAccounts";
 import { formatPhone } from "@/lib/admin/accountsView";
 import { cardLinkId } from "./AccountCard";
 import PanelFrame from "./PanelFrame";

@@ -1,5 +1,5 @@
 import "server-only";
-import type { AccountTab } from "./accountsView";
+import type { AccountTab } from "@/lib/admin/accountsView";
 import Logger from "@/actions/logging";
 import { getAccountStatus } from "@/lib/auth/accountStatus";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";

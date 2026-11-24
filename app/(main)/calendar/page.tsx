@@ -1,8 +1,8 @@
 import { Instrument_Sans } from "next/font/google";
 import { redirect } from "next/navigation";
+import { getAccount } from "@/actions/supabase/queries/account";
 import { getChefReservations } from "@/actions/supabase/queries/reservations";
 import { ReservationExperience } from "@/components/calendar/ReservationExperience/ReservationExperience";
-import { getAccount } from "@/lib/auth/account";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],

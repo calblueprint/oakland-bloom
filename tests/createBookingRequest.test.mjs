@@ -22,7 +22,7 @@ globalThis.bookingActionTest = state;
 
 // Replace the session/database boundary; no credentials or real network calls.
 const mocks = {
-  "@/lib/auth/account":
+  "@/actions/supabase/queries/account":
     "export async function getAccount() { return globalThis.bookingActionTest.account; }",
   "@/lib/supabase/server": `export async function getSupabaseServerClient() {
     return { rpc: async (name, args) => {

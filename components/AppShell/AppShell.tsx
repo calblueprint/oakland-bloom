@@ -1,6 +1,6 @@
 import { ReactNode } from "react";
+import { getAccount } from "@/actions/supabase/queries/account";
 import Sidebar from "@/components/Sidebar/Sidebar";
-import { getAccount } from "@/lib/auth/account";
 import { Content, Shell } from "./styles";
 
 // frame for the signed-in sections: the sidebar for this section, then the page.

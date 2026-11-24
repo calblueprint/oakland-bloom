@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
+import { getAccount } from "@/actions/supabase/queries/account";
 import SignupForm from "@/app/(auth)/sign-up/SignupForm";
-import { getAccount } from "@/lib/auth/account";
 
 // signed in, but some profile or restaurant info is missing (e.g. sign-up saved
 // only part of it). picks up where they left off, prefilled with what exists
