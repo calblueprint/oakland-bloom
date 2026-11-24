@@ -2,6 +2,7 @@
 
 import type { CalendarReservation } from "@/types/reservations";
 import { amenityLabel } from "@/lib/bookingRequest";
+import { calendarTimeRangeLabel, formatCalendarDate } from "@/lib/calendarTime";
 import { IconSvgs } from "@/lib/icons";
 import {
   AmenityTag,
@@ -23,41 +24,15 @@ type ReservationCardProps = {
   reservation: CalendarReservation;
 };
 
-// Date() converts the reservation time's string into a JS Date Object
-
 export function ReservationCard({ reservation }: ReservationCardProps) {
-  const date = new Date(reservation.start_time);
-
-  // short to shorten "Monday" -> "Mon"
-  const weekday = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    weekday: "short",
-  }).format(date);
-
-  // numeric to format date as #
-  const day = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    day: "numeric",
-  }).format(date);
-
-  // shortens month title + formats year as #
-  const monthYear = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
+  const start = reservation.start_time;
+  const weekday = formatCalendarDate(start, { weekday: "short" });
+  const day = formatCalendarDate(start, { day: "numeric" });
+  const monthYear = formatCalendarDate(start, {
     month: "short",
     year: "numeric",
-  }).format(date);
-
-  const timeFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
   });
-
-  const formattedStartTime = timeFormatter.format(
-    new Date(reservation.start_time),
-  );
-  const formattedEndTime = timeFormatter.format(new Date(reservation.end_time));
+  const timeRange = calendarTimeRangeLabel(start, reservation.end_time);
 
   return (
     <StyledCard>
@@ -70,9 +45,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
 
         <div>
           <ReservationTitle>{reservation.title}</ReservationTitle>
-          <ReservationTime>
-            {formattedStartTime} – {formattedEndTime}
-          </ReservationTime>
+          <ReservationTime>{timeRange}</ReservationTime>
 
           <GuestCount>
             {reservation.num_people}{" "}

@@ -15,6 +15,7 @@ import interactionPlugin from "@fullcalendar/react/interaction";
 import themePlugin from "@fullcalendar/react/themes/monarch";
 import timeGridPlugin from "@fullcalendar/react/timegrid";
 import { availabilityEvents } from "@/lib/calendarAvailability";
+import { formatCalendarDate } from "@/lib/calendarTime";
 import {
   CALENDAR_TIME_ZONE,
   reservationsToCalendarEvents,
@@ -358,16 +359,10 @@ export function CalendarView({
             dayHeaderContent={({ date, isToday }) => (
               <DayHeading>
                 <Weekday $today={isToday}>
-                  {new Intl.DateTimeFormat("en-US", {
-                    timeZone: CALENDAR_TIME_ZONE,
-                    weekday: "short",
-                  }).format(date)}
+                  {formatCalendarDate(date, { weekday: "short" })}
                 </Weekday>
                 <DayNumber $today={isToday}>
-                  {new Intl.DateTimeFormat("en-US", {
-                    timeZone: CALENDAR_TIME_ZONE,
-                    day: "numeric",
-                  }).format(date)}
+                  {formatCalendarDate(date, { day: "numeric" })}
                 </DayNumber>
               </DayHeading>
             )}

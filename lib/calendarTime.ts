@@ -2,6 +2,23 @@ import { Temporal } from "temporal-polyfill";
 
 export const CALENDAR_TIME_ZONE = "America/Los_Angeles";
 
+// Format an instant as kitchen-local (Los Angeles) time.
+export function formatCalendarDate(
+  value: string | Date,
+  options: Intl.DateTimeFormatOptions,
+) {
+  return new Intl.DateTimeFormat("en-US", {
+    ...options,
+    timeZone: CALENDAR_TIME_ZONE,
+  }).format(new Date(value));
+}
+
+// "9:00 AM – 11:30 AM" in kitchen-local time.
+export function calendarTimeRangeLabel(start: string, end: string) {
+  const time = { hour: "numeric", minute: "2-digit" } as const;
+  return `${formatCalendarDate(start, time)} – ${formatCalendarDate(end, time)}`;
+}
+
 // Include both kitchen dates for overnight or multi-day reservations.
 export function calendarDateRangeLabel(
   start: string,

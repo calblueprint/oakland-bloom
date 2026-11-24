@@ -1,6 +1,9 @@
 import type { CalendarReservation } from "@/types/reservations";
 import type { ReservationContact } from "../ReservationForm/ReservationForm";
-import { calendarDateRangeLabel } from "@/lib/calendarTime";
+import {
+  calendarDateRangeLabel,
+  calendarTimeRangeLabel,
+} from "@/lib/calendarTime";
 import { AmenityChip } from "../AmenityChip/AmenityChip";
 import { CalendarIcon } from "../CalendarIcon/CalendarIcon";
 import {
@@ -23,11 +26,6 @@ export function ReservationDetails({
   contact: ReservationContact;
   onClose: () => void;
 }) {
-  const time = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "numeric",
-    minute: "2-digit",
-  });
   return (
     <DetailsPanel aria-label="Reservation details">
       <PanelHeader>
@@ -51,8 +49,7 @@ export function ReservationDetails({
       </DateLine>
       <DateLine>
         <CalendarIcon name="time" />
-        {time.format(new Date(reservation.start_time))} –{" "}
-        {time.format(new Date(reservation.end_time))}
+        {calendarTimeRangeLabel(reservation.start_time, reservation.end_time)}
       </DateLine>
       <p>
         {reservation.num_people}{" "}

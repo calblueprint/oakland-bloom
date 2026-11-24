@@ -9,6 +9,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { createBookingRequest } from "@/actions/reservations/createBookingRequest";
 import {
   calendarDateRangeLabel,
+  calendarTimeRangeLabel,
   fromLocalInput,
   toLocalInput,
 } from "@/lib/calendarTime";
@@ -147,11 +148,6 @@ export function ReservationForm({
   } catch {
     // Keep a readable summary while a native date input is incomplete.
   }
-  const timeFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    hour: "numeric",
-    minute: "2-digit",
-  });
   const dateLabel = calendarDateRangeLabel(displayStart, displayEnd);
 
   return (
@@ -183,10 +179,7 @@ export function ReservationForm({
           </DateLine>
           <DateLine as="div">
             <CalendarIcon name="time" />
-            <span>
-              {timeFormatter.format(new Date(displayStart))} –{" "}
-              {timeFormatter.format(new Date(displayEnd))}
-            </span>
+            <span>{calendarTimeRangeLabel(displayStart, displayEnd)}</span>
           </DateLine>
           <Timezone>All times in America/Los_Angeles</Timezone>
           <TimeInputs>
